@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>bos — design app</title>
-<meta name="description" content="A minimal design tool: a stage with a rectangle you can align, position, size and round — numerically or by dragging handles.">
+<meta name="description" content="A minimal design tool: a stage with a margin system, an alignable rectangle and a logo circle — set numerically or by dragging.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='5' y='7' width='22' height='18' rx='5' fill='%234f7cff'/></svg>">
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -14,24 +14,17 @@
   <aside class="panel" id="panel">
     <header class="panel-head">
       <h1>bos</h1>
-      <button type="button" class="ghost" id="reset" title="Reset all values to defaults">Reset</button>
+      <button type="button" class="ghost" id="reset" title="Reset everything to defaults">Reset</button>
     </header>
 
-    <section class="group">
-      <h2>Format</h2>
+    <details class="group" open>
+      <summary><h2>Format</h2></summary>
       <div class="row">
-        <label class="field">
-          <span>Width</span>
-          <input type="number" id="stage-w" min="1" step="1">
-        </label>
-        <label class="field">
-          <span>Height</span>
-          <input type="number" id="stage-h" min="1" step="1">
-        </label>
+        <label class="field"><span>Width</span><input type="number" id="stage-w" min="1" step="1"></label>
+        <label class="field"><span>Height</span><input type="number" id="stage-h" min="1" step="1"></label>
       </div>
       <div class="row">
-        <label class="field grow">
-          <span>Preset</span>
+        <label class="field grow"><span>Preset</span>
           <select id="stage-preset">
             <option value="">Custom…</option>
             <option value="1080x1080">Square — 1080 × 1080</option>
@@ -42,92 +35,146 @@
             <option value="2480x3508">A4 @300dpi — 2480 × 3508</option>
           </select>
         </label>
-        <label class="field color">
-          <span>Colour</span>
-          <input type="color" id="stage-bg">
-        </label>
+        <label class="field color"><span>Colour</span><input type="color" id="stage-bg"></label>
       </div>
-    </section>
+      <label class="check"><input type="checkbox" id="round-values"><span>Round all values to whole numbers</span></label>
+    </details>
 
-    <section class="group">
-      <h2>Alignment</h2>
-      <div class="anchor" id="anchor" role="group" aria-label="Rectangle alignment">
-        <button type="button" data-h="left"  data-v="top"    title="Top left"     aria-label="Top left"></button>
-        <button type="button" data-h="right" data-v="top"    title="Top right"    aria-label="Top right"></button>
-        <button type="button" data-h="left"  data-v="bottom" title="Bottom left"  aria-label="Bottom left"></button>
-        <button type="button" data-h="right" data-v="bottom" title="Bottom right" aria-label="Bottom right"></button>
-      </div>
-      <p class="hint" id="anchor-hint"></p>
-    </section>
-
-    <section class="group">
-      <h2>Distance to format</h2>
+    <details class="group">
+      <summary><h2>Background image</h2></summary>
       <div class="row">
-        <label class="field">
-          <span id="dist-x-label">Left</span>
-          <input type="number" id="off-x" step="1">
-        </label>
-        <label class="field">
-          <span id="dist-y-label">Top</span>
-          <input type="number" id="off-y" step="1">
-        </label>
+        <button type="button" class="ghost grow" id="bg-upload-btn">Upload image…</button>
+        <button type="button" class="ghost" id="bg-clear">Clear</button>
       </div>
-    </section>
-
-    <section class="group">
-      <h2>Size</h2>
-      <label class="check">
-        <input type="checkbox" id="full-width">
-        <span>Full format width (minus distance × 2)</span>
+      <input type="file" id="bg-file" accept="image/*" hidden>
+      <label class="field grow"><span>Image URL</span>
+        <input type="text" id="bg-url" placeholder="https://…" spellcheck="false" autocomplete="off">
       </label>
       <div class="row">
-        <label class="field">
-          <span>Width</span>
-          <input type="number" id="rect-w" min="1" step="1">
+        <label class="field"><span>Fit</span>
+          <select id="bg-fit">
+            <option value="cover">Cover</option>
+            <option value="contain">Contain</option>
+            <option value="stretch">Stretch</option>
+            <option value="tile">Tile</option>
+          </select>
         </label>
-        <label class="field">
-          <span>Height</span>
-          <input type="number" id="rect-h" min="1" step="1">
+        <label class="field"><span>Opacity <b id="bg-opacity-val">100%</b></span>
+          <input type="range" id="bg-opacity" min="0" max="100" step="1">
         </label>
+      </div>
+
+      <details class="sub">
+        <summary><h3>Generate with ComfyUI on RunPod</h3></summary>
+        <p class="hint warn" id="key-warning"></p>
+        <label class="field grow"><span>Endpoint — RunPod endpoint ID, or a full URL</span>
+          <input type="text" id="cf-endpoint" placeholder="abc123xyz  ·  or  https://…" spellcheck="false" autocomplete="off">
+        </label>
+        <label class="field grow"><span>API key</span>
+          <input type="password" id="cf-key" placeholder="rpa_…" spellcheck="false" autocomplete="off">
+        </label>
+        <div class="row toggles">
+          <label class="check"><input type="checkbox" id="cf-remember"><span>Remember key in this browser</span></label>
+          <button type="button" class="ghost" id="cf-forget">Forget key</button>
+        </div>
+        <label class="field grow"><span>Workflow JSON — ComfyUI API format</span>
+          <textarea id="cf-workflow" rows="6" spellcheck="false" placeholder='{"3": {"class_type": "KSampler", "inputs": {"seed": {{seed}}, …}}, …}'></textarea>
+        </label>
+        <p class="hint">Placeholders replaced before sending: <code>{{prompt}}</code>, <code>{{negative}}</code>,
+          <code>{{seed}}</code>, <code>{{width}}</code>, <code>{{height}}</code>.
+          <code>{{prompt}}</code> and <code>{{negative}}</code> are inserted as JSON strings — write them <em>without</em> surrounding quotes.</p>
+        <label class="field grow"><span>Prompt</span><textarea id="cf-prompt" rows="2" spellcheck="false"></textarea></label>
+        <label class="field grow"><span>Negative prompt</span><textarea id="cf-negative" rows="2" spellcheck="false"></textarea></label>
+        <div class="row">
+          <label class="field"><span>Seed</span><input type="number" id="cf-seed" step="1"></label>
+          <label class="field seed-btn"><span>&nbsp;</span><button type="button" class="ghost" id="cf-random">Randomise</button></label>
+        </div>
+        <button type="button" class="primary wide" id="cf-generate">Generate background</button>
+        <p class="status" id="cf-status"></p>
+        <details class="sub" id="cf-raw-wrap" hidden>
+          <summary><h3>Raw response</h3></summary>
+          <pre class="css-out" id="cf-raw"></pre>
+        </details>
+      </details>
+    </details>
+
+    <details class="group" open>
+      <summary><h2>Margins</h2></summary>
+      <div class="row">
+        <label class="field"><span>Source</span>
+          <select id="margin-mode">
+            <option value="manual">Set by hand</option>
+            <option value="logo">Logo width × factor</option>
+          </select>
+        </label>
+        <label class="field" id="margin-factor-field"><span>Factor</span>
+          <input type="number" id="margin-factor" min="0" step="0.05">
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="margin-linked"><span>Link all sides</span></label>
+      <div class="row">
+        <label class="field"><span>Top</span><input type="number" id="margin-top" step="1"></label>
+        <label class="field"><span>Right</span><input type="number" id="margin-right" step="1"></label>
       </div>
       <div class="row">
-        <label class="field color grow">
-          <span>Rectangle fill</span>
-          <input type="color" id="rect-fill">
-        </label>
+        <label class="field"><span>Bottom</span><input type="number" id="margin-bottom" step="1"></label>
+        <label class="field"><span>Left</span><input type="number" id="margin-left" step="1"></label>
       </div>
-    </section>
+      <p class="hint" id="margin-hint"></p>
+    </details>
 
-    <section class="group">
-      <h2>Corners</h2>
+    <details class="group" open>
+      <summary><h2>Rectangle</h2></summary>
+      <label class="check"><input type="checkbox" id="rect-visible"><span>Show rectangle</span></label>
+      <div class="row aligners">
+        <div class="field"><span>Position in format</span><div class="grid3" id="rect-align"></div></div>
+        <div class="field"><span>Anchor point</span><div class="grid3" id="rect-anchor"></div></div>
+      </div>
+      <label class="check"><input type="checkbox" id="rect-full"><span>Fill the width between the margins</span></label>
+      <div class="row">
+        <label class="field"><span>Width</span><input type="number" id="rect-w" min="1" step="1"></label>
+        <label class="field"><span>Height</span><input type="number" id="rect-h" min="1" step="1"></label>
+      </div>
+      <div class="row">
+        <label class="field color grow"><span>Fill</span><input type="color" id="rect-fill"></label>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary><h2>Corners</h2></summary>
+      <label class="field grow"><span>Corner style</span>
+        <select id="corner-preset"></select>
+      </label>
       <div class="row toggles">
-        <label class="check">
-          <input type="checkbox" id="corners-linked" checked>
-          <span>Link all corners</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="corners-elliptical">
-          <span>Elliptical</span>
-        </label>
+        <label class="check"><input type="checkbox" id="corners-linked"><span>Link all corners</span></label>
+        <label class="check"><input type="checkbox" id="corners-elliptical"><span>Elliptical</span></label>
       </div>
-
-      <div class="corner-head">
-        <span></span><span>Horizontal</span><span class="axis-y">Vertical</span>
-      </div>
+      <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
       <div id="corners"></div>
-
-      <label class="field grow shorthand">
-        <span>border-radius</span>
+      <label class="field grow shorthand"><span>border-radius</span>
         <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
       </label>
-      <p class="hint">Type any valid CSS <code>border-radius</code> here — 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
-    </section>
+      <p class="hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
+    </details>
 
-    <section class="group">
-      <h2>CSS</h2>
+    <details class="group" open>
+      <summary><h2>Logo</h2></summary>
+      <label class="check"><input type="checkbox" id="logo-visible"><span>Show logo circle</span></label>
+      <div class="row aligners">
+        <div class="field"><span>Position in format</span><div class="grid3" id="logo-align"></div></div>
+        <div class="field"><span>Anchor point</span><div class="grid3" id="logo-anchor"></div></div>
+      </div>
+      <div class="row">
+        <label class="field"><span>Diameter</span><input type="number" id="logo-d" min="1" step="1"></label>
+        <label class="field color"><span>Fill</span><input type="color" id="logo-fill"></label>
+      </div>
+    </details>
+
+    <details class="group">
+      <summary><h2>CSS</h2></summary>
       <pre id="css-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-css">Copy CSS</button>
-    </section>
+    </details>
   </aside>
 
   <main class="canvas" id="canvas">
@@ -137,31 +184,30 @@
         <button type="button" class="ghost" id="zoom-out" title="Zoom out">−</button>
         <button type="button" class="ghost" id="zoom-value" title="Zoom to fit">100%</button>
         <button type="button" class="ghost" id="zoom-in" title="Zoom in">+</button>
+        <button type="button" class="ghost" id="zoom-100" title="Zoom to 100%">1:1</button>
         <button type="button" class="ghost" id="zoom-fit" title="Zoom to fit">Fit</button>
       </div>
     </div>
 
     <div class="viewport" id="viewport">
       <div class="stage" id="stage">
-        <div class="rect" id="rect"></div>
-        <div class="frame" id="frame" tabindex="0" aria-label="Rectangle — drag to move, use handles to resize, arrow keys to nudge">
-          <span class="handle size" data-dir="nw"></span>
-          <span class="handle size" data-dir="n"></span>
-          <span class="handle size" data-dir="ne"></span>
-          <span class="handle size" data-dir="e"></span>
-          <span class="handle size" data-dir="se"></span>
-          <span class="handle size" data-dir="s"></span>
-          <span class="handle size" data-dir="sw"></span>
-          <span class="handle size" data-dir="w"></span>
-          <span class="handle radius" data-corner="tl" title="Drag to round the top-left corner"></span>
-          <span class="handle radius" data-corner="tr" title="Drag to round the top-right corner"></span>
-          <span class="handle radius" data-corner="br" title="Drag to round the bottom-right corner"></span>
-          <span class="handle radius" data-corner="bl" title="Drag to round the bottom-left corner"></span>
+        <div class="stage-image" id="stage-image"></div>
+        <div class="shape rect" id="rect" data-el="rect"></div>
+        <div class="shape logo" id="logo" data-el="logo"></div>
+      </div>
+      <div class="overlay" id="overlay">
+        <div class="guides" id="guides">
+          <span class="guide h" data-side="top"></span>
+          <span class="guide h" data-side="bottom"></span>
+          <span class="guide v" data-side="left"></span>
+          <span class="guide v" data-side="right"></span>
         </div>
+        <div class="cells" id="cells" hidden></div>
+        <div class="frame" id="frame" tabindex="0" hidden></div>
       </div>
     </div>
 
-    <p class="footnote">Drag the rectangle to move it · square handles resize · round handles set corner radius · Shift constrains · arrow keys nudge (Shift = ×10)</p>
+    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · drag the dashed guides for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
   </main>
 
 </div>
