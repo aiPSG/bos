@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bos — design app</title>
+<meta name="description" content="A minimal design tool: a stage with a rectangle you can align, position, size and round — numerically or by dragging handles.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='5' y='7' width='22' height='18' rx='5' fill='%234f7cff'/></svg>">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="panel" id="panel">
+    <header class="panel-head">
+      <h1>bos</h1>
+      <button type="button" class="ghost" id="reset" title="Reset all values to defaults">Reset</button>
+    </header>
+
+    <section class="group">
+      <h2>Format</h2>
+      <div class="row">
+        <label class="field">
+          <span>Width</span>
+          <input type="number" id="stage-w" min="1" step="1">
+        </label>
+        <label class="field">
+          <span>Height</span>
+          <input type="number" id="stage-h" min="1" step="1">
+        </label>
+      </div>
+      <div class="row">
+        <label class="field grow">
+          <span>Preset</span>
+          <select id="stage-preset">
+            <option value="">Custom…</option>
+            <option value="1080x1080">Square — 1080 × 1080</option>
+            <option value="1080x1350">Portrait 4:5 — 1080 × 1350</option>
+            <option value="1080x1920">Story 9:16 — 1080 × 1920</option>
+            <option value="1920x1080">Landscape 16:9 — 1920 × 1080</option>
+            <option value="1240x1754">A5 @150dpi — 1240 × 1754</option>
+            <option value="2480x3508">A4 @300dpi — 2480 × 3508</option>
+          </select>
+        </label>
+        <label class="field color">
+          <span>Colour</span>
+          <input type="color" id="stage-bg">
+        </label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Alignment</h2>
+      <div class="anchor" id="anchor" role="group" aria-label="Rectangle alignment">
+        <button type="button" data-h="left"  data-v="top"    title="Top left"     aria-label="Top left"></button>
+        <button type="button" data-h="right" data-v="top"    title="Top right"    aria-label="Top right"></button>
+        <button type="button" data-h="left"  data-v="bottom" title="Bottom left"  aria-label="Bottom left"></button>
+        <button type="button" data-h="right" data-v="bottom" title="Bottom right" aria-label="Bottom right"></button>
+      </div>
+      <p class="hint" id="anchor-hint"></p>
+    </section>
+
+    <section class="group">
+      <h2>Distance to format</h2>
+      <div class="row">
+        <label class="field">
+          <span id="dist-x-label">Left</span>
+          <input type="number" id="off-x" step="1">
+        </label>
+        <label class="field">
+          <span id="dist-y-label">Top</span>
+          <input type="number" id="off-y" step="1">
+        </label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Size</h2>
+      <label class="check">
+        <input type="checkbox" id="full-width">
+        <span>Full format width (minus distance × 2)</span>
+      </label>
+      <div class="row">
+        <label class="field">
+          <span>Width</span>
+          <input type="number" id="rect-w" min="1" step="1">
+        </label>
+        <label class="field">
+          <span>Height</span>
+          <input type="number" id="rect-h" min="1" step="1">
+        </label>
+      </div>
+      <div class="row">
+        <label class="field color grow">
+          <span>Rectangle fill</span>
+          <input type="color" id="rect-fill">
+        </label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Corners</h2>
+      <div class="row toggles">
+        <label class="check">
+          <input type="checkbox" id="corners-linked" checked>
+          <span>Link all corners</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="corners-elliptical">
+          <span>Elliptical</span>
+        </label>
+      </div>
+
+      <div class="corner-head">
+        <span></span><span>Horizontal</span><span class="axis-y">Vertical</span>
+      </div>
+      <div id="corners"></div>
+
+      <label class="field grow shorthand">
+        <span>border-radius</span>
+        <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
+      </label>
+      <p class="hint">Type any valid CSS <code>border-radius</code> here — 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
+    </section>
+
+    <section class="group">
+      <h2>CSS</h2>
+      <pre id="css-out" class="css-out"></pre>
+      <button type="button" class="ghost wide" id="copy-css">Copy CSS</button>
+    </section>
+  </aside>
+
+  <main class="canvas" id="canvas">
+    <div class="toolbar">
+      <div class="readout" id="readout"></div>
+      <div class="zoom">
+        <button type="button" class="ghost" id="zoom-out" title="Zoom out">−</button>
+        <button type="button" class="ghost" id="zoom-value" title="Zoom to fit">100%</button>
+        <button type="button" class="ghost" id="zoom-in" title="Zoom in">+</button>
+        <button type="button" class="ghost" id="zoom-fit" title="Zoom to fit">Fit</button>
+      </div>
+    </div>
+
+    <div class="viewport" id="viewport">
+      <div class="stage" id="stage">
+        <div class="rect" id="rect"></div>
+        <div class="frame" id="frame" tabindex="0" aria-label="Rectangle — drag to move, use handles to resize, arrow keys to nudge">
+          <span class="handle size" data-dir="nw"></span>
+          <span class="handle size" data-dir="n"></span>
+          <span class="handle size" data-dir="ne"></span>
+          <span class="handle size" data-dir="e"></span>
+          <span class="handle size" data-dir="se"></span>
+          <span class="handle size" data-dir="s"></span>
+          <span class="handle size" data-dir="sw"></span>
+          <span class="handle size" data-dir="w"></span>
+          <span class="handle radius" data-corner="tl" title="Drag to round the top-left corner"></span>
+          <span class="handle radius" data-corner="tr" title="Drag to round the top-right corner"></span>
+          <span class="handle radius" data-corner="br" title="Drag to round the bottom-right corner"></span>
+          <span class="handle radius" data-corner="bl" title="Drag to round the bottom-left corner"></span>
+        </div>
+      </div>
+    </div>
+
+    <p class="footnote">Drag the rectangle to move it · square handles resize · round handles set corner radius · Shift constrains · arrow keys nudge (Shift = ×10)</p>
+  </main>
+
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
