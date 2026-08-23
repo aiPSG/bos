@@ -9,7 +9,28 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v3";
+  var STORAGE_KEY = "bos.design.v4";
+
+  var FORMATS = [
+    { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
+    { id: "1080x1350", name: "Portrait 4:5", w: 1080, h: 1350 },
+    { id: "1080x1920", name: "Story 9:16", w: 1080, h: 1920 },
+    { id: "1920x1080", name: "Landscape 16:9", w: 1920, h: 1080 },
+    { id: "1240x1754", name: "A5 · 150 dpi", w: 1240, h: 1754 },
+    { id: "2480x3508", name: "A4 · 300 dpi", w: 2480, h: 3508 }
+  ];
+
+  var LEVELS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "small"];
+  var LEVEL_NAMES = {
+    h1: "H1", h2: "H2", h3: "H3", h4: "H4", h5: "H5", h6: "H6",
+    p: "Paragraph", small: "Small"
+  };
+  var FAMILIES = [
+    { id: "sans", name: "Sans — system", stack: 'ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif' },
+    { id: "serif", name: "Serif", stack: 'ui-serif,Georgia,"Times New Roman",serif' },
+    { id: "mono", name: "Monospace", stack: 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace' },
+    { id: "condensed", name: "Condensed", stack: '"Arial Narrow","Helvetica Neue Condensed",Impact,sans-serif' }
+  ];
   var KEY_STORAGE = "bos.comfy.key";
   var MIN_SIZE = 1;
 
@@ -52,7 +73,7 @@
 
   function defaults() {
     return {
-      v: 3,
+      v: 4,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -74,7 +95,31 @@
         align: { h: "left", v: "top" }, anchor: { h: "left", v: "top" },
         fill: "#e6e9ef"
       },
+      type: {
+        family: "sans",
+        // one style per HTML hierarchy; sizes are in format units
+        styles: {
+          h1: { size: 96, weight: 700, lh: 1.05, ls: -2, transform: "none", color: "#ffffff" },
+          h2: { size: 64, weight: 700, lh: 1.1, ls: -1, transform: "none", color: "#ffffff" },
+          h3: { size: 48, weight: 600, lh: 1.15, ls: 0, transform: "none", color: "#ffffff" },
+          h4: { size: 36, weight: 600, lh: 1.2, ls: 0, transform: "none", color: "#ffffff" },
+          h5: { size: 28, weight: 600, lh: 1.25, ls: 0, transform: "none", color: "#ffffff" },
+          h6: { size: 22, weight: 700, lh: 1.3, ls: 1, transform: "uppercase", color: "#ffffff" },
+          p: { size: 24, weight: 400, lh: 1.45, ls: 0, transform: "none", color: "#ffffff" },
+          small: { size: 18, weight: 400, lh: 1.4, ls: 0, transform: "none", color: "#ffffff" }
+        },
+        editing: "h2"
+      },
+      text: {
+        padding: 48, gap: 14, align: "middle",
+        blocks: [
+          { visible: true, level: "h2", align: "left", text: "Headline goes here" },
+          { visible: true, level: "p", align: "left", text: "A supporting line of copy that explains the headline in a few words." },
+          { visible: true, level: "h6", align: "left", text: "Call to action" }
+        ]
+      },
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
+      showRail: true,
       sel: "rect"
     };
   }
@@ -99,9 +144,12 @@
       if (!raw) return null;
       var s = JSON.parse(raw), d = defaults();
       if (s.v !== d.v) return null;
-      ["stage", "bg", "comfy", "margin", "logo", "view"].forEach(function (k) {
+      ["stage", "bg", "comfy", "margin", "logo", "view", "text"].forEach(function (k) {
         s[k] = Object.assign(d[k], s[k]);
       });
+      s.type = Object.assign(d.type, s.type);
+      s.type.styles = Object.assign(d.type.styles, s.type.styles);
+      if (!Array.isArray(s.text.blocks) || s.text.blocks.length !== 3) s.text.blocks = d.text.blocks;
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
       ["w", "h"].forEach(function (k) {
@@ -286,10 +334,9 @@
 
   var els = {};
   function cacheEls() {
-    els.viewport = $("#viewport"); els.stage = $("#stage"); els.image = $("#stage-image");
-    els.rect = $("#rect"); els.logo = $("#logo"); els.frame = $("#frame");
+    els.viewport = $("#viewport"); els.stage = $("#stage"); els.frame = $("#frame");
     els.guides = $("#guides"); els.cells = $("#cells"); els.cssOut = $("#css-out");
-    els.overlay = $("#overlay");
+    els.overlay = $("#overlay"); els.railList = $("#rail-list");
     els.readout = $("#readout"); els.zoomValue = $("#zoom-value"); els.shorthand = $("#radius-shorthand");
   }
 
@@ -334,48 +381,174 @@
 
   /* -------------------------------------------------------------- rendering */
 
+  // run fn as if the format were fw x fh — every geometry helper reads state.stage,
+  // so this is what lets one paint routine serve the main stage and every preview
+  function withFormat(fw, fh, fn) {
+    var w = state.stage.w, h = state.stage.h;
+    state.stage.w = fw; state.stage.h = fh;
+    try { return fn(); } finally { state.stage.w = w; state.stage.h = h; }
+  }
+
   function shapeStyle(name, s) {
     var b = box(name);
     return { left: b.x * s + "px", top: b.y * s + "px", width: b.w * s + "px", height: b.h * s + "px" };
   }
 
-  function renderStage() {
-    var s = scale(), p = pan(), st = state.stage;
-    var frame = { width: st.w * s + "px", height: st.h * s + "px", left: p.x + "px", top: p.y + "px" };
-    Object.assign(els.stage.style, frame, { background: st.bg });
-    Object.assign(els.overlay.style, frame);
+  function child(host, key, tag, className) {
+    var el = host["_" + key];
+    if (!el || el.parentNode !== host) {
+      el = document.createElement(tag || "div");
+      el.className = className || "";
+      host.appendChild(el);
+      host["_" + key] = el;
+    }
+    return el;
+  }
 
-    var bg = state.bg;
-    if (bg.src) {
-      Object.assign(els.image.style, {
-        display: "block",
-        backgroundImage: 'url("' + bg.src.replace(/"/g, '\\"') + '")',
-        backgroundSize: bg.fit === "stretch" ? "100% 100%" : bg.fit === "tile" ? "auto" : bg.fit,
-        backgroundRepeat: bg.fit === "tile" ? "repeat" : "no-repeat",
-        backgroundPosition: "center",
-        opacity: bg.opacity / 100
+  function familyStack() {
+    var f = FAMILIES.filter(function (x) { return x.id === state.type.family; })[0];
+    return (f || FAMILIES[0]).stack;
+  }
+
+  function textVisible() {
+    return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
+  }
+
+  function paintText(rectEl, s) {
+    var t = state.text;
+    var blocks = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    var stack = child(rectEl, "text", "div", "text-stack");
+    if (!blocks.length) { stack.hidden = true; return; }
+    stack.hidden = false;
+
+    var sig = blocks.map(function (b) { return b.level + "\u0000" + b.text; }).join("\u0001");
+    if (stack.dataset.sig !== sig) {
+      stack.dataset.sig = sig;
+      stack.innerHTML = "";
+      blocks.forEach(function (b) {
+        var el = document.createElement(b.level === "small" ? "p" : b.level);
+        el.className = "tb";
+        el.textContent = b.text;
+        stack.appendChild(el);
       });
-    } else { els.image.style.display = "none"; }
+    }
+    Object.assign(stack.style, {
+      inset: t.padding * s + "px",
+      gap: t.gap * s + "px",
+      justifyContent: t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center",
+      fontFamily: familyStack()
+    });
+    Array.prototype.forEach.call(stack.children, function (el, i) {
+      var b = blocks[i], st = state.type.styles[b.level];
+      Object.assign(el.style, {
+        fontSize: st.size * s + "px",
+        fontWeight: st.weight,
+        lineHeight: st.lh,
+        letterSpacing: st.ls * s + "px",
+        textTransform: st.transform,
+        color: st.color,
+        textAlign: b.align
+      });
+    });
+  }
+
+  // draw the whole design into host at format fw x fh, scaled by s
+  function paintInto(host, fw, fh, s) {
+    withFormat(fw, fh, function () {
+      host.style.width = fw * s + "px";
+      host.style.height = fh * s + "px";
+      host.style.background = state.stage.bg;
+
+      var image = child(host, "image", "div", "stage-image");
+      var bg = state.bg;
+      if (bg.src) {
+        Object.assign(image.style, {
+          display: "block",
+          backgroundImage: 'url("' + bg.src.replace(/"/g, '\\"') + '")',
+          backgroundSize: bg.fit === "stretch" ? "100% 100%" : bg.fit === "tile" ? "auto" : bg.fit,
+          backgroundRepeat: bg.fit === "tile" ? "repeat" : "no-repeat",
+          backgroundPosition: "center",
+          opacity: bg.opacity / 100
+        });
+      } else { image.style.display = "none"; }
+
+      var rectEl = child(host, "rect", "div", "shape rect");
+      rectEl.dataset.el = "rect";
+      var showRect = state.rect.visible || textVisible();
+      rectEl.hidden = !showRect;
+      if (showRect) {
+        Object.assign(rectEl.style, shapeStyle("rect", s), {
+          background: state.rect.visible ? state.rect.fill : "transparent",
+          borderRadius: radiusCSS(s)
+        });
+        paintText(rectEl, s);
+      }
+
+      var logoEl = child(host, "logo", "div", "shape logo");
+      logoEl.dataset.el = "logo";
+      logoEl.hidden = !state.logo.visible;
+      if (state.logo.visible) {
+        Object.assign(logoEl.style, shapeStyle("logo", s), { background: state.logo.fill });
+      }
+    });
+  }
+
+  function renderStage() {
+    document.body.classList.toggle("rail-open", !!state.showRail);
+    var s = scale(), p = pan(), st = state.stage;
+    paintInto(els.stage, st.w, st.h, s);
+    Object.assign(els.stage.style, { left: p.x + "px", top: p.y + "px" });
+    Object.assign(els.overlay.style, {
+      width: st.w * s + "px", height: st.h * s + "px", left: p.x + "px", top: p.y + "px"
+    });
 
     var m = margins();
-    els.guides.querySelector('[data-side=top]').style.top = m.top * s + "px";
-    els.guides.querySelector('[data-side=bottom]').style.top = (st.h - m.bottom) * s + "px";
-    els.guides.querySelector('[data-side=left]').style.left = m.left * s + "px";
-    els.guides.querySelector('[data-side=right]').style.left = (st.w - m.right) * s + "px";
-
-    els.rect.hidden = !state.rect.visible;
-    if (state.rect.visible) {
-      Object.assign(els.rect.style, shapeStyle("rect", s),
-        { background: state.rect.fill, borderRadius: radiusCSS(s) });
-    }
-    els.logo.hidden = !state.logo.visible;
-    if (state.logo.visible) {
-      Object.assign(els.logo.style, shapeStyle("logo", s), { background: state.logo.fill });
-    }
+    els.guides.querySelector("[data-side=top]").style.top = m.top * s + "px";
+    els.guides.querySelector("[data-side=bottom]").style.top = (st.h - m.bottom) * s + "px";
+    els.guides.querySelector("[data-side=left]").style.left = m.left * s + "px";
+    els.guides.querySelector("[data-side=right]").style.left = (st.w - m.right) * s + "px";
 
     renderFrame(s);
+    renderRail();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
     renderReadout();
+  }
+
+  /* ------------------------------------------------ the format preview rail */
+
+  var TILE = { w: 116, h: 132 };
+
+  function railFormats() {
+    var list = FORMATS.slice();
+    var id = fmt(state.stage.w) + "x" + fmt(state.stage.h);
+    if (!list.some(function (f) { return f.id === id; })) {
+      list.unshift({ id: id, name: "Custom", w: state.stage.w, h: state.stage.h, custom: true });
+    }
+    return list;
+  }
+
+  function renderRail() {
+    var host = els.railList;
+    if (!host || !state.showRail) return;
+
+    var list = railFormats();
+    var sig = list.map(function (f) { return f.id; }).join(",");
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.innerHTML = list.map(function (f) {
+        return '<button type="button" class="tile" data-w="' + f.w + '" data-h="' + f.h + '">' +
+          '<span class="tile-box"><span class="tile-stage"></span></span>' +
+          '<span class="tile-name">' + esc(f.name) + "</span>" +
+          '<span class="tile-size">' + fmt(f.w) + " × " + fmt(f.h) + "</span></button>";
+      }).join("");
+    }
+    var active = fmt(state.stage.w) + "x" + fmt(state.stage.h);
+    Array.prototype.forEach.call(host.children, function (btn, i) {
+      var f = list[i];
+      btn.setAttribute("aria-pressed", f.id === active ? "true" : "false");
+      var s = Math.min(TILE.w / f.w, TILE.h / f.h);
+      paintInto(btn.querySelector(".tile-stage"), f.w, f.h, s);
+    });
   }
 
   function frameHandles(name) {
@@ -516,7 +689,66 @@
       }
       lines.push("}");
     }
+    var t = state.text, used = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    if (used.length) {
+      lines.push("");
+      lines.push(".rectangle .text {");
+      lines.push("  position: absolute;");
+      lines.push("  inset: " + fmt(t.padding) + "px;");
+      lines.push("  display: flex;");
+      lines.push("  flex-direction: column;");
+      lines.push("  justify-content: " +
+        (t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center") + ";");
+      lines.push("  gap: " + fmt(t.gap) + "px;");
+      lines.push("  font-family: " + familyStack() + ";");
+      lines.push("}");
+      lines.push("");
+      lines.push(".rectangle .text > * { margin: 0; }");
+
+      var levels = [];
+      used.forEach(function (b) { if (levels.indexOf(b.level) < 0) levels.push(b.level); });
+      LEVELS.filter(function (l) { return levels.indexOf(l) >= 0; }).forEach(function (l) {
+        var st = state.type.styles[l];
+        lines.push("");
+        lines.push(".rectangle .text " + (l === "small" ? "p.small" : l) + " {");
+        lines.push("  font-size: " + fmt(st.size) + "px;");
+        lines.push("  font-weight: " + st.weight + ";");
+        lines.push("  line-height: " + st.lh + ";");
+        lines.push("  letter-spacing: " + round(st.ls, 2) + "px;");
+        if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
+        lines.push("  color: " + st.color + ";");
+        lines.push("}");
+      });
+
+      var aligns = [];
+      used.forEach(function (b) { if (aligns.indexOf(b.align) < 0) aligns.push(b.align); });
+      lines.push("");
+      aligns.forEach(function (a) {
+        lines.push(".rectangle .text .align-" + a + " { text-align: " + a + "; }");
+      });
+    }
     els.cssOut.textContent = lines.join("\n");
+    renderMarkup(used);
+  }
+
+  function renderMarkup(used) {
+    var out = ['<div class="stage">'];
+    var inner = [];
+    if (state.rect.visible || used.length) {
+      inner.push('  <div class="rectangle">');
+      if (used.length) {
+        inner.push('    <div class="text">');
+        used.forEach(function (b) {
+          var tag = b.level === "small" ? "p" : b.level;
+          var cls = (b.level === "small" ? "small " : "") + "align-" + b.align;
+          inner.push('      <' + tag + ' class="' + cls + '">' + esc(b.text) + "</" + tag + ">");
+        });
+        inner.push("    </div>");
+      }
+      inner.push("  </div>");
+    }
+    if (state.logo.visible) inner.push('  <div class="logo"></div>');
+    $("#markup-out").textContent = out.concat(inner, ["</div>"]).join("\n");
   }
 
   var shorthandTyping = false;
@@ -551,6 +783,41 @@
       CORNER_PRESETS.map(function (p) {
         return '<option value="' + p.id + '">' + esc(p.name) + "</option>";
       }).join("");
+  }
+
+  function buildFormatSelect() {
+    $("#stage-preset").innerHTML = '<option value="">Custom…</option>' +
+      FORMATS.map(function (f) {
+        return '<option value="' + f.id + '">' + esc(f.name) + " — " + f.w + " × " + f.h + "</option>";
+      }).join("");
+  }
+
+  function buildTypeSelects() {
+    $("#type-family").innerHTML = FAMILIES.map(function (f) {
+      return '<option value="' + f.id + '">' + esc(f.name) + "</option>";
+    }).join("");
+    $("#type-level").innerHTML = LEVELS.map(function (l) {
+      return '<option value="' + l + '">' + esc(LEVEL_NAMES[l]) + "</option>";
+    }).join("");
+  }
+
+  function buildTextBlocks() {
+    $("#text-blocks").innerHTML = state.text.blocks.map(function (b, i) {
+      return '<div class="block" data-i="' + i + '">' +
+        '<div class="block-head">' +
+          '<label class="check"><input type="checkbox" data-block="visible"><span>Block ' + (i + 1) + "</span></label>" +
+          '<select data-block="level" class="level">' +
+            LEVELS.map(function (l) { return '<option value="' + l + '">' + esc(LEVEL_NAMES[l]) + "</option>"; }).join("") +
+          "</select>" +
+        "</div>" +
+        '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
+        '<div class="seg" data-block="align">' +
+          ["left", "center", "right"].map(function (a) {
+            return '<button type="button" data-align="' + a + '">' + a[0].toUpperCase() + a.slice(1) + "</button>";
+          }).join("") +
+        "</div>" +
+      "</div>";
+    }).join("");
   }
 
   function buildGrid(id, name, kind) {
@@ -651,6 +918,29 @@
     $("#logo-size-hint").textContent = "Logo " + fmt(logoSize().w) + " × " + fmt(logoSize().h) +
       " on a " + fmt(state.stage.h) + " high format.";
     $("#logo-fill").value = lg.fill;
+
+    var ty = state.type, st2 = ty.styles[ty.editing];
+    $("#type-family").value = ty.family;
+    $("#type-level").value = ty.editing;
+    setValue($("#type-size"), fmt(st2.size));
+    $("#type-weight").value = String(st2.weight);
+    setValue($("#type-lh"), st2.lh);
+    setValue($("#type-ls"), st2.ls);
+    $("#type-transform").value = st2.transform;
+    $("#type-color").value = st2.color;
+
+    setValue($("#text-padding"), fmt(state.text.padding));
+    setValue($("#text-gap"), fmt(state.text.gap));
+    $("#text-align").value = state.text.align;
+    Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
+      var b = state.text.blocks[i];
+      row.querySelector('[data-block="visible"]').checked = b.visible;
+      row.querySelector('[data-block="level"]').value = b.level;
+      setValue(row.querySelector('[data-block="text"]'), b.text);
+      Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
+        btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
+      });
+    });
 
     document.body.classList.toggle("sel-rect", state.sel === "rect");
     document.body.classList.toggle("sel-logo", state.sel === "logo");
@@ -815,18 +1105,71 @@
       render();
     });
 
-    $("#copy-css").addEventListener("click", function (e) {
-      var text = els.cssOut.textContent, btn = e.target;
-      var done = function () {
-        btn.textContent = "Copied";
-        setTimeout(function () { btn.textContent = "Copy CSS"; }, 1200);
-      };
-      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done);
-      else done();
-    });
+    var copier = function (btnSel, srcSel, label) {
+      $(btnSel).addEventListener("click", function (e) {
+        var btn = e.target, text = $(srcSel).textContent;
+        var done = function () {
+          btn.textContent = "Copied";
+          setTimeout(function () { btn.textContent = label; }, 1200);
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done);
+        else done();
+      });
+    };
+    copier("#copy-css", "#css-out", "Copy CSS");
+    copier("#copy-markup", "#markup-out", "Copy markup");
     $("#reset").addEventListener("click", function () {
       state = defaults();
       frameFor = null;
+      render();
+    });
+
+    onChange("#type-family", function (el) { state.type.family = el.value; });
+    onChange("#type-level", function (el) { state.type.editing = el.value; });
+    var styleOf = function () { return state.type.styles[state.type.editing]; };
+    numInput("#type-size", function (v) { styleOf().size = snap(v); }, 1);
+    onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
+    numInput("#type-lh", function (v) { styleOf().lh = round(v, 2); }, .5);
+    numInput("#type-ls", function (v) { styleOf().ls = round(v, 2); });
+    onChange("#type-transform", function (el) { styleOf().transform = el.value; });
+    onInput("#type-color", function (el) { styleOf().color = el.value; });
+
+    numInput("#text-padding", function (v) { state.text.padding = snap(v); }, 0);
+    numInput("#text-gap", function (v) { state.text.gap = snap(v); }, 0);
+    onChange("#text-align", function (el) { state.text.align = el.value; });
+    $("#text-blocks").addEventListener("input", function (e) {
+      var row = e.target.closest(".block");
+      if (!row) return;
+      var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
+      if (what === "text") b.text = e.target.value;
+      else return;
+      render();
+    });
+    $("#text-blocks").addEventListener("change", function (e) {
+      var row = e.target.closest(".block");
+      if (!row) return;
+      var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
+      if (what === "visible") b.visible = e.target.checked;
+      else if (what === "level") b.level = e.target.value;
+      else return;
+      render();
+    });
+    $("#text-blocks").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-align]");
+      if (!btn) return;
+      state.text.blocks[+btn.closest(".block").dataset.i].align = btn.dataset.align;
+      render();
+    });
+
+    $("#rail-toggle").addEventListener("click", function () {
+      state.showRail = !state.showRail;
+      render();
+    });
+    $("#rail-list").addEventListener("click", function (e) {
+      var tile = e.target.closest(".tile");
+      if (!tile) return;
+      state.stage.w = +tile.dataset.w;
+      state.stage.h = +tile.dataset.h;
       render();
     });
 
@@ -866,6 +1209,13 @@
     state.logo.h.v = Math.max(1, Math.round(state.logo.h.v));
     CORNERS.forEach(function (n) {
       var c = r.corners[n]; c.x = Math.round(c.x); c.y = Math.round(c.y);
+    });
+    state.text.padding = Math.round(state.text.padding);
+    state.text.gap = Math.round(state.text.gap);
+    LEVELS.forEach(function (l) {
+      var t = state.type.styles[l];
+      t.size = Math.max(1, Math.round(t.size));
+      t.ls = Math.round(t.ls);
     });
   }
 
@@ -1200,6 +1550,9 @@
   cacheEls();
   buildCornerRows();
   buildPresetSelect();
+  buildFormatSelect();
+  buildTypeSelects();
+  buildTextBlocks();
   buildGrid("#rect-align", "rect", "align");
   buildGrid("#rect-anchor", "rect", "anchor");
   buildGrid("#logo-align", "logo", "align");

@@ -25,15 +25,7 @@
       </div>
       <div class="row">
         <label class="field grow"><span>Preset</span>
-          <select id="stage-preset">
-            <option value="">Custom…</option>
-            <option value="1080x1080">Square — 1080 × 1080</option>
-            <option value="1080x1350">Portrait 4:5 — 1080 × 1350</option>
-            <option value="1080x1920">Story 9:16 — 1080 × 1920</option>
-            <option value="1920x1080">Landscape 16:9 — 1920 × 1080</option>
-            <option value="1240x1754">A5 @150dpi — 1240 × 1754</option>
-            <option value="2480x3508">A4 @300dpi — 2480 × 3508</option>
-          </select>
+          <select id="stage-preset"></select>
         </label>
         <label class="field color"><span>Colour</span><input type="color" id="stage-bg"></label>
       </div>
@@ -185,10 +177,63 @@
         the height — so the logo keeps its proportion when the format changes.</p>
     </details>
 
+    <details class="group" open>
+      <summary><h2>Typography</h2></summary>
+      <label class="field grow"><span>Font family</span><select id="type-family"></select></label>
+      <label class="field grow"><span>Hierarchy</span><select id="type-level"></select></label>
+      <div class="row">
+        <label class="field"><span>Size</span><input type="number" id="type-size" min="1" step="1"></label>
+        <label class="field"><span>Weight</span>
+          <select id="type-weight">
+            <option>100</option><option>200</option><option>300</option><option>400</option>
+            <option>500</option><option>600</option><option>700</option><option>800</option><option>900</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Line height</span><input type="number" id="type-lh" min="0.5" step="0.05"></label>
+        <label class="field"><span>Letter spacing</span><input type="number" id="type-ls" step="0.5"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Case</span>
+          <select id="type-transform">
+            <option value="none">As typed</option>
+            <option value="uppercase">UPPERCASE</option>
+            <option value="lowercase">lowercase</option>
+            <option value="capitalize">Capitalise</option>
+          </select>
+        </label>
+        <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
+      </div>
+      <p class="hint">Each hierarchy keeps its own size, weight, spacing, case and colour. Sizes are in
+        format units, so they stay put as you switch formats.</p>
+    </details>
+
+    <details class="group" open>
+      <summary><h2>Text blocks</h2></summary>
+      <div class="row">
+        <label class="field"><span>Padding</span><input type="number" id="text-padding" min="0" step="1"></label>
+        <label class="field"><span>Gap</span><input type="number" id="text-gap" min="0" step="1"></label>
+      </div>
+      <label class="field grow"><span>Stack sits</span>
+        <select id="text-align">
+          <option value="top">At the top of the box</option>
+          <option value="middle">In the middle of the box</option>
+          <option value="bottom">At the bottom of the box</option>
+        </select>
+      </label>
+      <div id="text-blocks"></div>
+      <p class="hint">The three blocks fill the rectangle. The box stays visible while any block has
+        text, even with the rectangle itself switched off.</p>
+    </details>
+
     <details class="group">
       <summary><h2>CSS</h2></summary>
       <pre id="css-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-css">Copy CSS</button>
+      <p class="hint">Markup</p>
+      <pre id="markup-out" class="css-out"></pre>
+      <button type="button" class="ghost wide" id="copy-markup">Copy markup</button>
     </details>
   </aside>
 
@@ -196,6 +241,7 @@
     <div class="toolbar">
       <div class="readout" id="readout"></div>
       <div class="zoom">
+        <button type="button" class="ghost" id="rail-toggle" title="Show or hide the format previews">Formats</button>
         <button type="button" class="ghost" id="zoom-out" title="Zoom out">−</button>
         <button type="button" class="ghost" id="zoom-value" title="Zoom to fit">100%</button>
         <button type="button" class="ghost" id="zoom-in" title="Zoom in">+</button>
@@ -204,22 +250,25 @@
       </div>
     </div>
 
-    <div class="viewport" id="viewport">
-      <div class="stage" id="stage">
-        <div class="stage-image" id="stage-image"></div>
-        <div class="shape rect" id="rect" data-el="rect"></div>
-        <div class="shape logo" id="logo" data-el="logo"></div>
-      </div>
-      <div class="overlay" id="overlay">
-        <div class="guides" id="guides">
-          <span class="guide h" data-side="top"></span>
-          <span class="guide h" data-side="bottom"></span>
-          <span class="guide v" data-side="left"></span>
-          <span class="guide v" data-side="right"></span>
+    <div class="canvas-body">
+      <div class="viewport" id="viewport">
+        <div class="stage" id="stage"></div>
+        <div class="overlay" id="overlay">
+          <div class="guides" id="guides">
+            <span class="guide h" data-side="top"></span>
+            <span class="guide h" data-side="bottom"></span>
+            <span class="guide v" data-side="left"></span>
+            <span class="guide v" data-side="right"></span>
+          </div>
+          <div class="cells" id="cells" hidden></div>
+          <div class="frame" id="frame" tabindex="0" hidden></div>
         </div>
-        <div class="cells" id="cells" hidden></div>
-        <div class="frame" id="frame" tabindex="0" hidden></div>
       </div>
+
+      <aside class="rail" id="rail">
+        <div class="rail-head">Formats</div>
+        <div class="rail-list" id="rail-list"></div>
+      </aside>
     </div>
 
     <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · drag the dashed guides for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>

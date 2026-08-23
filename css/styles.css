@@ -164,6 +164,24 @@ body:not(.elliptical) .axis-y{display:none}
 body:not(.elliptical) .corner-head,
 body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 
+/* ---------- text block editor ---------- */
+
+.block{
+  margin-bottom:10px;padding:10px;
+  background:#12151b;border:1px solid var(--line);border-radius:var(--radius);
+}
+.block-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.block-head .check{margin:0;font-size:11px;color:var(--text-dim);white-space:nowrap}
+.block-head select{flex:0 1 auto;width:auto;min-width:0;padding-top:5px;padding-bottom:5px;font-size:12px}
+.block textarea{min-height:52px}
+.seg{display:flex;gap:3px;padding:3px;background:var(--bg-input);border:1px solid var(--line);border-radius:6px}
+.seg button{
+  flex:1;padding:4px 0;border:1px solid transparent;border-radius:4px;
+  background:transparent;color:var(--text-dim);font:inherit;font-size:11px;cursor:pointer;
+}
+.seg button:hover{background:var(--bg-input-hi)}
+.seg button[aria-pressed=true]{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+
 .shorthand{margin-top:10px}
 .shorthand input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
 .shorthand input.invalid{border-color:var(--err);box-shadow:0 0 0 2px rgba(229,72,77,.2)}
@@ -177,7 +195,8 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 
 /* ---------- canvas ---------- */
 
-.canvas{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.canvas{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+.canvas-body{flex:1;display:flex;min-height:0;min-width:0}
 
 .toolbar{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -189,7 +208,7 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 #zoom-value{min-width:56px;font-variant-numeric:tabular-nums}
 
 .viewport{
-  flex:1;position:relative;overflow:hidden;
+  flex:1;min-width:0;min-height:0;position:relative;overflow:hidden;
   background-color:var(--bg);
   background-image:
     linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
@@ -222,6 +241,13 @@ body.panning .viewport{cursor:grabbing}
 
 .shape{position:absolute}
 .shape.logo{border-radius:50%}
+.shape{user-select:none}
+
+.text-stack{
+  position:absolute;display:flex;flex-direction:column;
+  pointer-events:none;
+}
+.text-stack .tb{margin:0;padding:0;font:inherit;overflow-wrap:anywhere}
 
 .overlay{position:absolute;pointer-events:none}
 .overlay>*{pointer-events:auto}
@@ -251,12 +277,52 @@ body.panning .viewport{cursor:grabbing}
 .handle[data-dir=e],.handle[data-dir=w]{cursor:ew-resize}
 .frame.full-width .handle.size:not([data-dir=n]):not([data-dir=s]){display:none}
 
+/* ---------- format previews ---------- */
+
+.rail{
+  display:none;
+  flex:0 0 150px;width:150px;min-height:0;
+  border-left:1px solid var(--line);background:var(--bg-panel);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+body.rail-open .rail{display:block}
+body.rail-open #rail-toggle{background:var(--accent-dim);border-color:var(--accent)}
+
+.rail-head{
+  position:sticky;top:0;z-index:1;
+  padding:10px 12px;background:var(--bg-panel);border-bottom:1px solid var(--line);
+  font-size:10px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);
+}
+.rail-list{display:flex;flex-direction:column;gap:8px;padding:12px}
+
+.tile{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:9px 7px 8px;
+  background:var(--bg-input);border:1px solid var(--line);border-radius:var(--radius);
+  cursor:pointer;font:inherit;color:var(--text);
+}
+.tile:hover{background:var(--bg-input-hi);border-color:#3a4150}
+.tile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.tile-box{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;height:132px;
+}
+.tile-stage{position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+.tile-name{font-size:11px;line-height:1.2;text-align:center}
+.tile-size{font-size:10px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.tile[aria-pressed=true] .tile-name{color:#fff;font-weight:600}
+
 .footnote{
   margin:0;padding:9px 16px;border-top:1px solid var(--line);
   font-size:11px;color:var(--text-dim);
 }
 
+@media (max-width:1100px){
+  .rail{flex-basis:132px;width:132px}
+}
+
 @media (max-width:900px){
+  body.rail-open .rail{display:none}
   .app{flex-direction:column-reverse}
   .panel{width:100%;flex:1 1 auto;border-right:0;border-top:1px solid var(--line)}
   .canvas{flex:0 0 50vh}

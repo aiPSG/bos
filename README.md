@@ -49,9 +49,24 @@ it circular* is on (uncheck it for an ellipse, which also gives you all eight re
 Switching units converts the value, so the size on screen does not jump. Its width is what the
 margin rule multiplies, so a percentage logo gives you margins that scale with the format too.
 
+**Typography** — a style per HTML hierarchy: H1–H6, paragraph and small. Each keeps its own size,
+weight, line height, letter spacing, case and **colour**. One font family for the design, from
+system stacks (no webfont requests). Sizes are in format units.
+
+**Text blocks** — three blocks fill the rectangle. Each has its own text, its own hierarchy and its
+own alignment (left / centre / right). The stack as a whole sits at the top, middle or bottom of the
+box, with padding and a gap you set. The box stays visible while any block has text, even with the
+rectangle itself switched off, so text can sit straight on the format.
+
+**Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*
+design — background, margins, rectangle, corners, logo, type — at that format's dimensions, and
+updates as you work, so you can watch a change land across all of them at once. Click one to make it
+the format in the main window. A format that matches no preset shows up as a *Custom* tile at the
+top. Toggle the rail with **Formats** in the toolbar.
+
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift
-constrains, arrow keys step through the alignment cells. Live CSS output with a copy button; the
+constrains, arrow keys step through the alignment cells. Live CSS **and markup** output with copy buttons; the
 state is kept in `localStorage` and **Reset** restores the defaults.
 
 ## Generating a background with ComfyUI on RunPod
@@ -103,5 +118,10 @@ Actions** selected once.
 ```
 index.html      markup and the panel controls
 css/styles.css  UI and canvas styling
-js/app.js       state, geometry, corners, rendering, interactions, image generation
+js/app.js       state, geometry, corners, type, rendering, interactions, image generation
 ```
+
+One routine, `paintInto(host, w, h, scale)`, draws the whole design into any element at any format.
+The main stage and every preview tile call it, so a preview can never drift from what you are
+editing. The geometry helpers read the format from the state, so `withFormat()` swaps it for the
+duration of a paint and puts it back.
