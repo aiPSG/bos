@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v4";
+  var STORAGE_KEY = "bos.design.v5";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -19,6 +19,31 @@
     { id: "1240x1754", name: "A5 · 150 dpi", w: 1240, h: 1754 },
     { id: "2480x3508", name: "A4 · 300 dpi", w: 2480, h: 3508 }
   ];
+
+  // a curated set that ships with the app; the full catalogue needs a Google Fonts API key
+  var GOOGLE_FONTS = [
+    "Abril Fatface", "Alegreya", "Alegreya Sans", "Anton", "Archivo", "Archivo Black", "Arimo",
+    "Arvo", "Asap", "Assistant", "Barlow", "Barlow Condensed", "Bebas Neue", "Bitter",
+    "Bree Serif", "Cabin", "Cairo", "Cardo", "Catamaran", "Caveat", "Chivo", "Cinzel",
+    "Comfortaa", "Cormorant Garamond", "Courgette", "Crimson Pro", "Crimson Text",
+    "Dancing Script", "DM Sans", "DM Serif Display", "Domine", "Dosis", "EB Garamond",
+    "Epilogue", "Exo 2", "Figtree", "Fira Sans", "Fira Code", "Fjalla One", "Frank Ruhl Libre",
+    "Fraunces", "Great Vibes", "Heebo", "Hind", "IBM Plex Mono", "IBM Plex Sans",
+    "IBM Plex Serif", "Inconsolata", "Indie Flower", "Inter", "JetBrains Mono", "Josefin Sans",
+    "Jost", "Kanit", "Karla", "Lato", "Lexend", "Libre Baskerville", "Libre Franklin",
+    "Literata", "Lobster", "Lora", "Manrope", "Marcellus", "Merriweather", "Montserrat",
+    "Mukta", "Mulish", "Newsreader", "Noto Sans", "Noto Serif", "Nunito", "Nunito Sans",
+    "Old Standard TT", "Onest", "Open Sans", "Orbitron", "Oswald", "Outfit", "Overpass",
+    "Oxygen", "Pacifico", "Permanent Marker", "Playfair Display", "Plus Jakarta Sans",
+    "Poppins", "Prata", "Prompt", "PT Sans", "PT Serif", "Public Sans", "Quicksand", "Raleway",
+    "Rajdhani", "Recursive", "Red Hat Display", "Righteous", "Roboto", "Roboto Condensed",
+    "Roboto Mono", "Roboto Slab", "Rubik", "Sarabun", "Sora", "Source Code Pro",
+    "Source Sans 3", "Source Serif 4", "Space Grotesk", "Space Mono", "Spectral", "Staatliches",
+    "Syne", "Teko", "Tinos", "Titillium Web", "Ubuntu", "Ubuntu Mono", "Unbounded", "Urbanist",
+    "Varela Round", "Vollkorn", "Work Sans", "Yanone Kaffeesatz", "Zilla Slab"
+  ];
+  var GF_CACHE_KEY = "bos.gfonts";
+  var GF_KEY_STORAGE = "bos.gfonts.key";
 
   var LEVELS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "small"];
   var LEVEL_NAMES = {
@@ -73,7 +98,7 @@
 
   function defaults() {
     return {
-      v: 4,
+      v: 5,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -90,24 +115,28 @@
       },
       logo: {
         visible: true,
-        // a length is a number plus a unit: px, or a share of the FORMAT HEIGHT
-        w: { v: 12, u: "%" }, h: { v: 12, u: "%" }, lock: true,
+        // the height drives everything: px, or a share of the format's LONGEST SIDE
+        h: { v: 10, u: "%" },
+        src: "", aspect: 1,
         align: { h: "left", v: "top" }, anchor: { h: "left", v: "top" },
         fill: "#e6e9ef"
       },
       type: {
         family: "sans",
         // one style per HTML hierarchy; sizes are in format units
+        // size is a percentage of the format's longest side; letter spacing is in em,
+        // so both follow the type scale wherever the design is used
         styles: {
-          h1: { size: 96, weight: 700, lh: 1.05, ls: -2, transform: "none", color: "#ffffff" },
-          h2: { size: 64, weight: 700, lh: 1.1, ls: -1, transform: "none", color: "#ffffff" },
-          h3: { size: 48, weight: 600, lh: 1.15, ls: 0, transform: "none", color: "#ffffff" },
-          h4: { size: 36, weight: 600, lh: 1.2, ls: 0, transform: "none", color: "#ffffff" },
-          h5: { size: 28, weight: 600, lh: 1.25, ls: 0, transform: "none", color: "#ffffff" },
-          h6: { size: 22, weight: 700, lh: 1.3, ls: 1, transform: "uppercase", color: "#ffffff" },
-          p: { size: 24, weight: 400, lh: 1.45, ls: 0, transform: "none", color: "#ffffff" },
-          small: { size: 18, weight: 400, lh: 1.4, ls: 0, transform: "none", color: "#ffffff" }
+          h1: { size: 7.2, weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
+          h2: { size: 4.8, weight: 700, lh: 1.1, ls: -0.015, transform: "none", color: "#ffffff" },
+          h3: { size: 3.6, weight: 600, lh: 1.15, ls: -0.01, transform: "none", color: "#ffffff" },
+          h4: { size: 2.7, weight: 600, lh: 1.2, ls: 0, transform: "none", color: "#ffffff" },
+          h5: { size: 2.1, weight: 600, lh: 1.25, ls: 0, transform: "none", color: "#ffffff" },
+          h6: { size: 1.6, weight: 700, lh: 1.3, ls: 0.06, transform: "uppercase", color: "#ffffff" },
+          p: { size: 1.8, weight: 400, lh: 1.45, ls: 0, transform: "none", color: "#ffffff" },
+          small: { size: 1.3, weight: 400, lh: 1.4, ls: 0, transform: "none", color: "#ffffff" }
         },
+        google: [], uploads: [],
         editing: "h2"
       },
       text: {
@@ -128,14 +157,25 @@
   var comfyKey = "";
   try { comfyKey = localStorage.getItem(KEY_STORAGE) || ""; } catch (e) {}
 
+  // uploads are data: URIs and can be large, so give up the heaviest parts first
+  // rather than lose the whole design to a full quota
   function save() {
-    try {
-      var copy = JSON.parse(JSON.stringify(state));
-      // never persist a big data: URI — it would blow the storage quota
-      if (/^data:/.test(copy.bg.src)) copy.bg.src = "";
-      copy.view = { zoom: null, pan: { x: 0, y: 0 }, panned: false };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
-    } catch (e) {}
+    var copy;
+    try { copy = JSON.parse(JSON.stringify(state)); } catch (e) { return; }
+    if (/^data:/.test(copy.bg.src)) copy.bg.src = "";     // generated art is never worth the quota
+    copy.view = { zoom: null, pan: { x: 0, y: 0 }, panned: false };
+
+    var attempts = [
+      function () { return copy; },
+      function () { copy.type.uploads = []; return copy; },
+      function () { copy.logo.src = ""; copy.logo.aspect = 1; return copy; }
+    ];
+    for (var i = 0; i < attempts.length; i++) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts[i]()));
+        return;
+      } catch (e) { /* quota — drop the next heaviest thing and retry */ }
+    }
   }
 
   function load() {
@@ -152,10 +192,8 @@
       if (!Array.isArray(s.text.blocks) || s.text.blocks.length !== 3) s.text.blocks = d.text.blocks;
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
-      ["w", "h"].forEach(function (k) {
-        var len = s.logo[k];
-        if (!len || typeof len !== "object" || !isFinite(len.v)) s.logo[k] = { v: 12, u: "%" };
-      });
+      if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
+      if (!isFinite(s.logo.aspect) || s.logo.aspect <= 0) s.logo.aspect = 1;
       return Object.assign(d, s);
     } catch (e) { return null; }
   }
@@ -178,42 +216,37 @@
 
   /* --------------------------------------------------------------- geometry */
 
-  // a logo length in stage units; a percentage is a share of the format height,
-  // for the width as well as the height, so the logo scales with the format
+  // percentages throughout the app are a share of the format's longest side,
+  // so a design keeps its proportions whichever way the format turns
+  function longSide() { return Math.max(state.stage.w, state.stage.h); }
+
   function lenPx(len) {
-    return len.u === "%" ? len.v / 100 * state.stage.h : len.v;
+    return len.u === "%" ? len.v / 100 * longSide() : len.v;
   }
 
+  // the logo is defined by its height; the width follows the artwork's aspect ratio
   function logoSize() {
     var lg = state.logo;
-    var w = Math.max(MIN_SIZE, lenPx(lg.w));
-    return { w: w, h: lg.lock ? w : Math.max(MIN_SIZE, lenPx(lg.h)) };
+    var h = Math.max(MIN_SIZE, lenPx(lg.h));
+    return { w: Math.max(MIN_SIZE, h * (lg.aspect || 1)), h: h };
   }
 
-  function setLogoPx(axis, px) {
-    var lg = state.logo, len = lg[axis];
-    var v = len.u === "%" ? px / Math.max(1, state.stage.h) * 100 : px;
+  function setLogoHeightPx(px) {
+    var len = state.logo.h;
+    var v = len.u === "%" ? px / Math.max(1, longSide()) * 100 : px;
     len.v = Math.max(state.round ? 1 : 0.1, snap(v));
-    if (lg.lock) {
-      var other = axis === "w" ? lg.h : lg.w;
-      other.v = len.v; other.u = len.u;
-    }
   }
 
-  function setLogoUnit(axis, u) {
-    var lg = state.logo, len = lg[axis], px = lenPx(len);
+  function setLogoUnit(u) {
+    var len = state.logo.h, px = lenPx(len);
     len.u = u;
-    len.v = Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, state.stage.h) * 100 : px));
-    if (lg.lock) {
-      var other = axis === "w" ? lg.h : lg.w;
-      other.v = len.v; other.u = len.u;
-    }
+    len.v = Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, longSide()) * 100 : px));
   }
 
   function margins() {
     var m = state.margin;
-    if (m.mode === "logo") {
-      var v = snap(m.factor * logoSize().w);
+    if (m.mode !== "manual") {
+      var v = snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w));
       return { top: v, right: v, bottom: v, left: v };
     }
     return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
@@ -405,9 +438,59 @@
     return el;
   }
 
+  var FALLBACK = 'ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+
   function familyStack() {
-    var f = FAMILIES.filter(function (x) { return x.id === state.type.family; })[0];
+    var id = state.type.family || "sans";
+    if (id.indexOf("g:") === 0 || id.indexOf("u:") === 0) {
+      return '"' + id.slice(2).replace(/"/g, "") + '",' + FALLBACK;
+    }
+    var f = FAMILIES.filter(function (x) { return x.id === id; })[0];
     return (f || FAMILIES[0]).stack;
+  }
+
+  function familyLabel() {
+    var id = state.type.family || "sans";
+    if (id.indexOf("g:") === 0) return id.slice(2) + " (Google)";
+    if (id.indexOf("u:") === 0) return id.slice(2) + " (uploaded)";
+    var f = FAMILIES.filter(function (x) { return x.id === id; })[0];
+    return (f || FAMILIES[0]).name;
+  }
+
+  // Google fonts arrive as a stylesheet; ask for the usual weights and fall back
+  // to the family's default if it does not publish them
+  var googleLinks = {};
+  function loadGoogleFont(name) {
+    if (googleLinks[name]) return;
+    var href = function (withWeights) {
+      return "https://fonts.googleapis.com/css2?family=" +
+        encodeURIComponent(name).replace(/%20/g, "+") +
+        (withWeights ? ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400" : "") +
+        "&display=swap";
+    };
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href(true);
+    link.onerror = function () {
+      var plain = document.createElement("link");
+      plain.rel = "stylesheet";
+      plain.href = href(false);
+      document.head.appendChild(plain);
+    };
+    document.head.appendChild(link);
+    googleLinks[name] = link;
+  }
+
+  function registerUpload(u) {
+    if (!window.FontFace || !u || !u.src) return;
+    try {
+      var face = new FontFace(u.name, 'url("' + u.src + '")');
+      face.load().then(function (f) { document.fonts.add(f); render(); }, function () {});
+    } catch (e) {}
+  }
+
+  function fontPx(level) {
+    return state.type.styles[level].size / 100 * longSide();
   }
 
   function textVisible() {
@@ -441,10 +524,10 @@
     Array.prototype.forEach.call(stack.children, function (el, i) {
       var b = blocks[i], st = state.type.styles[b.level];
       Object.assign(el.style, {
-        fontSize: st.size * s + "px",
+        fontSize: fontPx(b.level) * s + "px",
         fontWeight: st.weight,
         lineHeight: st.lh,
-        letterSpacing: st.ls * s + "px",
+        letterSpacing: st.ls + "em",
         textTransform: st.transform,
         color: st.color,
         textAlign: b.align
@@ -488,7 +571,14 @@
       logoEl.dataset.el = "logo";
       logoEl.hidden = !state.logo.visible;
       if (state.logo.visible) {
-        Object.assign(logoEl.style, shapeStyle("logo", s), { background: state.logo.fill });
+        var lg = state.logo;
+        logoEl.classList.toggle("has-image", !!lg.src);
+        Object.assign(logoEl.style, shapeStyle("logo", s));
+        if (lg.src) {
+          logoEl.style.background = 'center / contain no-repeat url("' + lg.src.replace(/"/g, '\\"') + '")';
+        } else {
+          logoEl.style.background = lg.fill;
+        }
       }
     });
   }
@@ -552,7 +642,7 @@
   }
 
   function frameHandles(name) {
-    var sizes = name === "logo" && state.logo.lock ? ["nw", "ne", "se", "sw"]
+    var sizes = name === "logo" ? ["nw", "ne", "se", "sw"]
       : ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
     var html = sizes.map(function (d) { return '<span class="handle size" data-dir="' + d + '"></span>'; }).join("");
     if (name === "rect") {
@@ -569,13 +659,13 @@
     var shown = name && state[name] && state[name].visible;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
-    var key = name + (name === "logo" && state.logo.lock ? ":circle" : "");
+    var key = name;
     if (frameFor !== key) { els.frame.innerHTML = frameHandles(name); frameFor = key; }
 
     var b = box(name);
     Object.assign(els.frame.style, shapeStyle(name, s));
     els.frame.classList.toggle("full-width", name === "rect" && state.rect.full);
-    els.frame.classList.toggle("round", name === "logo");
+    els.frame.classList.toggle("round", name === "logo" && !state.logo.src);
 
     var pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
     $$("#frame .handle.size").forEach(function (el) {
@@ -608,7 +698,8 @@
     var m = margins(), parts = [
       "Format " + fmt(state.stage.w) + " × " + fmt(state.stage.h),
       "Margins " + fmt(m.top) + " / " + fmt(m.right) + " / " + fmt(m.bottom) + " / " + fmt(m.left) +
-        (state.margin.mode === "logo" ? " (logo × " + state.margin.factor + ")" : "")
+        (state.margin.mode !== "manual" ? " (logo " + (state.margin.mode === "logoH" ? "height" : "width") +
+          " × " + state.margin.factor + ")" : "")
     ];
     if (state.rect.visible) {
       var b = box("rect");
@@ -617,7 +708,7 @@
     if (state.logo.visible) {
       var lg = state.logo, lb = box("logo");
       parts.push("Logo " + fmt(lb.w) + " × " + fmt(lb.h) +
-        (lg.w.u === "%" ? " (" + fmt(lg.w.v) + "% of height)" : "") +
+        (lg.h.u === "%" ? " (h " + round(lg.h.v, 2) + "% of long side)" : "") +
         " — " + lg.align.v + " " + lg.align.h);
     }
     els.readout.textContent = parts.join("   ·   ");
@@ -663,7 +754,9 @@
     }
     lines.push("  overflow: hidden;");
     lines.push("  /* margins " + fmt(m.top) + " " + fmt(m.right) + " " + fmt(m.bottom) + " " + fmt(m.left) +
-      (state.margin.mode === "logo" ? " — logo width × " + state.margin.factor : "") + " */");
+      (state.margin.mode !== "manual"
+        ? " — logo " + (state.margin.mode === "logoH" ? "height" : "width") + " × " + state.margin.factor
+        : "") + " */");
     lines.push("}");
     if (state.rect.visible) {
       lines.push("");
@@ -679,19 +772,30 @@
       lines.push(".logo {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("logo", "  "));
-      lines.push("  border-radius: 50%;");
-      lines.push("  background: " + state.logo.fill + ";");
       var lg = state.logo;
-      if (lg.w.u === "%" || lg.h.u === "%") {
-        lines.push("  /* sized from the format height: " +
-          (lg.w.u === "%" ? "width " + fmt(lg.w.v) + "%" : "width " + fmt(lg.w.v) + "px") + ", " +
-          (lg.h.u === "%" ? "height " + fmt(lg.h.v) + "%" : "height " + fmt(lg.h.v) + "px") + " */");
+      if (lg.src) {
+        lines.push("  background: center / contain no-repeat url(\"" +
+          (/^data:/.test(lg.src) ? "…your logo file…" : lg.src) + "\");");
+      } else {
+        lines.push("  border-radius: 50%;");
+        lines.push("  background: " + lg.fill + ";");
+      }
+      if (lg.h.u === "%") {
+        lines.push("  /* height " + round(lg.h.v, 2) + "% of the " + fmt(longSide()) +
+          "px long side; width follows the " + round(lg.aspect, 3) + ":1 artwork */");
       }
       lines.push("}");
     }
     var t = state.text, used = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
     if (used.length) {
       lines.push("");
+      if (state.type.family.indexOf("g:") === 0) {
+        var gname = state.type.family.slice(2);
+        lines.push("@import url(\"https://fonts.googleapis.com/css2?family=" +
+          gname.replace(/ /g, "+") + ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400&display=swap\");");
+      } else if (state.type.family.indexOf("u:") === 0) {
+        lines.push("/* @font-face for \"" + state.type.family.slice(2) + "\" — ship the uploaded file yourself */");
+      }
       lines.push(".rectangle .text {");
       lines.push("  position: absolute;");
       lines.push("  inset: " + fmt(t.padding) + "px;");
@@ -711,10 +815,11 @@
         var st = state.type.styles[l];
         lines.push("");
         lines.push(".rectangle .text " + (l === "small" ? "p.small" : l) + " {");
-        lines.push("  font-size: " + fmt(st.size) + "px;");
+        lines.push("  font-size: " + round(fontPx(l), 2) + "px;  /* " + round(st.size, 3) +
+          "% of the " + fmt(longSide()) + "px long side */");
         lines.push("  font-weight: " + st.weight + ";");
         lines.push("  line-height: " + st.lh + ";");
-        lines.push("  letter-spacing: " + round(st.ls, 2) + "px;");
+        lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
         lines.push("  color: " + st.color + ";");
         lines.push("}");
@@ -792,10 +897,42 @@
       }).join("");
   }
 
-  function buildTypeSelects() {
-    $("#type-family").innerHTML = FAMILIES.map(function (f) {
-      return '<option value="' + f.id + '">' + esc(f.name) + "</option>";
+  function buildFamilySelect() {
+    var opt = function (v, label) { return '<option value="' + esc(v) + '">' + esc(label) + "</option>"; };
+    var html = "<optgroup label=\"System\">" +
+      FAMILIES.map(function (f) { return opt(f.id, f.name); }).join("") + "</optgroup>";
+    if (state.type.google.length) {
+      html += "<optgroup label=\"Google\">" +
+        state.type.google.map(function (n) { return opt("g:" + n, n); }).join("") + "</optgroup>";
+    }
+    if (state.type.uploads.length) {
+      html += "<optgroup label=\"Uploaded\">" +
+        state.type.uploads.map(function (u) { return opt("u:" + u.name, u.name); }).join("") + "</optgroup>";
+    }
+    $("#type-family").innerHTML = html;
+  }
+
+  function gfList() {
+    try {
+      var raw = localStorage.getItem(GF_CACHE_KEY);
+      var all = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(all) && all.length) return all;
+    } catch (e) {}
+    return GOOGLE_FONTS;
+  }
+
+  function buildGoogleList() {
+    var all = gfList();
+    $("#gf-list").innerHTML = all.map(function (n) {
+      return '<option value="' + esc(n) + '"></option>';
     }).join("");
+    $("#gf-count").textContent = all.length + " families listed" +
+      (all === GOOGLE_FONTS || all.length === GOOGLE_FONTS.length ? " — the set bundled with the app." : " — loaded from Google.");
+  }
+
+  function buildTypeSelects() {
+    buildFamilySelect();
+    buildGoogleList();
     $("#type-level").innerHTML = LEVELS.map(function (l) {
       return '<option value="' + l + '">' + esc(LEVEL_NAMES[l]) + "</option>";
     }).join("");
@@ -868,18 +1005,19 @@
     $("#cf-remember").checked = state.comfy.remember;
 
     $("#margin-mode").value = m.mode;
-    $("#margin-factor-field").hidden = m.mode !== "logo";
+    $("#margin-factor-field").hidden = m.mode === "manual";
     setValue($("#margin-factor"), m.factor);
     $("#margin-linked").checked = m.linked;
     var mm = margins();
     SIDES.forEach(function (s) {
       var input = $("#margin-" + s);
       setValue(input, fmt(mm[s]));
-      input.disabled = m.mode === "logo";
+      input.disabled = m.mode !== "manual";
     });
-    $("#margin-hint").textContent = m.mode === "logo"
-      ? "Every margin is " + m.factor + " × the logo width (" + fmt(logoSize().w) + ") = " + fmt(mm.top) + "."
-      : "The margins define the box both shapes are aligned inside.";
+    $("#margin-hint").textContent = m.mode === "manual"
+      ? "The margins define the box both shapes are aligned inside."
+      : "Every margin is " + m.factor + " × the logo " + (m.mode === "logoH" ? "height" : "width") +
+        " (" + fmt(m.mode === "logoH" ? logoSize().h : logoSize().w) + ") = " + fmt(mm.top) + ".";
 
     $("#rect-visible").checked = r.visible;
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
@@ -908,21 +1046,21 @@
 
     $("#logo-visible").checked = lg.visible;
     syncGrid("#logo-align", lg); syncGrid("#logo-anchor", lg);
-    setValue($("#logo-w"), fmt(lg.w.v));
-    setValue($("#logo-h"), fmt(lg.h.v));
-    $("#logo-wu").value = lg.w.u;
+    setValue($("#logo-h"), round(lg.h.v, 2));
     $("#logo-hu").value = lg.h.u;
-    $("#logo-lock").checked = lg.lock;
-    $("#logo-h").disabled = lg.lock;
-    $("#logo-hu").disabled = lg.lock;
-    $("#logo-size-hint").textContent = "Logo " + fmt(logoSize().w) + " × " + fmt(logoSize().h) +
-      " on a " + fmt(state.stage.h) + " high format.";
     $("#logo-fill").value = lg.fill;
+    $("#logo-fill-field").hidden = !!lg.src;
+    var ls = logoSize();
+    $("#logo-size-hint").textContent = (lg.src ? "Artwork " : "Circle ") +
+      fmt(ls.w) + " × " + fmt(ls.h) + " — long side of this format is " + fmt(longSide()) +
+      (lg.src ? ", artwork ratio " + round(lg.aspect, 3) + ":1" : "") + ".";
 
     var ty = state.type, st2 = ty.styles[ty.editing];
     $("#type-family").value = ty.family;
+    if ($("#type-family").selectedIndex < 0) $("#type-family").selectedIndex = 0;
     $("#type-level").value = ty.editing;
-    setValue($("#type-size"), fmt(st2.size));
+    $("#type-size-px").textContent = "= " + Math.round(fontPx(ty.editing)) + " px";
+    setValue($("#type-size"), round(st2.size, 3));
     $("#type-weight").value = String(st2.weight);
     setValue($("#type-lh"), st2.lh);
     setValue($("#type-ls"), st2.ls);
@@ -1009,7 +1147,7 @@
     $("#cf-generate").addEventListener("click", generate);
 
     onChange("#margin-mode", function (el) {
-      if (el.value === "manual" && state.margin.mode === "logo") {
+      if (el.value === "manual" && state.margin.mode !== "manual") {
         var mm = margins();                              // keep what the logo rule produced
         SIDES.forEach(function (s) { state.margin[s] = mm[s]; });
       }
@@ -1034,13 +1172,17 @@
     onInput("#rect-fill", function (el) { state.rect.fill = el.value; });
 
     onChange("#logo-visible", function (el) { state.logo.visible = el.checked; if (el.checked) state.sel = "logo"; });
-    numInput("#logo-w", function (v) { state.logo.w.v = snap(v); if (state.logo.lock) state.logo.h = { v: state.logo.w.v, u: state.logo.w.u }; }, 0);
-    numInput("#logo-h", function (v) { state.logo.h.v = snap(v); }, 0);
-    onChange("#logo-wu", function (el) { setLogoUnit("w", el.value); });
-    onChange("#logo-hu", function (el) { setLogoUnit("h", el.value); });
-    onChange("#logo-lock", function (el) {
-      state.logo.lock = el.checked;
-      if (el.checked) state.logo.h = { v: state.logo.w.v, u: state.logo.w.u };
+    numInput("#logo-h", function (v) { state.logo.h.v = Math.max(0.01, round(v, 2)); }, 0);
+    onChange("#logo-hu", function (el) { setLogoUnit(el.value); });
+    $("#logo-upload-btn").addEventListener("click", function () { $("#logo-file").click(); });
+    $("#logo-file").addEventListener("change", function (e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (file) loadLogoFile(file);
+    });
+    $("#logo-clear").addEventListener("click", function () {
+      state.logo.src = ""; state.logo.aspect = 1;
+      render();
     });
     onInput("#logo-fill", function (el) { state.logo.fill = el.value; });
 
@@ -1124,7 +1266,38 @@
       render();
     });
 
-    onChange("#type-family", function (el) { state.type.family = el.value; });
+    onChange("#type-family", function (el) {
+      state.type.family = el.value;
+      if (el.value.indexOf("g:") === 0) loadGoogleFont(el.value.slice(2));
+    });
+    $("#gf-add").addEventListener("click", function () {
+      var name = $("#gf-input").value.trim();
+      if (!name) return fontStatus("Type a family name first — the list suggests as you type.", "err");
+      if (state.type.google.indexOf(name) < 0) state.type.google.push(name);
+      loadGoogleFont(name);
+      state.type.family = "g:" + name;
+      $("#gf-input").value = "";
+      buildFamilySelect();
+      fontStatus("Using " + name + " from Google Fonts.", "ok");
+      render();
+    });
+    $("#font-upload-btn").addEventListener("click", function () { $("#font-file").click(); });
+    $("#font-file").addEventListener("change", function (e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (file) loadFontFile(file);
+    });
+    $("#gf-key").addEventListener("input", function (e) {
+      gfKey = e.target.value.trim();
+      try { gfKey ? localStorage.setItem(GF_KEY_STORAGE, gfKey) : localStorage.removeItem(GF_KEY_STORAGE); } catch (err) {}
+    });
+    $("#gf-forget").addEventListener("click", function () {
+      gfKey = ""; $("#gf-key").value = "";
+      try { localStorage.removeItem(GF_KEY_STORAGE); localStorage.removeItem(GF_CACHE_KEY); } catch (err) {}
+      buildGoogleList();
+      gfStatus("Key and cached catalogue cleared.", "");
+    });
+    $("#gf-load").addEventListener("click", loadGoogleCatalogue);
     onChange("#type-level", function (el) { state.type.editing = el.value; });
     var styleOf = function () { return state.type.styles[state.type.editing]; };
     numInput("#type-size", function (v) { styleOf().size = snap(v); }, 1);
@@ -1205,8 +1378,7 @@
     state.stage.w = Math.round(state.stage.w); state.stage.h = Math.round(state.stage.h);
     SIDES.forEach(function (s) { state.margin[s] = Math.round(state.margin[s]); });
     r.w = Math.round(r.w); r.h = Math.round(r.h);
-    state.logo.w.v = Math.max(1, Math.round(state.logo.w.v));
-    state.logo.h.v = Math.max(1, Math.round(state.logo.h.v));
+    state.logo.h.v = Math.max(state.logo.h.u === "%" ? 0.1 : 1, round(state.logo.h.v, 1));
     CORNERS.forEach(function (n) {
       var c = r.corners[n]; c.x = Math.round(c.x); c.y = Math.round(c.y);
     });
@@ -1214,8 +1386,7 @@
     state.text.gap = Math.round(state.text.gap);
     LEVELS.forEach(function (l) {
       var t = state.type.styles[l];
-      t.size = Math.max(1, Math.round(t.size));
-      t.ls = Math.round(t.ls);
+      t.size = Math.max(0.1, round(t.size, 2));
     });
   }
 
@@ -1289,11 +1460,9 @@
       var p = toStage(ev);
       var dx = (p.x - start.x) * sx * kx, dy = (p.y - start.y) * sy * ky;
       if (name === "logo") {
-        if (state.logo.lock) setLogoPx("w", s0.w + (sx && sy ? (dx + dy) / 2 : sx ? dx : dy));
-        else {
-          if (sx) setLogoPx("w", s0.w + dx);
-          if (sy) setLogoPx("h", s0.h + dy);
-        }
+        var a = state.logo.aspect || 1;
+        var dh = sx && sy ? (dy + dx / a) / 2 : sy ? dy : dx / a;
+        setLogoHeightPx(s0.h + dh);
         return;
       }
       var w = sx ? Math.max(MIN_SIZE, s0.w + dx) : s0.w;
@@ -1329,8 +1498,9 @@
       var v = side === "left" ? p.x : side === "right" ? st.w - p.x
         : side === "top" ? p.y : st.h - p.y;
       v = Math.max(0, snap(v));
-      if (state.margin.mode === "logo") {
-        state.margin.factor = round(Math.max(0, v / Math.max(MIN_SIZE, logoSize().w)), 3);
+      if (state.margin.mode !== "manual") {
+        var base = state.margin.mode === "logoH" ? logoSize().h : logoSize().w;
+        state.margin.factor = round(Math.max(0, v / Math.max(MIN_SIZE, base)), 3);
       } else setMargin(side, v);
     });
   }
@@ -1389,6 +1559,105 @@
     window.addEventListener("keyup", function (e) {
       if (e.code === "Space") { spaceDown = false; document.body.classList.remove("can-pan"); }
     });
+  }
+
+  /* -------------------------------------------- logo artwork and font files */
+
+  var gfKey = "";
+  try { gfKey = localStorage.getItem(GF_KEY_STORAGE) || ""; } catch (e) {}
+
+  function fontStatus(msg, kind) {
+    var el = $("#font-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+  function gfStatus(msg, kind) {
+    var el = $("#gf-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  // an SVG without width/height reports no natural size; its viewBox has the ratio
+  function svgAspect(dataUrl) {
+    try {
+      var comma = dataUrl.indexOf(",");
+      var body = dataUrl.slice(comma + 1);
+      var text = /;base64/i.test(dataUrl.slice(0, comma)) ? atob(body) : decodeURIComponent(body);
+      var vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
+      if (vb) {
+        var w = parseFloat(vb[1]), h = parseFloat(vb[2]);
+        if (w > 0 && h > 0) return w / h;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function loadLogoFile(file) {
+    if (file.size > 8 * 1024 * 1024) return fontStatus("That logo file is over 8 MB — use a smaller one.", "err");
+    var reader = new FileReader();
+    reader.onload = function () {
+      var url = String(reader.result);
+      var img = new Image();
+      img.onload = function () {
+        var a = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null;
+        if (!a && /svg/i.test(file.type)) a = svgAspect(url);
+        state.logo.aspect = a || 1;
+        state.logo.src = url;
+        state.logo.visible = true;
+        state.sel = "logo";
+        render();
+      };
+      img.onerror = function () { fontStatus("That file could not be read as an image.", "err"); };
+      img.src = url;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function loadFontFile(file) {
+    if (!window.FontFace) return fontStatus("This browser cannot load font files.", "err");
+    if (file.size > 4 * 1024 * 1024) return fontStatus("That font file is over 4 MB — use a subset.", "err");
+    var name = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Uploaded font";
+    var reader = new FileReader();
+    reader.onload = function () {
+      var src = String(reader.result);
+      var face;
+      try { face = new FontFace(name, 'url("' + src + '")'); }
+      catch (e) { return fontStatus("That font file could not be read.", "err"); }
+      face.load().then(function (f) {
+        document.fonts.add(f);
+        state.type.uploads = state.type.uploads.filter(function (u) { return u.name !== name; });
+        state.type.uploads.push({ name: name, src: src });
+        state.type.family = "u:" + name;
+        buildFamilySelect();
+        fontStatus("Using " + name + ".", "ok");
+        render();
+      }, function () {
+        fontStatus("The browser rejected that font file — try .woff2, .woff, .ttf or .otf.", "err");
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function loadGoogleCatalogue() {
+    if (!gfKey) return gfStatus("Paste a Google Fonts API key first.", "err");
+    gfStatus("Loading the catalogue…");
+    fetchTimeout("https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity&key=" +
+      encodeURIComponent(gfKey), {}, 15000)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error.message || "Google refused the key.");
+        var names = (data.items || []).map(function (i) { return i.family; }).filter(Boolean);
+        if (!names.length) throw new Error("The catalogue came back empty.");
+        try { localStorage.setItem(GF_CACHE_KEY, JSON.stringify(names)); } catch (e) {}
+        buildGoogleList();
+        gfStatus(names.length + " families loaded and cached in this browser.", "ok");
+      })
+      .catch(function (err) {
+        var msg = err && err.message ? err.message : String(err);
+        gfStatus(/failed to fetch|timed out|networkerror|load failed/i.test(msg)
+          ? "Could not reach the Google Fonts API — check the connection, then the key."
+          : msg, "err");
+      });
   }
 
   /* ------------------------------------------- background image generation */
@@ -1461,6 +1730,24 @@
     return null;
   }
 
+  // a request that never answers should say so rather than sit on "loading" forever
+  function fetchTimeout(url, opts, ms) {
+    opts = opts || {};
+    ms = ms || 30000;
+    if (!window.AbortController) return fetch(url, opts);
+    var ctrl = new AbortController(), done = false;
+    var timer = setTimeout(function () { done = true; ctrl.abort(); }, ms);
+    opts.signal = ctrl.signal;
+    return fetch(url, opts).then(function (r) {
+      clearTimeout(timer);
+      return r;
+    }, function (err) {
+      clearTimeout(timer);
+      if (done) throw new Error("No answer after " + Math.round(ms / 1000) + " seconds — the request timed out.");
+      throw err;
+    });
+  }
+
   function readJSON(res) {
     return res.text().then(function (text) {
       var data;
@@ -1489,9 +1776,9 @@
 
   function poll(base, id, tries) {
     if (tries > 150) return Promise.reject(new Error("Timed out after 5 minutes waiting for the job."));
-    return fetch(base + "/status/" + encodeURIComponent(id), {
+    return fetchTimeout(base + "/status/" + encodeURIComponent(id), {
       headers: { Authorization: "Bearer " + comfyKey }
-    }).then(readJSON).then(function (data) {
+    }, 30000).then(readJSON).then(function (data) {
       var st = String(data.status || "").toUpperCase();
       if (st === "COMPLETED") { showRaw(data); return data; }
       if (st === "FAILED" || st === "CANCELLED" || st === "TIMED_OUT") {
@@ -1520,11 +1807,11 @@
 
     setBusy(true);
     cfStatus("Sending the workflow…");
-    fetch(runUrl, {
+    fetchTimeout(runUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + comfyKey },
       body: JSON.stringify({ input: { workflow: workflow } })
-    }).then(readJSON).then(function (data) {
+    }, 45000).then(readJSON).then(function (data) {
       showRaw(data);
       var st = String(data.status || "").toUpperCase();
       if (st === "COMPLETED" || data.output) return data;
@@ -1560,6 +1847,10 @@
   $("#key-warning").textContent =
     "The key is kept in this browser only and sent straight to RunPod — never to this site. " +
     "Anyone with access to this browser profile can read it, so do not use a shared machine, and never commit it to the repository.";
+  state.type.uploads.forEach(registerUpload);
+  state.type.google.forEach(loadGoogleFont);
+  if (state.type.family.indexOf("g:") === 0) loadGoogleFont(state.type.family.slice(2));
+  $("#gf-key").value = gfKey;
   bindPanel();
   bindCanvas();
   render();

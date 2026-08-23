@@ -96,7 +96,8 @@
         <label class="field"><span>Source</span>
           <select id="margin-mode">
             <option value="manual">Set by hand</option>
-            <option value="logo">Logo width × factor</option>
+            <option value="logoW">Logo width × factor</option>
+            <option value="logoH">Logo height × factor</option>
           </select>
         </label>
         <label class="field" id="margin-factor-field"><span>Factor</span>
@@ -157,32 +158,59 @@
         <div class="field"><span>Anchor point</span><div class="grid3" id="logo-anchor"></div></div>
       </div>
       <div class="row">
-        <label class="field"><span>Width</span><input type="number" id="logo-w" min="0" step="1"></label>
+        <button type="button" class="ghost grow" id="logo-upload-btn">Upload a logo…</button>
+        <button type="button" class="ghost" id="logo-clear">Clear</button>
+      </div>
+      <input type="file" id="logo-file" accept="image/*,.svg" hidden>
+      <div class="row">
+        <label class="field"><span>Height</span><input type="number" id="logo-h" min="0" step="0.1"></label>
         <label class="field unit"><span>Unit</span>
-          <select id="logo-wu"><option value="px">px</option><option value="%">% of height</option></select>
+          <select id="logo-hu"><option value="%">% of long side</option><option value="px">px</option></select>
         </label>
       </div>
       <div class="row">
-        <label class="field"><span>Height</span><input type="number" id="logo-h" min="0" step="1"></label>
-        <label class="field unit"><span>Unit</span>
-          <select id="logo-hu"><option value="px">px</option><option value="%">% of height</option></select>
-        </label>
-      </div>
-      <label class="check"><input type="checkbox" id="logo-lock"><span>Keep it circular — height follows width</span></label>
-      <div class="row">
-        <label class="field color grow"><span>Fill</span><input type="color" id="logo-fill"></label>
+        <label class="field color grow" id="logo-fill-field"><span>Fill</span><input type="color" id="logo-fill"></label>
       </div>
       <p class="hint" id="logo-size-hint"></p>
-      <p class="hint">A percentage is a share of the <b>format height</b> — for the width as well as
-        the height — so the logo keeps its proportion when the format changes.</p>
+      <p class="hint">The height defines the logo; the width follows the artwork's proportions. A
+        percentage is a share of the format's <b>longest side</b>, so the logo holds its scale in
+        portrait and landscape alike. Without artwork it stays a circle.</p>
     </details>
 
     <details class="group" open>
       <summary><h2>Typography</h2></summary>
       <label class="field grow"><span>Font family</span><select id="type-family"></select></label>
+      <div class="row">
+        <label class="field grow"><span>Add a Google font</span>
+          <input type="text" id="gf-input" list="gf-list" spellcheck="false" autocomplete="off" placeholder="Start typing — Inter, Lora, Oswald…">
+        </label>
+      </div>
+      <datalist id="gf-list"></datalist>
+      <div class="row">
+        <button type="button" class="ghost grow" id="gf-add">Use this Google font</button>
+        <button type="button" class="ghost" id="font-upload-btn">Upload…</button>
+      </div>
+      <input type="file" id="font-file" accept=".woff2,.woff,.ttf,.otf,font/*" hidden>
+      <p class="status" id="font-status"></p>
+      <details class="sub">
+        <summary><h3>List every Google font</h3></summary>
+        <p class="hint" id="gf-count"></p>
+        <label class="field grow"><span>Google Fonts API key</span>
+          <input type="password" id="gf-key" spellcheck="false" autocomplete="off" placeholder="AIza…">
+        </label>
+        <div class="row">
+          <button type="button" class="ghost grow" id="gf-load">Load the full catalogue</button>
+          <button type="button" class="ghost" id="gf-forget">Forget key</button>
+        </div>
+        <p class="hint">A free key from <b>developers.google.com/fonts/docs/developer_api</b> lets the
+          app list every family Google publishes. The key is kept in this browser only, and the
+          catalogue is cached here after the first load.</p>
+        <p class="status" id="gf-status"></p>
+      </details>
       <label class="field grow"><span>Hierarchy</span><select id="type-level"></select></label>
       <div class="row">
-        <label class="field"><span>Size</span><input type="number" id="type-size" min="1" step="1"></label>
+        <label class="field"><span>Size <b id="type-size-px"></b></span>
+          <input type="number" id="type-size" min="0.1" step="0.1"></label>
         <label class="field"><span>Weight</span>
           <select id="type-weight">
             <option>100</option><option>200</option><option>300</option><option>400</option>
@@ -192,7 +220,7 @@
       </div>
       <div class="row">
         <label class="field"><span>Line height</span><input type="number" id="type-lh" min="0.5" step="0.05"></label>
-        <label class="field"><span>Letter spacing</span><input type="number" id="type-ls" step="0.5"></label>
+        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" step="0.005"></label>
       </div>
       <div class="row">
         <label class="field"><span>Case</span>
@@ -205,8 +233,9 @@
         </label>
         <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
       </div>
-      <p class="hint">Each hierarchy keeps its own size, weight, spacing, case and colour. Sizes are in
-        format units, so they stay put as you switch formats.</p>
+      <p class="hint">Each hierarchy keeps its own size, weight, spacing, case and colour. <b>Size is a
+        percentage of the format's longest side</b> and letter spacing is in <code>em</code>, so the
+        whole scale travels with the format.</p>
     </details>
 
     <details class="group" open>

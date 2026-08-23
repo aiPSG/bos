@@ -11,7 +11,8 @@ dragging on the canvas.
 Positions are not free coordinates. A shape's place on the format comes from three things:
 
 1. **Margins** — the box both shapes are aligned inside. Set per side (linked or not), or
-   derived from the logo: `margin = factor × logo width`, the usual clear-space rule.
+   derived from the logo: `margin = factor × logo width` or `× logo height`, the usual clear-space
+   rule.
 2. **Position in format** — which of the nine points of the margin box the shape goes to.
 3. **Anchor point** — which of the nine points *of the shape* lands on it.
 
@@ -41,17 +42,26 @@ corners). Underneath it the full CSS surface is editable: 1–4 values, `px` or 
 units, and independent horizontal/vertical radii for elliptical corners. The `border-radius` field
 takes any valid shorthand — e.g. `12px 40% 0 8px / 20px 10% 5px 8px` — and the handles follow it.
 
-**Logo** — a placeholder shape: position, anchor, fill, and a **width and height that can each be
-given in `px` or as a percentage of the format height**. A percentage is a share of the format
-*height* for both dimensions, so the logo keeps its proportion when the format changes — set it to
-12% and it is 162 on a 1350-high format, 240 on a 2000-high one. Height follows width while *keep
-it circular* is on (uncheck it for an ellipse, which also gives you all eight resize handles).
-Switching units converts the value, so the size on screen does not jump. Its width is what the
-margin rule multiplies, so a percentage logo gives you margins that scale with the format too.
+**Logo** — upload your own artwork (PNG, JPG, SVG, WebP) or keep the circle placeholder. **The
+height defines the logo and the width follows the artwork's own proportions**; an SVG with nothing
+but a `viewBox` is measured from that. The height is given in `px` or, by default, as **a percentage
+of the format's longest side**, so the logo holds its scale whichever way the format turns — 10% is
+135 on a 1350-tall portrait and 192 on a 1920-wide landscape. Resize handles keep the ratio and
+write back in whatever unit is set. Its size is what the margin rule multiplies, so a percentage
+logo gives margins that scale with the format too.
 
 **Typography** — a style per HTML hierarchy: H1–H6, paragraph and small. Each keeps its own size,
-weight, line height, letter spacing, case and **colour**. One font family for the design, from
-system stacks (no webfont requests). Sizes are in format units.
+weight, line height, letter spacing, case and **colour**. **Size is a percentage of the format's
+longest side** — the panel shows the pixels it resolves to — and letter spacing is in `em`, so the
+whole type scale travels with the format instead of being re-typed for each one.
+
+The family can be a system stack, **a Google font**, or **a font file you upload** (`.woff2`,
+`.woff`, `.ttf`, `.otf` — registered with the `FontFace` API and kept in this browser). The Google
+picker types-ahead over a list of 124 popular families bundled with the app; paste a free
+[Google Fonts API key](https://developers.google.com/fonts/docs/developer_api) under *List every
+Google font* to replace that with the complete live catalogue, cached in your browser afterwards.
+Google's stylesheet is requested with the usual weights and falls back to the family's own default
+if it does not publish them.
 
 **Text blocks** — three blocks fill the rectangle. Each has its own text, its own hierarchy and its
 own alignment (left / centre / right). The stack as a whole sits at the top, middle or bottom of the
