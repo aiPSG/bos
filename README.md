@@ -11,7 +11,7 @@ dragging on the canvas.
 Positions are not free coordinates. A shape's place on the format comes from three things:
 
 1. **Margins** — the box both shapes are aligned inside. Set per side (linked or not), or
-   derived from the logo: `margin = factor × logo diameter`, the usual clear-space rule.
+   derived from the logo: `margin = factor × logo width`, the usual clear-space rule.
 2. **Position in format** — which of the nine points of the margin box the shape goes to.
 3. **Anchor point** — which of the nine points *of the shape* lands on it.
 
@@ -41,7 +41,13 @@ corners). Underneath it the full CSS surface is editable: 1–4 values, `px` or 
 units, and independent horizontal/vertical radii for elliptical corners. The `border-radius` field
 takes any valid shorthand — e.g. `12px 40% 0 8px / 20px 10% 5px 8px` — and the handles follow it.
 
-**Logo** — a circle placeholder: diameter, position, anchor, fill. Its width can drive the margins.
+**Logo** — a placeholder shape: position, anchor, fill, and a **width and height that can each be
+given in `px` or as a percentage of the format height**. A percentage is a share of the format
+*height* for both dimensions, so the logo keeps its proportion when the format changes — set it to
+12% and it is 162 on a 1350-high format, 240 on a 2000-high one. Height follows width while *keep
+it circular* is on (uncheck it for an ellipse, which also gives you all eight resize handles).
+Switching units converts the value, so the size on screen does not jump. Its width is what the
+margin rule multiplies, so a percentage logo gives you margins that scale with the format too.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift

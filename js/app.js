@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v2";
+  var STORAGE_KEY = "bos.design.v3";
   var KEY_STORAGE = "bos.comfy.key";
   var MIN_SIZE = 1;
 
@@ -52,7 +52,7 @@
 
   function defaults() {
     return {
-      v: 2,
+      v: 3,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -68,7 +68,9 @@
         }
       },
       logo: {
-        visible: true, d: 160,
+        visible: true,
+        // a length is a number plus a unit: px, or a share of the FORMAT HEIGHT
+        w: { v: 12, u: "%" }, h: { v: 12, u: "%" }, lock: true,
         align: { h: "left", v: "top" }, anchor: { h: "left", v: "top" },
         fill: "#e6e9ef"
       },
@@ -102,6 +104,10 @@
       });
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
+      ["w", "h"].forEach(function (k) {
+        var len = s.logo[k];
+        if (!len || typeof len !== "object" || !isFinite(len.v)) s.logo[k] = { v: 12, u: "%" };
+      });
       return Object.assign(d, s);
     } catch (e) { return null; }
   }
@@ -124,10 +130,42 @@
 
   /* --------------------------------------------------------------- geometry */
 
+  // a logo length in stage units; a percentage is a share of the format height,
+  // for the width as well as the height, so the logo scales with the format
+  function lenPx(len) {
+    return len.u === "%" ? len.v / 100 * state.stage.h : len.v;
+  }
+
+  function logoSize() {
+    var lg = state.logo;
+    var w = Math.max(MIN_SIZE, lenPx(lg.w));
+    return { w: w, h: lg.lock ? w : Math.max(MIN_SIZE, lenPx(lg.h)) };
+  }
+
+  function setLogoPx(axis, px) {
+    var lg = state.logo, len = lg[axis];
+    var v = len.u === "%" ? px / Math.max(1, state.stage.h) * 100 : px;
+    len.v = Math.max(state.round ? 1 : 0.1, snap(v));
+    if (lg.lock) {
+      var other = axis === "w" ? lg.h : lg.w;
+      other.v = len.v; other.u = len.u;
+    }
+  }
+
+  function setLogoUnit(axis, u) {
+    var lg = state.logo, len = lg[axis], px = lenPx(len);
+    len.u = u;
+    len.v = Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, state.stage.h) * 100 : px));
+    if (lg.lock) {
+      var other = axis === "w" ? lg.h : lg.w;
+      other.v = len.v; other.u = len.u;
+    }
+  }
+
   function margins() {
     var m = state.margin;
     if (m.mode === "logo") {
-      var v = snap(m.factor * state.logo.d);
+      var v = snap(m.factor * logoSize().w);
       return { top: v, right: v, bottom: v, left: v };
     }
     return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
@@ -144,7 +182,7 @@
   }
 
   function sizeOf(name) {
-    if (name === "logo") return { w: state.logo.d, h: state.logo.d };
+    if (name === "logo") return logoSize();
     var c = content();
     return { w: state.rect.full ? c.w : state.rect.w, h: state.rect.h };
   }
@@ -341,7 +379,7 @@
   }
 
   function frameHandles(name) {
-    var sizes = name === "logo" ? ["nw", "ne", "se", "sw"]
+    var sizes = name === "logo" && state.logo.lock ? ["nw", "ne", "se", "sw"]
       : ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
     var html = sizes.map(function (d) { return '<span class="handle size" data-dir="' + d + '"></span>'; }).join("");
     if (name === "rect") {
@@ -358,7 +396,8 @@
     var shown = name && state[name] && state[name].visible;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
-    if (frameFor !== name) { els.frame.innerHTML = frameHandles(name); frameFor = name; }
+    var key = name + (name === "logo" && state.logo.lock ? ":circle" : "");
+    if (frameFor !== key) { els.frame.innerHTML = frameHandles(name); frameFor = key; }
 
     var b = box(name);
     Object.assign(els.frame.style, shapeStyle(name, s));
@@ -402,7 +441,12 @@
       var b = box("rect");
       parts.push("Rectangle " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
     }
-    if (state.logo.visible) parts.push("Logo ⌀" + fmt(state.logo.d) + " — " + state.logo.align.v + " " + state.logo.align.h);
+    if (state.logo.visible) {
+      var lg = state.logo, lb = box("logo");
+      parts.push("Logo " + fmt(lb.w) + " × " + fmt(lb.h) +
+        (lg.w.u === "%" ? " (" + fmt(lg.w.v) + "% of height)" : "") +
+        " — " + lg.align.v + " " + lg.align.h);
+    }
     els.readout.textContent = parts.join("   ·   ");
   }
 
@@ -464,6 +508,12 @@
       lines.push(positionCSS("logo", "  "));
       lines.push("  border-radius: 50%;");
       lines.push("  background: " + state.logo.fill + ";");
+      var lg = state.logo;
+      if (lg.w.u === "%" || lg.h.u === "%") {
+        lines.push("  /* sized from the format height: " +
+          (lg.w.u === "%" ? "width " + fmt(lg.w.v) + "%" : "width " + fmt(lg.w.v) + "px") + ", " +
+          (lg.h.u === "%" ? "height " + fmt(lg.h.v) + "%" : "height " + fmt(lg.h.v) + "px") + " */");
+      }
       lines.push("}");
     }
     els.cssOut.textContent = lines.join("\n");
@@ -561,7 +611,7 @@
       input.disabled = m.mode === "logo";
     });
     $("#margin-hint").textContent = m.mode === "logo"
-      ? "Every margin is " + m.factor + " × the logo diameter (" + fmt(lg.d) + ") = " + fmt(mm.top) + "."
+      ? "Every margin is " + m.factor + " × the logo width (" + fmt(logoSize().w) + ") = " + fmt(mm.top) + "."
       : "The margins define the box both shapes are aligned inside.";
 
     $("#rect-visible").checked = r.visible;
@@ -591,7 +641,15 @@
 
     $("#logo-visible").checked = lg.visible;
     syncGrid("#logo-align", lg); syncGrid("#logo-anchor", lg);
-    setValue($("#logo-d"), fmt(lg.d));
+    setValue($("#logo-w"), fmt(lg.w.v));
+    setValue($("#logo-h"), fmt(lg.h.v));
+    $("#logo-wu").value = lg.w.u;
+    $("#logo-hu").value = lg.h.u;
+    $("#logo-lock").checked = lg.lock;
+    $("#logo-h").disabled = lg.lock;
+    $("#logo-hu").disabled = lg.lock;
+    $("#logo-size-hint").textContent = "Logo " + fmt(logoSize().w) + " × " + fmt(logoSize().h) +
+      " on a " + fmt(state.stage.h) + " high format.";
     $("#logo-fill").value = lg.fill;
 
     document.body.classList.toggle("sel-rect", state.sel === "rect");
@@ -686,7 +744,14 @@
     onInput("#rect-fill", function (el) { state.rect.fill = el.value; });
 
     onChange("#logo-visible", function (el) { state.logo.visible = el.checked; if (el.checked) state.sel = "logo"; });
-    numInput("#logo-d", function (v) { state.logo.d = snap(v); }, MIN_SIZE);
+    numInput("#logo-w", function (v) { state.logo.w.v = snap(v); if (state.logo.lock) state.logo.h = { v: state.logo.w.v, u: state.logo.w.u }; }, 0);
+    numInput("#logo-h", function (v) { state.logo.h.v = snap(v); }, 0);
+    onChange("#logo-wu", function (el) { setLogoUnit("w", el.value); });
+    onChange("#logo-hu", function (el) { setLogoUnit("h", el.value); });
+    onChange("#logo-lock", function (el) {
+      state.logo.lock = el.checked;
+      if (el.checked) state.logo.h = { v: state.logo.w.v, u: state.logo.w.u };
+    });
     onInput("#logo-fill", function (el) { state.logo.fill = el.value; });
 
     ["#rect-align", "#rect-anchor", "#logo-align", "#logo-anchor"].forEach(function (id) {
@@ -797,7 +862,8 @@
     state.stage.w = Math.round(state.stage.w); state.stage.h = Math.round(state.stage.h);
     SIDES.forEach(function (s) { state.margin[s] = Math.round(state.margin[s]); });
     r.w = Math.round(r.w); r.h = Math.round(r.h);
-    state.logo.d = Math.round(state.logo.d);
+    state.logo.w.v = Math.max(1, Math.round(state.logo.w.v));
+    state.logo.h.v = Math.max(1, Math.round(state.logo.h.v));
     CORNERS.forEach(function (n) {
       var c = r.corners[n]; c.x = Math.round(c.x); c.y = Math.round(c.y);
     });
@@ -873,7 +939,11 @@
       var p = toStage(ev);
       var dx = (p.x - start.x) * sx * kx, dy = (p.y - start.y) * sy * ky;
       if (name === "logo") {
-        state.logo.d = Math.max(MIN_SIZE, snap(s0.w + (dx + dy) / 2));
+        if (state.logo.lock) setLogoPx("w", s0.w + (sx && sy ? (dx + dy) / 2 : sx ? dx : dy));
+        else {
+          if (sx) setLogoPx("w", s0.w + dx);
+          if (sy) setLogoPx("h", s0.h + dy);
+        }
         return;
       }
       var w = sx ? Math.max(MIN_SIZE, s0.w + dx) : s0.w;
@@ -910,7 +980,7 @@
         : side === "top" ? p.y : st.h - p.y;
       v = Math.max(0, snap(v));
       if (state.margin.mode === "logo") {
-        state.margin.factor = round(Math.max(0, v / Math.max(MIN_SIZE, state.logo.d)), 3);
+        state.margin.factor = round(Math.max(0, v / Math.max(MIN_SIZE, logoSize().w)), 3);
       } else setMargin(side, v);
     });
   }

@@ -165,9 +165,24 @@
         <div class="field"><span>Anchor point</span><div class="grid3" id="logo-anchor"></div></div>
       </div>
       <div class="row">
-        <label class="field"><span>Diameter</span><input type="number" id="logo-d" min="1" step="1"></label>
-        <label class="field color"><span>Fill</span><input type="color" id="logo-fill"></label>
+        <label class="field"><span>Width</span><input type="number" id="logo-w" min="0" step="1"></label>
+        <label class="field unit"><span>Unit</span>
+          <select id="logo-wu"><option value="px">px</option><option value="%">% of height</option></select>
+        </label>
       </div>
+      <div class="row">
+        <label class="field"><span>Height</span><input type="number" id="logo-h" min="0" step="1"></label>
+        <label class="field unit"><span>Unit</span>
+          <select id="logo-hu"><option value="px">px</option><option value="%">% of height</option></select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="logo-lock"><span>Keep it circular — height follows width</span></label>
+      <div class="row">
+        <label class="field color grow"><span>Fill</span><input type="color" id="logo-fill"></label>
+      </div>
+      <p class="hint" id="logo-size-hint"></p>
+      <p class="hint">A percentage is a share of the <b>format height</b> — for the width as well as
+        the height — so the logo keeps its proportion when the format changes.</p>
     </details>
 
     <details class="group">

@@ -82,6 +82,7 @@ body{
 .row .field.color.grow{flex:1 1 100%}
 .field.seed-btn{flex:0 0 auto;justify-content:flex-end}
 #margin-factor-field{flex:0 0 78px}
+.row .field.unit{flex:0 0 118px}
 
 input[type=number],input[type=text],input[type=password],select,textarea{
   width:100%;padding:7px 9px;
