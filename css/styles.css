@@ -229,17 +229,17 @@ body.panning .viewport{cursor:grabbing}
 }
 .stage-image{position:absolute;inset:0;pointer-events:none}
 
-.guides{position:absolute;inset:0}
+.guides{position:absolute;inset:0;--guide:#ffffff}
 .guide{position:absolute;pointer-events:auto}
-.guide::before{content:"";position:absolute;background:rgba(255,255,255,.22)}
+.guide::before{content:"";position:absolute}
 .guide.h{left:0;right:0;height:11px;margin-top:-5px;cursor:ns-resize}
 .guide.h::before{left:0;right:0;top:5px;height:1px;
-  background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 5px,transparent 5px 10px)}
+  background:repeating-linear-gradient(90deg,var(--guide) 0 5px,transparent 5px 10px);opacity:.75}
 .guide.v{top:0;bottom:0;width:11px;margin-left:-5px;cursor:ew-resize}
 .guide.v::before{top:0;bottom:0;left:5px;width:1px;
-  background:repeating-linear-gradient(180deg,rgba(255,255,255,.5) 0 5px,transparent 5px 10px)}
-.guide.h:hover::before{background:repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 10px)}
-.guide.v:hover::before{background:repeating-linear-gradient(180deg,var(--accent) 0 5px,transparent 5px 10px)}
+  background:repeating-linear-gradient(180deg,var(--guide) 0 5px,transparent 5px 10px);opacity:.75}
+.guide.h:hover::before{background:repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 10px);opacity:1}
+.guide.v:hover::before{background:repeating-linear-gradient(180deg,var(--accent) 0 5px,transparent 5px 10px);opacity:1}
 
 .shape{position:absolute}
 .shape.logo:not(.has-image){border-radius:50%}

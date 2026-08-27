@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v5";
+  var STORAGE_KEY = "bos.design.v6";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -98,7 +98,7 @@
 
   function defaults() {
     return {
-      v: 5,
+      v: 6,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -147,6 +147,7 @@
           { visible: true, level: "h6", align: "left", text: "Call to action" }
         ]
       },
+      guides: { mode: "auto", color: "#ff2d55" },
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
       showRail: true,
       sel: "rect"
@@ -184,7 +185,7 @@
       if (!raw) return null;
       var s = JSON.parse(raw), d = defaults();
       if (s.v !== d.v) return null;
-      ["stage", "bg", "comfy", "margin", "logo", "view", "text"].forEach(function (k) {
+      ["stage", "bg", "comfy", "margin", "logo", "view", "text", "guides"].forEach(function (k) {
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
@@ -213,6 +214,74 @@
 
   function fh(k) { return k === "left" ? 0 : k === "center" ? .5 : 1; }
   function fv(k) { return k === "top" ? 0 : k === "middle" ? .5 : 1; }
+
+  /* ------------------------------------------------- guide contrast colour */
+
+  function hexRgb(hex) {
+    var h = String(hex || "").replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-f]{6}$/i.test(h)) return { r: 0, g: 0, b: 0 };
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+  }
+
+  function luminance(c) {
+    var f = function (v) {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  }
+
+  // average colour of a background image, once it has been read; null while pending
+  var imageColours = {};
+  function imageColour(src) {
+    if (Object.prototype.hasOwnProperty.call(imageColours, src)) return imageColours[src];
+    imageColours[src] = null;
+    var img = new Image();
+    if (!/^data:/.test(src)) img.crossOrigin = "anonymous";
+    img.onload = function () {
+      try {
+        var n = 24, cv = document.createElement("canvas");
+        cv.width = n; cv.height = n;
+        var ctx = cv.getContext("2d");
+        ctx.drawImage(img, 0, 0, n, n);
+        var d = ctx.getImageData(0, 0, n, n).data, r = 0, g = 0, b = 0, count = 0;
+        for (var i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 8) continue;                 // ignore transparent pixels
+          r += d[i]; g += d[i + 1]; b += d[i + 2]; count++;
+        }
+        if (count) {
+          imageColours[src] = { r: r / count, g: g / count, b: b / count };
+          render();
+        }
+      } catch (e) {
+        // a cross-origin image taints the canvas and cannot be read — stay with the stage colour
+      }
+    };
+    img.src = src;
+    return null;
+  }
+
+  // what the guides actually sit on: the stage colour, with any image blended over it
+  function backdropColour() {
+    var base = hexRgb(state.stage.bg), bg = state.bg;
+    if (!bg.src) return base;
+    var over = imageColour(bg.src) || { r: 128, g: 128, b: 128 };   // assume mid grey until it is read
+    var a = clamp(bg.opacity / 100, 0, 1);
+    return {
+      r: base.r * (1 - a) + over.r * a,
+      g: base.g * (1 - a) + over.g * a,
+      b: base.b * (1 - a) + over.b * a
+    };
+  }
+
+  // white and black swap over at this luminance — the point where both contrast equally
+  var CONTRAST_PIVOT = Math.sqrt(1.05 * 0.05) - 0.05;
+
+  function guideColour() {
+    if (state.guides.mode === "manual") return state.guides.color;
+    return luminance(backdropColour()) > CONTRAST_PIVOT ? "#101318" : "#ffffff";
+  }
 
   /* --------------------------------------------------------------- geometry */
 
@@ -592,6 +661,7 @@
       width: st.w * s + "px", height: st.h * s + "px", left: p.x + "px", top: p.y + "px"
     });
 
+    els.guides.style.setProperty("--guide", guideColour());
     var m = margins();
     els.guides.querySelector("[data-side=top]").style.top = m.top * s + "px";
     els.guides.querySelector("[data-side=bottom]").style.top = (st.h - m.bottom) * s + "px";
@@ -1014,6 +1084,15 @@
       setValue(input, fmt(mm[s]));
       input.disabled = m.mode !== "manual";
     });
+    var gm = state.guides.mode, gc = guideColour();
+    $("#guide-mode").value = gm;
+    $("#guide-color").value = gm === "manual" ? state.guides.color : gc;
+    $("#guide-color").disabled = gm === "auto";
+    $("#guide-hint").textContent = gm === "auto"
+      ? "Following the background: " + gc.toUpperCase() + " on " +
+        (state.bg.src ? "the background image" : state.stage.bg.toUpperCase()) + "."
+      : "Fixed at " + state.guides.color.toUpperCase() + ".";
+
     $("#margin-hint").textContent = m.mode === "manual"
       ? "The margins define the box both shapes are aligned inside."
       : "Every margin is " + m.factor + " × the logo " + (m.mode === "logoH" ? "height" : "width") +
@@ -1145,6 +1224,15 @@
       render();
     });
     $("#cf-generate").addEventListener("click", generate);
+
+    onChange("#guide-mode", function (el) {
+      if (el.value === "manual") state.guides.color = guideColour();   // start from what is on screen
+      state.guides.mode = el.value;
+    });
+    onInput("#guide-color", function (el) {
+      state.guides.color = el.value;
+      state.guides.mode = "manual";
+    });
 
     onChange("#margin-mode", function (el) {
       if (el.value === "manual" && state.margin.mode !== "manual") {

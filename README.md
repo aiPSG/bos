@@ -24,6 +24,12 @@ Dragging a shape therefore snaps it to the nearest of the nine positions (the ce
 you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
 from the logo.
 
+The dashed guides that mark the margin box pick their own colour: the app works out the luminance
+of what sits behind them — the stage colour, with the average colour of a background image blended
+over it by its opacity — and takes whichever of black or white contrasts more. The crossover is the
+luminance where the two are equal, so the guides never wash out on a pale format or disappear on a
+dark one. **Guide colour** in the Margins section switches that to a colour you pick instead.
+
 ## What you can set
 
 **Format** — width and height, or a preset (square, 4:5, 9:16, 16:9, A5, A4); background colour;
