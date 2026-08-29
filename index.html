@@ -139,8 +139,12 @@
         <label class="field"><span>Height</span><input type="number" id="rect-h" min="1" step="1"></label>
       </div>
       <div class="row">
-        <label class="field color grow"><span>Fill</span><input type="color" id="rect-fill"></label>
+        <label class="field"><span>Snap to</span>
+          <select id="rect-grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>
+        </label>
+        <label class="field color"><span>Fill</span><input type="color" id="rect-fill"></label>
       </div>
+      <p class="hint" id="rect-grid-hint"></p>
     </details>
 
     <details class="group" open>
@@ -281,21 +285,14 @@
     <details class="group" open>
       <summary><h2>Text blocks</h2></summary>
       <div class="row">
-        <label class="field"><span>Padding</span><input type="number" id="text-padding" min="0" step="1"></label>
-        <label class="field"><span>Gap</span><input type="number" id="text-gap" min="0" step="1"></label>
+        <label class="field grow"><span>Side padding — the column the blocks run in</span>
+          <input type="number" id="text-padding" min="0" step="1"></label>
       </div>
-      <label class="field grow"><span>Stack sits</span>
-        <select id="text-align">
-          <option value="top">At the top of the box</option>
-          <option value="middle">In the middle of the box</option>
-          <option value="bottom">At the bottom of the box</option>
-        </select>
-      </label>
-      <label class="check"><input type="checkbox" id="text-snap"><span>Snap the stack to the baseline grid</span></label>
-      <p class="hint" id="text-snap-hint"></p>
       <div id="text-blocks"></div>
-      <p class="hint">The blocks fill the rectangle. The box stays visible while any block has
-        text, even with the rectangle itself switched off.</p>
+      <p class="hint" id="text-rows-hint"></p>
+      <p class="hint">Each block sits on a row of its own, counted from the top margin, and can be
+        dragged up and down on the canvas. Its baseline lands on that line exactly. The box stays
+        visible while any block has text, even with the rectangle itself switched off.</p>
     </details>
 
     <details class="group">

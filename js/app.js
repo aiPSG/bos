@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v7";
+  var STORAGE_KEY = "bos.design.v8";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -128,14 +128,14 @@
 
   function defaults() {
     return {
-      v: 7,
+      v: 8,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       margin: { mode: "manual", factor: 1, linked: true, top: 80, right: 80, bottom: 80, left: 80 },
       round: true,
       rect: {
-        visible: true, w: 520, h: 360, full: false,
+        visible: true, w: 520, h: 360, full: false, grid: 2,
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", linked: true, elliptical: false,
         corners: {
@@ -169,12 +169,13 @@
         editing: "headline"
       },
       text: {
-        padding: 48, gap: 14, align: "middle", snapGrid: true,
+        padding: 48,
+        // each block sits on a row of its own, counted from the top margin
         blocks: [
-          { visible: true, role: "headline", align: "left", text: "Headline goes here" },
-          { visible: true, role: "subline", align: "left", text: "A subline carrying the second thought" },
-          { visible: true, role: "paragraph", align: "left", text: "A supporting line of copy that explains the headline in a few words." },
-          { visible: true, role: "smallprint", align: "left", text: "Small print: terms, credits and the things set in the quiet size." }
+          { visible: true, role: "headline", align: "left", row: 28, grid: 1, text: "Headline goes here" },
+          { visible: true, role: "subline", align: "left", row: 31, grid: 1, text: "A subline carrying the second thought" },
+          { visible: true, role: "paragraph", align: "left", row: 34, grid: 1, text: "A supporting line of copy that explains the headline in a few words." },
+          { visible: true, role: "smallprint", align: "left", row: 72, grid: 2, text: "Small print: terms, credits and the things set in the quiet size." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -361,19 +362,38 @@
     };
   }
 
+  // the row height of grid 1 or grid 2
+  function gridUnit(which) {
+    return which === 1 ? baseline() : baseline() / 2;
+  }
+
+  // y of a grid line, counted from the top margin
+  function rowY(row, which) {
+    return margins().top + row * gridUnit(which);
+  }
+
+  // the nearest grid line to a y position
+  function snapY(y, which) {
+    var u = gridUnit(which), top = margins().top;
+    return top + Math.round((y - top) / u) * u;
+  }
+
   function sizeOf(name) {
     if (name === "logo") return logoSize();
-    var c = content();
-    return { w: state.rect.full ? c.w : state.rect.w, h: state.rect.h };
+    var c = content(), u = gridUnit(state.rect.grid);
+    // the rectangle stands a whole number of rows tall
+    return { w: state.rect.full ? c.w : state.rect.w, h: Math.max(u, Math.round(state.rect.h / u) * u) };
   }
 
   // anchor point of the shape lands on the aligned point of the content box
   function box(name) {
     var el = state[name], c = content(), s = sizeOf(name);
+    var y = c.y + c.h * fv(el.align.v) - s.h * fv(el.anchor.v);
+    // and its top edge sits on a grid line
+    if (name === "rect") y = snapY(y, state.rect.grid);
     return {
       x: c.x + c.w * fh(el.align.h) - s.w * fh(el.anchor.h),
-      y: c.y + c.h * fv(el.align.v) - s.h * fv(el.anchor.v),
-      w: s.w, h: s.h
+      y: y, w: s.w, h: s.h
     };
   }
 
@@ -670,41 +690,17 @@
     return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
-  // ascent and descent as a share of the font size, measured once per family+weight.
-  // these are what decide where the browser puts the baseline inside a line box
-  var metricsCache = {};
-  function fontMetrics(weight) {
-    var key = weight + "|" + familyStack();
-    if (metricsCache[key]) return metricsCache[key];
-    var m = { a: 0.8, d: 0.2 };                       // a sane guess if the API is missing
-    try {
-      var cv = metricsCache._cv || (metricsCache._cv = document.createElement("canvas"));
-      var ctx = cv.getContext("2d");
-      ctx.font = weight + " 100px " + familyStack();
-      var t = ctx.measureText("Hxpg");
-      if (t.fontBoundingBoxAscent && t.fontBoundingBoxDescent) {
-        m = { a: t.fontBoundingBoxAscent / 100, d: t.fontBoundingBoxDescent / 100 };
-      }
-    } catch (e) {}
-    metricsCache[key] = m;
-    return m;
-  }
-
-  // distance from the top of a role's line box down to its baseline, in format units
+  // where a role's baseline sits inside its own box, in format units. measured on the
+  // main stage (see placeBlocks) and reused everywhere, since it scales with the type
+  var blOffset = {};
   function baselineInBox(role) {
-    var size = rolePx(role), lead = size * roleLh(role);
-    var m = fontMetrics(state.type.roles[role].weight);
-    var content = (m.a + m.d) * size;                 // the font's own content area
-    return (lead - content) / 2 + m.a * size;         // half-leading, then the ascender
+    if (blOffset[role] > 0) return blOffset[role];
+    var size = rolePx(role);
+    return (size * roleLh(role) - size) / 2 + size * 0.8;      // close enough for one frame
   }
 
-  // the gap between blocks, snapped to the half baseline so the rhythm holds
-  function textGap() {
-    if (!state.text.snapGrid) return state.text.gap;
-    var unit = baseline() / 2;
-    if (state.text.gap <= 0) return 0;
-    // never round a real gap away to nothing on a coarse grid
-    return Math.max(1, Math.round(state.text.gap / unit)) * unit;
+  function textVisible() {
+    return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
   function paintText(rectEl, s) {
@@ -733,15 +729,14 @@
         stack.appendChild(el);
       });
     }
-    Object.assign(stack.style, {
-      inset: t.padding * s + "px",
-      gap: textGap() * s + "px",
-      justifyContent: t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center",
-      fontFamily: familyStack()
-    });
+    Object.assign(stack.style, { inset: t.padding * s + "px", fontFamily: familyStack() });
+
+    var origin = box("rect").y + t.padding;                    // top of the stack, in format units
     Array.prototype.forEach.call(stack.children, function (el, i) {
       var b = blocks[i], st = state.type.roles[b.role];
+      el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
+        top: (rowY(b.row, b.grid) - baselineInBox(b.role) - origin) * s + "px",
         fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
@@ -753,30 +748,31 @@
     });
   }
 
-  // line boxes and gaps are whole grid rows, but a baseline sits inside its box —
-  // half-leading plus the ascender — so each block gets nudged onto its grid line.
-  // the shift is relative, so it moves the type without disturbing the spacing
-  function alignBaselines(stack, s) {
+  // pull each block so its first baseline lands exactly on the row it was given, and
+  // remember how far the baseline sits inside the box so the next paint starts there
+  function placeBlocks(stack, s) {
     if (!stack || stack.hidden) return;
     var blocks = state.text.blocks.filter(function (b) { return b.visible && b.text.trim(); });
     var kids = Array.prototype.slice.call(stack.children);
     if (kids.length !== blocks.length) return;
 
-    kids.forEach(function (el) { el.style.top = "0px"; });
-    if (!state.text.snapGrid) return;
-
-    var stageTop = els.stage.getBoundingClientRect().top + margins().top * s;
-    var shifts = kids.map(function (el, i) {
-      var role = blocks[i].role;
-      var unit = roleUnit(role) * s;
-      if (!(unit > 0.5)) return 0;
+    var stageTop = els.stage.getBoundingClientRect().top;
+    var reads = kids.map(function (el, i) {
       var probe = el._probe || el.querySelector(".bl-probe");
-      if (!probe) return 0;
-      var fromGrid = probe.getBoundingClientRect().bottom - stageTop;
-      var r = ((fromGrid % unit) + unit) % unit;
-      return r <= unit / 2 ? -r : unit - r;          // whichever grid line is nearer
+      if (!probe) return null;
+      var r = el.getBoundingClientRect();
+      return {
+        top: parseFloat(el.style.top) || 0,
+        boxTop: r.top - stageTop,
+        baseline: probe.getBoundingClientRect().bottom - stageTop,
+        target: rowY(blocks[i].row, blocks[i].grid) * s
+      };
     });
-    kids.forEach(function (el, i) { el.style.top = shifts[i] + "px"; });
+    reads.forEach(function (r, i) {
+      if (!r) return;
+      blOffset[blocks[i].role] = (r.baseline - r.boxTop) / s;
+      kids[i].style.top = r.top + (r.target - r.baseline) + "px";
+    });
   }
 
   // draw the whole design into host at format fw x fh, scaled by s
@@ -844,7 +840,7 @@
     els.guides.querySelector("[data-side=right]").style.left = (st.w - m.right) * s + "px";
 
     renderBaseline(s);
-    alignBaselines(els.stage._rect && els.stage._rect._text, s);
+    placeBlocks(els.stage._rect && els.stage._rect._text, s);
     renderFrame(s);
     renderRail();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
@@ -1074,15 +1070,16 @@
       lines.push(".rectangle .text {");
       lines.push("  position: absolute;");
       lines.push("  inset: " + fmt(t.padding) + "px;");
-      lines.push("  display: flex;");
-      lines.push("  flex-direction: column;");
-      lines.push("  justify-content: " +
-        (t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center") + ";");
-      lines.push("  gap: " + fmt(t.gap) + "px;");
       lines.push("  font-family: " + familyStack() + ";");
       lines.push("}");
       lines.push("");
-      lines.push(".rectangle .text > * { margin: 0; }");
+      lines.push(".rectangle .text > * { position: absolute; left: 0; right: 0; margin: 0; }");
+      var origin = box("rect").y + t.padding;
+      used.forEach(function (b, i) {
+        lines.push(".rectangle .text > :nth-child(" + (i + 1) + ") { top: " +
+          round(rowY(b.row, b.grid) - baselineInBox(b.role) - origin, 2) + "px; }" +
+          "  /* baseline on row " + b.row + " of grid " + b.grid + " */");
+      });
       lines.push("/* grid 1: " + gridRows() + " rows of " + round(baseline(), 3) + "px filling the " +
         round(contentH(), 2) + "px content height; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
 
@@ -1255,6 +1252,11 @@
           "</select>" +
         "</div>" +
         '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
+        '<div class="block-row">' +
+          "<span>Row</span>" +
+          '<input type="number" step="1" data-block="row">' +
+          '<select data-block="grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>' +
+        "</div>" +
         '<div class="seg" data-block="align">' +
           ["left", "center", "right"].map(function (a) {
             return '<button type="button" data-align="' + a + '">' + a[0].toUpperCase() + a.slice(1) + "</button>";
@@ -1337,6 +1339,11 @@
 
     $("#rect-visible").checked = r.visible;
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
+    $("#rect-grid").value = String(r.grid);
+    var rb = box("rect");
+    $("#rect-grid-hint").textContent = "Height " + fmt(r.h) + " runs as " + round(rb.h, 2) + " — " +
+      Math.round(rb.h / gridUnit(r.grid)) + " rows of grid " + r.grid + " — and the top edge sits on row " +
+      round((rb.y - margins().top) / gridUnit(r.grid), 2) + ".";
     $("#rect-full").checked = r.full;
     $("#rect-w").disabled = r.full;
     setValue($("#rect-w"), fmt(sizeOf("rect").w));
@@ -1419,19 +1426,15 @@
         : "Free: the typed line height is used as it is, off both grids.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
-    setValue($("#text-gap"), fmt(state.text.gap));
-    $("#text-align").value = state.text.align;
-    $("#text-snap").checked = state.text.snapGrid;
-    $("#text-snap-hint").textContent = !state.text.snapGrid
-      ? "Padding and gap are used exactly as typed."
-      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) +
-        " — a whole number of grid 2 rows — and every block is nudged so its baselines sit on its own " +
-        "grid line, whatever the stack alignment.";
+    $("#text-rows-hint").textContent = "Grid 1 has " + gridRows() + " rows of " + round(baseline(), 2) +
+      " px; grid 2 has " + gridRows() * 2 + " of " + round(baseline() / 2, 2) + " px. Row 0 is the top margin.";
     Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
       var b = state.text.blocks[i];
       row.querySelector('[data-block="visible"]').checked = b.visible;
       row.querySelector('[data-block="role"]').value = b.role;
       setValue(row.querySelector('[data-block="text"]'), b.text);
+      setValue(row.querySelector('[data-block="row"]'), b.row);
+      row.querySelector('[data-block="grid"]').value = String(b.grid);
       Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
         btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
       });
@@ -1694,15 +1697,14 @@
     onChange("#type-transform", function (el) { styleOf().transform = el.value; });
     onInput("#type-color", function (el) { styleOf().color = el.value; });
 
-    onChange("#text-snap", function (el) { state.text.snapGrid = el.checked; });
     numInput("#text-padding", function (v) { state.text.padding = snap(v); }, 0);
-    numInput("#text-gap", function (v) { state.text.gap = snap(v); }, 0);
-    onChange("#text-align", function (el) { state.text.align = el.value; });
+    onChange("#rect-grid", function (el) { state.rect.grid = +el.value; });
     $("#text-blocks").addEventListener("input", function (e) {
       var row = e.target.closest(".block");
       if (!row) return;
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "text") b.text = e.target.value;
+      else if (what === "row" && e.target.value !== "") b.row = Math.round(num(e.target.value, b.row));
       else return;
       render();
     });
@@ -1712,7 +1714,11 @@
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "visible") b.visible = e.target.checked;
       else if (what === "role") b.role = e.target.value;
-      else return;
+      else if (what === "grid") {
+        var y = rowY(b.row, b.grid);                       // keep it where it is
+        b.grid = +e.target.value;
+        b.row = Math.round((y - margins().top) / gridUnit(b.grid));
+      } else return;
       render();
     });
     $("#text-blocks").addEventListener("click", function (e) {
@@ -1771,7 +1777,6 @@
       var c = r.corners[n]; c.x = Math.round(c.x); c.y = Math.round(c.y);
     });
     state.text.padding = Math.round(state.text.padding);
-    state.text.gap = Math.round(state.text.gap);
     state.type.paragraph = Math.max(0.05, round(state.type.paragraph, 3));
     ROLES.forEach(function (r) {
       var t = state.type.roles[r];
@@ -1835,6 +1840,17 @@
         best(V_KEYS, fv, c.y, c.h, sz.h, mv, el.anchor.v, cy));
       renderCells(name);
     }, function () { els.cells.hidden = true; });
+  }
+
+  // drag a text block up and down; it lands on whole rows of its own grid
+  function startTextDrag(e, index) {
+    var b = state.text.blocks[index];
+    if (!b) return;
+    var start = toStage(e), row0 = b.row;
+    drag(e, function (ev) {
+      var dy = toStage(ev).y - start.y;
+      b.row = row0 + Math.round(dy / gridUnit(b.grid));
+    });
   }
 
   function startResize(e, dir) {
@@ -1903,6 +1919,13 @@
       if (t.classList.contains("handle")) {
         els.frame.focus();
         return t.classList.contains("radius") ? startRadius(e, t.dataset.corner) : startResize(e, t.dataset.dir);
+      }
+      var tb = t.closest && t.closest(".tb");
+      if (tb && tb.dataset.i !== undefined) {
+        state.sel = "rect";
+        els.frame.focus();
+        render();
+        return startTextDrag(e, +tb.dataset.i);
       }
       var shape = t.closest && t.closest(".shape");
       if (shape) {
@@ -2237,7 +2260,7 @@
     "The key is kept in this browser only and sent straight to RunPod — never to this site. " +
     "Anyone with access to this browser profile can read it, so do not use a shared machine, and never commit it to the repository.";
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () { metricsCache = {}; render(); });
+    document.fonts.ready.then(function () { blOffset = {}; render(); });
   }
   state.type.uploads.forEach(registerUpload);
   state.type.google.forEach(loadGoogleFont);

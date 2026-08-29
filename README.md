@@ -38,7 +38,10 @@ dark one. **Guide colour** in the Margins section switches that to a colour you 
 **Background image** — upload a file, paste a URL, or generate one (below). Fit as cover, contain,
 stretch or tile, with an opacity slider.
 
-**Rectangle** — position, anchor, width and height, or **fill the width between the margins**
+**Rectangle** — it rides the baseline grid: its top edge sits on a grid line and its height runs a
+whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
+the panel reports what it runs as. Then: position, anchor, width and height, or **fill the width
+between the margins**
 (`width = format width − left margin − right margin`). While that is on, the width field shows the
 computed value and the margins drive the width.
 
@@ -90,16 +93,17 @@ the type itself. Any role can be set to *Free* to use a typed line height as it 
 Whole line boxes are not enough on their own: a baseline sits *inside* its line box, offset by the
 half-leading plus the font's ascender, so it would still land between the lines. Each block is
 therefore measured after layout — a zero-sized inline probe reports where the browser actually put
-the first baseline — and nudged onto the nearest line of its grid. The nudge is a relative shift, so
-it moves the type without disturbing the spacing, and it works at any stack alignment and with any
-font, including one you upload. Every following line comes along, because line boxes and the gap
-between blocks are whole grid rows. Switch *Snap the stack to the baseline grid* off to use padding
-and gap exactly as typed.
+the first baseline — and moved so that baseline lands on the row it was given. It works with any
+font, including one you upload. Every following line comes along, because line boxes are whole grid
+rows.
 
-**Text blocks** — four blocks fill the rectangle, one per role by default. Each has its own text,
-its own role and its own alignment (left / centre / right). The stack sits at the top, middle or
-bottom of the box. The box stays visible while any block has text, even with the rectangle itself
-switched off, so text can sit straight on the format.
+**Text blocks** — four blocks, **each positioned individually**. A block sits on a **row of its
+own**, counted from the top margin, on grid 1 or grid 2 — type the row number or drag the block up
+and down on the canvas, where it lands on whole rows. Switching a block between the grids keeps it
+where it is and renumbers the row. Each block also has its own text, its own role and its own
+alignment (left / centre / right); the side padding sets the column they all run in. The box stays
+visible while any block has text, even with the rectangle itself switched off, so text can sit
+straight on the format.
 
 **Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*
 design — background, margins, rectangle, corners, logo, type — at that format's dimensions, and
