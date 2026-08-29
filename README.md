@@ -56,23 +56,42 @@ of the format's longest side**, so the logo holds its scale whichever way the fo
 write back in whatever unit is set. Its size is what the margin rule multiplies, so a percentage
 logo gives margins that scale with the format too.
 
-**Typography** — a style per HTML hierarchy: H1–H6, paragraph and small. Each keeps its own size,
-weight, line height, letter spacing, case and **colour**. **Size is a percentage of the format's
-longest side** — the panel shows the pixels it resolves to — and letter spacing is in `em`, so the
-whole type scale travels with the format instead of being re-typed for each one.
+**Typography** — the type scale has four roles: **headline, subline, paragraph and small print**.
 
-The family can be a system stack, **a Google font**, or **a font file you upload** (`.woff2`,
-`.woff`, `.ttf`, `.otf` — registered with the `FontFace` API and kept in this browser). The Google
-picker types-ahead over a list of 124 popular families bundled with the app; paste a free
-[Google Fonts API key](https://developers.google.com/fonts/docs/developer_api) under *List every
-Google font* to replace that with the complete live catalogue, cached in your browser afterwards.
-Google's stylesheet is requested with the usual weights and falls back to the family's own default
-if it does not publish them.
+*Paragraph is the anchor*: its size is a percentage of the format (1.5% of the format height by
+default; the basis can be the height, the longest side or the width). Every other role is a
+**multiple of the paragraph size** — 2.618, 1.618 and 0.5 out of the box — and the panel shows what
+each resolves to in pixels.
 
-**Text blocks** — three blocks fill the rectangle. Each has its own text, its own hierarchy and its
-own alignment (left / centre / right). The stack as a whole sits at the top, middle or bottom of the
-box, with padding and a gap you set. The box stays visible while any block has text, even with the
-rectangle itself switched off, so text can sit straight on the format.
+*Size relations* fills those multiples from a design ratio: the golden and silver ratios, root two,
+three and five, Euler's number, pi, and the musical intervals from a minor second to the octave.
+Picking one sets headline to `ratio²`, subline to `ratio` and small print to `1 / ratio`. **Typing
+over any multiple is always allowed** — the moment you do, the system reads *Custom* and your value
+stands.
+
+Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
+and colour, so the hierarchy is real markup, not just sizes.
+
+**Baseline grid** — the baseline is the paragraph's own line box (paragraph size × its line height);
+a second grid halves it. Both are drawn on the canvas, down the margin box from its top edge, in the
+guide colour — show both, either, or neither.
+
+Every role other than paragraph is **aligned to one of the two grids**: its line height snaps so the
+line box is a whole number of full or half baselines, and the panel reports the arithmetic
+("line height 1.05 snaps to 1.146 so the line box is 2 × full baseline = 60.8 px"). Paragraph
+defines the grid, so its line height is free. Any role can be set to *Free* to use a typed line
+height as it is.
+
+The text stack follows the same rhythm: the gap between blocks runs as a whole number of half
+baselines, and a top-aligned stack is shifted down so its first line box starts exactly on a grid
+line, wherever the rectangle sits. Switch *Snap the stack to the baseline grid* off to use padding
+and gap exactly as typed. Centred and bottom-aligned stacks keep the internal rhythm but float
+relative to the drawn grid.
+
+**Text blocks** — four blocks fill the rectangle, one per role by default. Each has its own text,
+its own role and its own alignment (left / centre / right). The stack sits at the top, middle or
+bottom of the box. The box stays visible while any block has text, even with the rectangle itself
+switched off, so text can sit straight on the format.
 
 **Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*
 design — background, margins, rectangle, corners, logo, type — at that format's dimensions, and

@@ -217,10 +217,34 @@
           catalogue is cached here after the first load.</p>
         <p class="status" id="gf-status"></p>
       </details>
-      <label class="field grow"><span>Hierarchy</span><select id="type-level"></select></label>
+      <h3 class="sub-head">Scale</h3>
       <div class="row">
-        <label class="field"><span>Size <b id="type-size-px"></b></span>
-          <input type="number" id="type-size" min="0.1" step="0.1"></label>
+        <label class="field"><span>Paragraph <b id="type-para-px"></b></span>
+          <input type="number" id="type-para" min="0.05" step="0.05"></label>
+        <label class="field unit"><span>% of</span>
+          <select id="type-basis"></select></label>
+      </div>
+      <label class="field grow"><span>Size relations</span><select id="type-system"></select></label>
+      <div id="type-scale"></div>
+      <p class="hint" id="type-scale-hint"></p>
+
+      <h3 class="sub-head">Baseline grid</h3>
+      <div class="row">
+        <label class="field grow"><span>Show on the canvas</span>
+          <select id="type-grid">
+            <option value="both">Both grids</option>
+            <option value="full">Full baseline only</option>
+            <option value="half">Half baseline only</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" id="type-grid-hint"></p>
+
+      <h3 class="sub-head">Style</h3>
+      <label class="field grow"><span>Role</span><select id="type-level"></select></label>
+      <div class="row">
+        <label class="field"><span>HTML tag</span><select id="type-tag"></select></label>
         <label class="field"><span>Weight</span>
           <select id="type-weight">
             <option>100</option><option>200</option><option>300</option><option>400</option>
@@ -229,11 +253,16 @@
         </label>
       </div>
       <div class="row">
-        <label class="field"><span>Line height</span><input type="number" id="type-lh" min="0.5" step="0.05"></label>
-        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" step="0.005"></label>
+        <label class="field"><span>Line height <b id="type-lh-px"></b></span>
+          <input type="number" id="type-lh" min="0.5" step="0.05"></label>
+        <label class="field"><span>Align to</span><select id="type-snap"></select></label>
       </div>
       <div class="row">
-        <label class="field"><span>Case</span>
+        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" step="0.005"></label>
+        <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
+      </div>
+      <div class="row">
+        <label class="field grow"><span>Case</span>
           <select id="type-transform">
             <option value="none">As typed</option>
             <option value="uppercase">UPPERCASE</option>
@@ -241,11 +270,8 @@
             <option value="capitalize">Capitalise</option>
           </select>
         </label>
-        <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
       </div>
-      <p class="hint">Each hierarchy keeps its own size, weight, spacing, case and colour. <b>Size is a
-        percentage of the format's longest side</b> and letter spacing is in <code>em</code>, so the
-        whole scale travels with the format.</p>
+      <p class="hint" id="type-style-hint"></p>
     </details>
 
     <details class="group" open>
@@ -261,8 +287,10 @@
           <option value="bottom">At the bottom of the box</option>
         </select>
       </label>
+      <label class="check"><input type="checkbox" id="text-snap"><span>Snap the stack to the baseline grid</span></label>
+      <p class="hint" id="text-snap-hint"></p>
       <div id="text-blocks"></div>
-      <p class="hint">The three blocks fill the rectangle. The box stays visible while any block has
+      <p class="hint">The blocks fill the rectangle. The box stays visible while any block has
         text, even with the rectangle itself switched off.</p>
     </details>
 
@@ -299,7 +327,8 @@
             <span class="guide v" data-side="left"></span>
             <span class="guide v" data-side="right"></span>
           </div>
-          <div class="cells" id="cells" hidden></div>
+          <div class="baseline" id="baseline" hidden></div>
+        <div class="cells" id="cells" hidden></div>
           <div class="frame" id="frame" tabindex="0" hidden></div>
         </div>
       </div>

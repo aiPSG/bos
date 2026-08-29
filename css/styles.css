@@ -152,6 +152,21 @@ button.wide{width:100%}
 
 /* ---------- corners ---------- */
 
+h3.sub-head{
+  margin:16px 0 8px;
+  font-size:10px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);
+  padding-top:12px;border-top:1px solid var(--line);
+}
+.group>h3.sub-head:first-of-type{margin-top:12px}
+
+/* the four roles of the type scale */
+.scale-row{display:grid;grid-template-columns:78px 1fr 62px;gap:6px;align-items:center;margin-bottom:6px}
+.scale-row>span{font-size:11px;color:var(--text-dim)}
+.scale-row input{padding:6px 7px;font-size:12px}
+.scale-row .px{font-size:11px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
+.scale-row.anchor>span{color:var(--text)}
+.scale-row.anchor .px{color:var(--accent)}
+
 .corner-head,.corner-row{
   display:grid;grid-template-columns:68px 1fr 44px 1fr 44px;gap:6px;align-items:center;
 }
@@ -254,6 +269,7 @@ body.panning .viewport{cursor:grabbing}
 .overlay{position:absolute;pointer-events:none}
 .overlay>*{pointer-events:auto}
 .overlay .guides{pointer-events:none}
+.baseline{position:absolute;pointer-events:none}
 .cells{position:absolute;inset:0;pointer-events:none}
 .cell{
   position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;

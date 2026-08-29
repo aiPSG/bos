@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v6";
+  var STORAGE_KEY = "bos.design.v7";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -45,11 +45,41 @@
   var GF_CACHE_KEY = "bos.gfonts";
   var GF_KEY_STORAGE = "bos.gfonts.key";
 
-  var LEVELS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "small"];
-  var LEVEL_NAMES = {
-    h1: "H1", h2: "H2", h3: "H3", h4: "H4", h5: "H5", h6: "H6",
-    p: "Paragraph", small: "Small"
+  // the type scale is four roles; paragraph is the anchor and the rest are multiples of it
+  var ROLES = ["headline", "subline", "paragraph", "smallprint"];
+  var ROLE_NAMES = {
+    headline: "Headline", subline: "Subline", paragraph: "Paragraph", smallprint: "Small print"
   };
+  var TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div"];
+  var BASES = [
+    { id: "height", name: "format height" },
+    { id: "long", name: "longest side" },
+    { id: "width", name: "format width" }
+  ];
+
+  // ratios designers reach for; picking one fills the multipliers in, and every one
+  // of them can still be typed over by hand
+  var SCALES = [
+    { id: "minor2", name: "Minor second — 1.067", r: 1.067 },
+    { id: "major2", name: "Major second — 1.125", r: 1.125 },
+    { id: "minor3", name: "Minor third — 1.2", r: 1.2 },
+    { id: "major3", name: "Major third — 1.25", r: 1.25 },
+    { id: "fourth", name: "Perfect fourth — 1.333", r: 4 / 3 },
+    { id: "sqrt2", name: "Root two — 1.414", r: Math.SQRT2 },
+    { id: "fifth", name: "Perfect fifth — 1.5", r: 1.5 },
+    { id: "golden", name: "Golden ratio — 1.618", r: (1 + Math.sqrt(5)) / 2 },
+    { id: "sqrt3", name: "Root three — 1.732", r: Math.sqrt(3) },
+    { id: "octave", name: "Octave — 2", r: 2 },
+    { id: "sqrt5", name: "Root five — 2.236", r: Math.sqrt(5) },
+    { id: "silver", name: "Silver ratio — 2.414", r: 1 + Math.SQRT2 },
+    { id: "e", name: "Euler's number — 2.718", r: Math.E },
+    { id: "pi", name: "Pi — 3.142", r: Math.PI }
+  ];
+  var SNAPS = [
+    { id: "full", name: "Full baseline" },
+    { id: "half", name: "Half baseline" },
+    { id: "free", name: "Free — as typed" }
+  ];
   var FAMILIES = [
     { id: "sans", name: "Sans — system", stack: 'ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif' },
     { id: "serif", name: "Serif", stack: 'ui-serif,Georgia,"Times New Roman",serif' },
@@ -98,7 +128,7 @@
 
   function defaults() {
     return {
-      v: 6,
+      v: 7,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -123,28 +153,28 @@
       },
       type: {
         family: "sans",
-        // one style per HTML hierarchy; sizes are in format units
-        // size is a percentage of the format's longest side; letter spacing is in em,
-        // so both follow the type scale wherever the design is used
-        styles: {
-          h1: { size: 7.2, weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
-          h2: { size: 4.8, weight: 700, lh: 1.1, ls: -0.015, transform: "none", color: "#ffffff" },
-          h3: { size: 3.6, weight: 600, lh: 1.15, ls: -0.01, transform: "none", color: "#ffffff" },
-          h4: { size: 2.7, weight: 600, lh: 1.2, ls: 0, transform: "none", color: "#ffffff" },
-          h5: { size: 2.1, weight: 600, lh: 1.25, ls: 0, transform: "none", color: "#ffffff" },
-          h6: { size: 1.6, weight: 700, lh: 1.3, ls: 0.06, transform: "uppercase", color: "#ffffff" },
-          p: { size: 1.8, weight: 400, lh: 1.45, ls: 0, transform: "none", color: "#ffffff" },
-          small: { size: 1.3, weight: 400, lh: 1.4, ls: 0, transform: "none", color: "#ffffff" }
+        basis: "height",        // what the paragraph percentage measures against
+        paragraph: 1.5,         // percent of that basis — the anchor of the whole scale
+        system: "custom",       // which ratio filled the multipliers in, if any
+        grid: "both",           // baseline grid on the canvas: off | full | half | both
+        // every role is a multiple of the paragraph size; line heights snap to the
+        // baseline grid unless a role is set free
+        roles: {
+          headline:   { mult: 2.618, tag: "h1", snap: "full", weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
+          subline:    { mult: 1.618, tag: "h2", snap: "half", weight: 600, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
+          paragraph:  { mult: 1, tag: "p", snap: "free", weight: 400, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
+          smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
         },
         google: [], uploads: [],
-        editing: "h2"
+        editing: "headline"
       },
       text: {
-        padding: 48, gap: 14, align: "middle",
+        padding: 48, gap: 14, align: "middle", snapGrid: true,
         blocks: [
-          { visible: true, level: "h2", align: "left", text: "Headline goes here" },
-          { visible: true, level: "p", align: "left", text: "A supporting line of copy that explains the headline in a few words." },
-          { visible: true, level: "h6", align: "left", text: "Call to action" }
+          { visible: true, role: "headline", align: "left", text: "Headline goes here" },
+          { visible: true, role: "subline", align: "left", text: "A subline carrying the second thought" },
+          { visible: true, role: "paragraph", align: "left", text: "A supporting line of copy that explains the headline in a few words." },
+          { visible: true, role: "smallprint", align: "left", text: "Small print: terms, credits and the things set in the quiet size." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -189,8 +219,8 @@
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
-      s.type.styles = Object.assign(d.type.styles, s.type.styles);
-      if (!Array.isArray(s.text.blocks) || s.text.blocks.length !== 3) s.text.blocks = d.text.blocks;
+      s.type.roles = Object.assign(d.type.roles, s.type.roles);
+      if (!Array.isArray(s.text.blocks) || !s.text.blocks.length) s.text.blocks = d.text.blocks;
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -438,7 +468,7 @@
   function cacheEls() {
     els.viewport = $("#viewport"); els.stage = $("#stage"); els.frame = $("#frame");
     els.guides = $("#guides"); els.cells = $("#cells"); els.cssOut = $("#css-out");
-    els.overlay = $("#overlay"); els.railList = $("#rail-list");
+    els.overlay = $("#overlay"); els.railList = $("#rail-list"); els.baseline = $("#baseline");
     els.readout = $("#readout"); els.zoomValue = $("#zoom-value"); els.shorthand = $("#radius-shorthand");
   }
 
@@ -558,12 +588,76 @@
     } catch (e) {}
   }
 
-  function fontPx(level) {
-    return state.type.styles[level].size / 100 * longSide();
+  /* ------------------------------------------------ the type scale and grid */
+
+  function typeBasis() {
+    var b = state.type.basis;
+    return b === "long" ? longSide() : b === "width" ? state.stage.w : state.stage.h;
+  }
+
+  // the anchor: paragraph size in format pixels
+  function paraPx() {
+    return Math.max(1, state.type.paragraph / 100 * typeBasis());
+  }
+
+  function rolePx(role) {
+    return Math.max(1, paraPx() * (state.type.roles[role].mult || 1));
+  }
+
+  // the baseline grid is the paragraph's own line box; the second grid is half of it
+  function baseline() {
+    return Math.max(1, paraPx() * state.type.roles.paragraph.lh);
+  }
+
+  // a role's line height, snapped so its line box is a whole number of baselines
+  function roleLh(role) {
+    var r = state.type.roles[role];
+    if (role === "paragraph" || r.snap === "free") return r.lh;
+    var unit = r.snap === "half" ? baseline() / 2 : baseline();
+    var size = rolePx(role);
+    var steps = Math.max(1, Math.round(size * r.lh / unit));
+    return steps * unit / size;
+  }
+
+  // how many baseline steps a role occupies, for the panel to report
+  function roleSteps(role) {
+    var r = state.type.roles[role];
+    if (role === "paragraph" || r.snap === "free") return null;
+    var unit = r.snap === "half" ? baseline() / 2 : baseline();
+    return Math.max(1, Math.round(rolePx(role) * r.lh / unit));
+  }
+
+  function applyScale(id) {
+    var sys = SCALES.filter(function (x) { return x.id === id; })[0];
+    if (!sys) return;
+    var r = state.type.roles;
+    r.headline.mult = round(sys.r * sys.r, 3);
+    r.subline.mult = round(sys.r, 3);
+    r.paragraph.mult = 1;
+    r.smallprint.mult = round(1 / sys.r, 3);
+    state.type.system = id;
   }
 
   function textVisible() {
     return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
+  }
+
+  // the gap between blocks, snapped to the half baseline so the rhythm holds
+  function textGap() {
+    if (!state.text.snapGrid) return state.text.gap;
+    var unit = baseline() / 2;
+    if (state.text.gap <= 0) return 0;
+    // never round a real gap away to nothing on a coarse grid
+    return Math.max(1, Math.round(state.text.gap / unit)) * unit;
+  }
+
+  // shift a top-aligned stack down so its first line box starts on a grid line
+  function textOffset() {
+    if (!state.text.snapGrid || state.text.align !== "top") return 0;
+    var unit = baseline() / 2;
+    var from = box("rect").y + state.text.padding - margins().top;
+    var d = from % unit;
+    return d === 0 ? 0 : (d < 0 ? -d : unit - d);
   }
 
   function paintText(rectEl, s) {
@@ -573,29 +667,32 @@
     if (!blocks.length) { stack.hidden = true; return; }
     stack.hidden = false;
 
-    var sig = blocks.map(function (b) { return b.level + "\u0000" + b.text; }).join("\u0001");
+    var sig = blocks.map(function (b) {
+      return b.role + "\u0000" + state.type.roles[b.role].tag + "\u0000" + b.text;
+    }).join("\u0001");
     if (stack.dataset.sig !== sig) {
       stack.dataset.sig = sig;
       stack.innerHTML = "";
       blocks.forEach(function (b) {
-        var el = document.createElement(b.level === "small" ? "p" : b.level);
-        el.className = "tb";
+        var el = document.createElement(state.type.roles[b.role].tag || "p");
+        el.className = "tb " + b.role;
         el.textContent = b.text;
         stack.appendChild(el);
       });
     }
+    var off = textOffset();
     Object.assign(stack.style, {
-      inset: t.padding * s + "px",
-      gap: t.gap * s + "px",
+      inset: (t.padding + off) * s + "px " + t.padding * s + "px " + t.padding * s + "px",
+      gap: textGap() * s + "px",
       justifyContent: t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center",
       fontFamily: familyStack()
     });
     Array.prototype.forEach.call(stack.children, function (el, i) {
-      var b = blocks[i], st = state.type.styles[b.level];
+      var b = blocks[i], st = state.type.roles[b.role];
       Object.assign(el.style, {
-        fontSize: fontPx(b.level) * s + "px",
+        fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
-        lineHeight: st.lh,
+        lineHeight: roleLh(b.role),
         letterSpacing: st.ls + "em",
         textTransform: st.transform,
         color: st.color,
@@ -668,10 +765,39 @@
     els.guides.querySelector("[data-side=left]").style.left = m.left * s + "px";
     els.guides.querySelector("[data-side=right]").style.left = (st.w - m.right) * s + "px";
 
+    renderBaseline(s);
     renderFrame(s);
     renderRail();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
     renderReadout();
+  }
+
+  // the baseline grid: paragraph line boxes, drawn down the margin box from its top edge
+  function renderBaseline(s) {
+    var mode = state.type.grid;
+    var unit = baseline() * s, m = margins();
+    var c = hexRgb(guideColour());
+    var rgba = function (a) {
+      return "rgba(" + Math.round(c.r) + "," + Math.round(c.g) + "," + Math.round(c.b) + "," + a + ")";
+    };
+    var line = function (step, alpha) {
+      return "repeating-linear-gradient(to bottom," + rgba(alpha) + " 0 1px,transparent 1px " + step + "px)";
+    };
+    var both = mode === "both";
+    var layers = [];
+    // below a few pixels a step reads as hatching rather than a grid, so it drops out
+    if ((mode === "full" || both) && unit >= 4) layers.push(line(unit, 0.24));
+    if ((mode === "half" || both) && unit / 2 >= 5) layers.push(line(unit / 2, both ? 0.1 : 0.22));
+
+    els.baseline.hidden = mode === "off" || !layers.length;
+    if (els.baseline.hidden) return;
+    Object.assign(els.baseline.style, {
+      top: m.top * s + "px",
+      left: m.left * s + "px",
+      right: m.right * s + "px",
+      height: Math.max(0, (state.stage.h - m.top - m.bottom) * s) + "px",
+      backgroundImage: layers.join(",")
+    });
   }
 
   /* ------------------------------------------------ the format preview rail */
@@ -878,17 +1004,23 @@
       lines.push("}");
       lines.push("");
       lines.push(".rectangle .text > * { margin: 0; }");
+      lines.push("/* baseline grid: " + round(baseline(), 2) + "px, half grid " +
+        round(baseline() / 2, 2) + "px */");
 
-      var levels = [];
-      used.forEach(function (b) { if (levels.indexOf(b.level) < 0) levels.push(b.level); });
-      LEVELS.filter(function (l) { return levels.indexOf(l) >= 0; }).forEach(function (l) {
-        var st = state.type.styles[l];
+      var roles = [];
+      used.forEach(function (b) { if (roles.indexOf(b.role) < 0) roles.push(b.role); });
+      ROLES.filter(function (r) { return roles.indexOf(r) >= 0; }).forEach(function (r) {
+        var st = state.type.roles[r], size = rolePx(r), lh = roleLh(r), steps = roleSteps(r);
         lines.push("");
-        lines.push(".rectangle .text " + (l === "small" ? "p.small" : l) + " {");
-        lines.push("  font-size: " + round(fontPx(l), 2) + "px;  /* " + round(st.size, 3) +
-          "% of the " + fmt(longSide()) + "px long side */");
+        lines.push(".rectangle .text ." + r + " {");
+        lines.push("  font-size: " + round(size, 2) + "px;" +
+          (r === "paragraph"
+            ? "  /* " + round(state.type.paragraph, 3) + "% of the " + basisLabel() + " */"
+            : "  /* " + round(st.mult, 3) + " × paragraph */"));
+        lines.push("  line-height: " + round(lh, 4) + ";" +
+          (steps ? "  /* " + round(size * lh, 1) + "px = " + steps + " × " +
+            (st.snap === "half" ? "half" : "full") + " baseline */" : ""));
         lines.push("  font-weight: " + st.weight + ";");
-        lines.push("  line-height: " + st.lh + ";");
         lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
         lines.push("  color: " + st.color + ";");
@@ -906,6 +1038,11 @@
     renderMarkup(used);
   }
 
+  function basisLabel() {
+    var b = BASES.filter(function (x) { return x.id === state.type.basis; })[0];
+    return (b || BASES[0]).name + " (" + fmt(typeBasis()) + "px)";
+  }
+
   function renderMarkup(used) {
     var out = ['<div class="stage">'];
     var inner = [];
@@ -914,9 +1051,9 @@
       if (used.length) {
         inner.push('    <div class="text">');
         used.forEach(function (b) {
-          var tag = b.level === "small" ? "p" : b.level;
-          var cls = (b.level === "small" ? "small " : "") + "align-" + b.align;
-          inner.push('      <' + tag + ' class="' + cls + '">' + esc(b.text) + "</" + tag + ">");
+          var tag = state.type.roles[b.role].tag || "p";
+          inner.push('      <' + tag + ' class="' + b.role + " align-" + b.align + '">' +
+            esc(b.text) + "</" + tag + ">");
         });
         inner.push("    </div>");
       }
@@ -1003,8 +1140,27 @@
   function buildTypeSelects() {
     buildFamilySelect();
     buildGoogleList();
-    $("#type-level").innerHTML = LEVELS.map(function (l) {
-      return '<option value="' + l + '">' + esc(LEVEL_NAMES[l]) + "</option>";
+    $("#type-level").innerHTML = ROLES.map(function (r) {
+      return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>";
+    }).join("");
+    $("#type-basis").innerHTML = BASES.map(function (b) {
+      return '<option value="' + b.id + '">' + esc(b.name) + "</option>";
+    }).join("");
+    $("#type-tag").innerHTML = TAGS.map(function (t) {
+      return '<option value="' + t + '">&lt;' + t + "&gt;</option>";
+    }).join("");
+    $("#type-snap").innerHTML = SNAPS.map(function (x) {
+      return '<option value="' + x.id + '">' + esc(x.name) + "</option>";
+    }).join("");
+    $("#type-system").innerHTML = '<option value="custom">Custom — set by hand</option>' +
+      SCALES.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + "</option>"; }).join("");
+    $("#type-scale").innerHTML = ROLES.map(function (r) {
+      return '<div class="scale-row' + (r === "paragraph" ? " anchor" : "") + '" data-role="' + r + '">' +
+        "<span>" + esc(ROLE_NAMES[r]) + "</span>" +
+        (r === "paragraph"
+          ? '<span class="px anchor-note">anchor × 1</span>'
+          : '<input type="number" min="0.01" step="0.01" data-mult="' + r + '">') +
+        '<span class="px" data-px="' + r + '"></span></div>';
     }).join("");
   }
 
@@ -1013,8 +1169,8 @@
       return '<div class="block" data-i="' + i + '">' +
         '<div class="block-head">' +
           '<label class="check"><input type="checkbox" data-block="visible"><span>Block ' + (i + 1) + "</span></label>" +
-          '<select data-block="level" class="level">' +
-            LEVELS.map(function (l) { return '<option value="' + l + '">' + esc(LEVEL_NAMES[l]) + "</option>"; }).join("") +
+          '<select data-block="role" class="level">' +
+            ROLES.map(function (r) { return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>"; }).join("") +
           "</select>" +
         "</div>" +
         '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
@@ -1134,25 +1290,63 @@
       fmt(ls.w) + " × " + fmt(ls.h) + " — long side of this format is " + fmt(longSide()) +
       (lg.src ? ", artwork ratio " + round(lg.aspect, 3) + ":1" : "") + ".";
 
-    var ty = state.type, st2 = ty.styles[ty.editing];
+    var ty = state.type, st2 = ty.roles[ty.editing];
     $("#type-family").value = ty.family;
     if ($("#type-family").selectedIndex < 0) $("#type-family").selectedIndex = 0;
+
+    setValue($("#type-para"), round(ty.paragraph, 3));
+    $("#type-basis").value = ty.basis;
+    $("#type-para-px").textContent = "= " + Math.round(paraPx()) + " px";
+    $("#type-system").value = ty.system;
+    ROLES.forEach(function (r) {
+      var input = $('[data-mult="' + r + '"]');
+      if (input) setValue(input, round(ty.roles[r].mult, 3));
+      $('[data-px="' + r + '"]').textContent = Math.round(rolePx(r)) + " px";
+    });
+    var basisName = BASES.filter(function (b) { return b.id === ty.basis; })[0].name;
+    $("#type-scale-hint").textContent = "Paragraph is " + round(ty.paragraph, 3) + "% of the " + basisName +
+      " (" + fmt(typeBasis()) + ") = " + Math.round(paraPx()) + " px. Every other role is a multiple of it — " +
+      "pick a ratio above or type any multiple.";
+
+    $("#type-grid").value = ty.grid;
+    $("#type-grid-hint").textContent = "The baseline is the paragraph line box: " +
+      round(paraPx(), 1) + " × " + round(ty.roles.paragraph.lh, 2) + " = " + round(baseline(), 1) +
+      " px, with a half grid at " + round(baseline() / 2, 1) + " px. It is drawn from the top margin down.";
+
     $("#type-level").value = ty.editing;
-    $("#type-size-px").textContent = "= " + Math.round(fontPx(ty.editing)) + " px";
-    setValue($("#type-size"), round(st2.size, 3));
+    $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
-    setValue($("#type-lh"), st2.lh);
+    setValue($("#type-lh"), round(ty.editing === "paragraph" || st2.snap === "free" ? st2.lh : st2.lh, 3));
+    $("#type-snap").value = ty.editing === "paragraph" ? "free" : st2.snap;
+    $("#type-snap").disabled = ty.editing === "paragraph";
     setValue($("#type-ls"), st2.ls);
     $("#type-transform").value = st2.transform;
     $("#type-color").value = st2.color;
+    var eff = roleLh(ty.editing), steps = roleSteps(ty.editing);
+    $("#type-lh-px").textContent = "= " + round(rolePx(ty.editing) * eff, 1) + " px";
+    $("#type-style-hint").textContent = ty.editing === "paragraph"
+      ? "Paragraph sets the baseline, so its line height is free — everything else lines up to it."
+      : steps
+        ? "Line height " + round(st2.lh, 2) + " snaps to " + round(eff, 3) + " so the line box is " +
+          steps + " × " + (st2.snap === "half" ? "half" : "full") + " baseline = " +
+          round(rolePx(ty.editing) * eff, 1) + " px."
+        : "Free: the typed line height is used as it is, off the grid.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
     setValue($("#text-gap"), fmt(state.text.gap));
     $("#text-align").value = state.text.align;
+    $("#text-snap").checked = state.text.snapGrid;
+    var offNow = textOffset();
+    $("#text-snap-hint").textContent = !state.text.snapGrid
+      ? "Padding and gap are used exactly as typed."
+      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) + " — a whole number of half baselines" +
+        (state.text.align === "top"
+          ? (offNow ? ", and the stack drops " + round(offNow, 1) + " px to start on a grid line." : ", and the stack already starts on a grid line.")
+          : ". Only a top-aligned stack can be pinned to the drawn grid; centred and bottom stacks keep the rhythm but float.");
     Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
       var b = state.text.blocks[i];
       row.querySelector('[data-block="visible"]').checked = b.visible;
-      row.querySelector('[data-block="level"]').value = b.level;
+      row.querySelector('[data-block="role"]').value = b.role;
       setValue(row.querySelector('[data-block="text"]'), b.text);
       Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
         btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
@@ -1387,14 +1581,32 @@
     });
     $("#gf-load").addEventListener("click", loadGoogleCatalogue);
     onChange("#type-level", function (el) { state.type.editing = el.value; });
-    var styleOf = function () { return state.type.styles[state.type.editing]; };
-    numInput("#type-size", function (v) { styleOf().size = snap(v); }, 1);
+    var styleOf = function () { return state.type.roles[state.type.editing]; };
+    numInput("#type-para", function (v) { state.type.paragraph = Math.max(0.05, round(v, 3)); });
+    onChange("#type-basis", function (el) { state.type.basis = el.value; });
+    onChange("#type-system", function (el) {
+      if (el.value === "custom") { state.type.system = "custom"; return; }
+      applyScale(el.value);
+    });
+    $("#type-scale").addEventListener("input", function (e) {
+      var role = e.target.dataset.mult;
+      if (!role || e.target.value === "") return;
+      var v = num(e.target.value, null);
+      if (v === null) return;
+      state.type.roles[role].mult = Math.max(0.01, round(v, 3));
+      state.type.system = "custom";                 // typing a value leaves the ratio behind
+      render();
+    });
+    onChange("#type-grid", function (el) { state.type.grid = el.value; });
+    onChange("#type-tag", function (el) { styleOf().tag = el.value; });
+    onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
-    numInput("#type-lh", function (v) { styleOf().lh = round(v, 2); }, .5);
-    numInput("#type-ls", function (v) { styleOf().ls = round(v, 2); });
+    numInput("#type-lh", function (v) { styleOf().lh = round(v, 3); }, .5);
+    numInput("#type-ls", function (v) { styleOf().ls = round(v, 3); });
     onChange("#type-transform", function (el) { styleOf().transform = el.value; });
     onInput("#type-color", function (el) { styleOf().color = el.value; });
 
+    onChange("#text-snap", function (el) { state.text.snapGrid = el.checked; });
     numInput("#text-padding", function (v) { state.text.padding = snap(v); }, 0);
     numInput("#text-gap", function (v) { state.text.gap = snap(v); }, 0);
     onChange("#text-align", function (el) { state.text.align = el.value; });
@@ -1411,7 +1623,7 @@
       if (!row) return;
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "visible") b.visible = e.target.checked;
-      else if (what === "level") b.level = e.target.value;
+      else if (what === "role") b.role = e.target.value;
       else return;
       render();
     });
@@ -1472,9 +1684,10 @@
     });
     state.text.padding = Math.round(state.text.padding);
     state.text.gap = Math.round(state.text.gap);
-    LEVELS.forEach(function (l) {
-      var t = state.type.styles[l];
-      t.size = Math.max(0.1, round(t.size, 2));
+    state.type.paragraph = Math.max(0.05, round(state.type.paragraph, 3));
+    ROLES.forEach(function (r) {
+      var t = state.type.roles[r];
+      t.mult = Math.max(0.01, round(t.mult, 3));
     });
   }
 
