@@ -265,7 +265,8 @@ body.panning .viewport{cursor:grabbing}
   position:absolute;display:flex;flex-direction:column;
   pointer-events:none;
 }
-.text-stack .tb{margin:0;padding:0;font:inherit;overflow-wrap:anywhere}
+.text-stack .tb{margin:0;padding:0;font:inherit;overflow-wrap:anywhere;position:relative}
+.text-stack .bl-probe{display:inline-block;width:0;height:0;vertical-align:baseline}
 
 .overlay{position:absolute;pointer-events:none}
 .overlay>*{pointer-events:auto}

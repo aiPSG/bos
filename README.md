@@ -87,11 +87,14 @@ line box is a whole number of that grid's rows, with the arithmetic reported ("l
 snaps to 1.205 so the line box is 3 × grid 1 = 91.5 px"). A line box is never snapped shorter than
 the type itself. Any role can be set to *Free* to use a typed line height as it is.
 
-The text stack follows the same rhythm: the gap between blocks runs as a whole number of grid 2
-rows, and a top-aligned stack is shifted down so its first line box starts exactly on a grid line,
-wherever the rectangle sits. Switch *Snap the stack to the baseline grid* off to use padding and gap
-exactly as typed. Centred and bottom-aligned stacks keep the internal rhythm but float relative to
-the drawn grid.
+Whole line boxes are not enough on their own: a baseline sits *inside* its line box, offset by the
+half-leading plus the font's ascender, so it would still land between the lines. Each block is
+therefore measured after layout — a zero-sized inline probe reports where the browser actually put
+the first baseline — and nudged onto the nearest line of its grid. The nudge is a relative shift, so
+it moves the type without disturbing the spacing, and it works at any stack alignment and with any
+font, including one you upload. Every following line comes along, because line boxes and the gap
+between blocks are whole grid rows. Switch *Snap the stack to the baseline grid* off to use padding
+and gap exactly as typed.
 
 **Text blocks** — four blocks fill the rectangle, one per role by default. Each has its own text,
 its own role and its own alignment (left / centre / right). The stack sits at the top, middle or

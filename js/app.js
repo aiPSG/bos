@@ -670,6 +670,34 @@
     return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
+  // ascent and descent as a share of the font size, measured once per family+weight.
+  // these are what decide where the browser puts the baseline inside a line box
+  var metricsCache = {};
+  function fontMetrics(weight) {
+    var key = weight + "|" + familyStack();
+    if (metricsCache[key]) return metricsCache[key];
+    var m = { a: 0.8, d: 0.2 };                       // a sane guess if the API is missing
+    try {
+      var cv = metricsCache._cv || (metricsCache._cv = document.createElement("canvas"));
+      var ctx = cv.getContext("2d");
+      ctx.font = weight + " 100px " + familyStack();
+      var t = ctx.measureText("Hxpg");
+      if (t.fontBoundingBoxAscent && t.fontBoundingBoxDescent) {
+        m = { a: t.fontBoundingBoxAscent / 100, d: t.fontBoundingBoxDescent / 100 };
+      }
+    } catch (e) {}
+    metricsCache[key] = m;
+    return m;
+  }
+
+  // distance from the top of a role's line box down to its baseline, in format units
+  function baselineInBox(role) {
+    var size = rolePx(role), lead = size * roleLh(role);
+    var m = fontMetrics(state.type.roles[role].weight);
+    var content = (m.a + m.d) * size;                 // the font's own content area
+    return (lead - content) / 2 + m.a * size;         // half-leading, then the ascender
+  }
+
   // the gap between blocks, snapped to the half baseline so the rhythm holds
   function textGap() {
     if (!state.text.snapGrid) return state.text.gap;
@@ -677,15 +705,6 @@
     if (state.text.gap <= 0) return 0;
     // never round a real gap away to nothing on a coarse grid
     return Math.max(1, Math.round(state.text.gap / unit)) * unit;
-  }
-
-  // shift a top-aligned stack down so its first line box starts on a grid line
-  function textOffset() {
-    if (!state.text.snapGrid || state.text.align !== "top") return 0;
-    var unit = baseline() / 2;
-    var from = box("rect").y + state.text.padding - margins().top;
-    var d = from % unit;
-    return d === 0 ? 0 : (d < 0 ? -d : unit - d);
   }
 
   function paintText(rectEl, s) {
@@ -705,12 +724,17 @@
         var el = document.createElement(state.type.roles[b.role].tag || "p");
         el.className = "tb " + b.role;
         el.textContent = b.text;
+        // a zero-sized inline-block aligns to the baseline of the line it sits in,
+        // which makes the first baseline directly measurable
+        var probe = document.createElement("span");
+        probe.className = "bl-probe";
+        el.insertBefore(probe, el.firstChild);
+        el._probe = probe;
         stack.appendChild(el);
       });
     }
-    var off = textOffset();
     Object.assign(stack.style, {
-      inset: (t.padding + off) * s + "px " + t.padding * s + "px " + t.padding * s + "px",
+      inset: t.padding * s + "px",
       gap: textGap() * s + "px",
       justifyContent: t.align === "top" ? "flex-start" : t.align === "bottom" ? "flex-end" : "center",
       fontFamily: familyStack()
@@ -727,6 +751,32 @@
         textAlign: b.align
       });
     });
+  }
+
+  // line boxes and gaps are whole grid rows, but a baseline sits inside its box —
+  // half-leading plus the ascender — so each block gets nudged onto its grid line.
+  // the shift is relative, so it moves the type without disturbing the spacing
+  function alignBaselines(stack, s) {
+    if (!stack || stack.hidden) return;
+    var blocks = state.text.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    var kids = Array.prototype.slice.call(stack.children);
+    if (kids.length !== blocks.length) return;
+
+    kids.forEach(function (el) { el.style.top = "0px"; });
+    if (!state.text.snapGrid) return;
+
+    var stageTop = els.stage.getBoundingClientRect().top + margins().top * s;
+    var shifts = kids.map(function (el, i) {
+      var role = blocks[i].role;
+      var unit = roleUnit(role) * s;
+      if (!(unit > 0.5)) return 0;
+      var probe = el._probe || el.querySelector(".bl-probe");
+      if (!probe) return 0;
+      var fromGrid = probe.getBoundingClientRect().bottom - stageTop;
+      var r = ((fromGrid % unit) + unit) % unit;
+      return r <= unit / 2 ? -r : unit - r;          // whichever grid line is nearer
+    });
+    kids.forEach(function (el, i) { el.style.top = shifts[i] + "px"; });
   }
 
   // draw the whole design into host at format fw x fh, scaled by s
@@ -794,6 +844,7 @@
     els.guides.querySelector("[data-side=right]").style.left = (st.w - m.right) * s + "px";
 
     renderBaseline(s);
+    alignBaselines(els.stage._rect && els.stage._rect._text, s);
     renderFrame(s);
     renderRail();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
@@ -1371,13 +1422,11 @@
     setValue($("#text-gap"), fmt(state.text.gap));
     $("#text-align").value = state.text.align;
     $("#text-snap").checked = state.text.snapGrid;
-    var offNow = textOffset();
     $("#text-snap-hint").textContent = !state.text.snapGrid
       ? "Padding and gap are used exactly as typed."
-      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) + " — a whole number of grid 2 rows" +
-        (state.text.align === "top"
-          ? (offNow ? ", and the stack drops " + round(offNow, 1) + " px to start on a grid line." : ", and the stack already starts on a grid line.")
-          : ". Only a top-aligned stack can be pinned to the drawn grid; centred and bottom stacks keep the rhythm but float.");
+      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) +
+        " — a whole number of grid 2 rows — and every block is nudged so its baselines sit on its own " +
+        "grid line, whatever the stack alignment.";
     Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
       var b = state.text.blocks[i];
       row.querySelector('[data-block="visible"]').checked = b.visible;
@@ -2187,6 +2236,9 @@
   $("#key-warning").textContent =
     "The key is kept in this browser only and sent straight to RunPod — never to this site. " +
     "Anyone with access to this browser profile can read it, so do not use a shared machine, and never commit it to the repository.";
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { metricsCache = {}; render(); });
+  }
   state.type.uploads.forEach(registerUpload);
   state.type.google.forEach(loadGoogleFont);
   if (state.type.family.indexOf("g:") === 0) loadGoogleFont(state.type.family.slice(2));
