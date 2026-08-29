@@ -72,21 +72,26 @@ stands.
 Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
 and colour, so the hierarchy is real markup, not just sizes.
 
-**Baseline grid** — the baseline is the paragraph's own line box (paragraph size × its line height);
-a second grid halves it. Both are drawn on the canvas, down the margin box from its top edge, in the
-guide colour — show both, either, or neither.
+**Baseline grid** — there are two grids. **Grid 1 divides the format minus the top and bottom
+margins into whole rows, so it always fits exactly**, and that row height *is* the paragraph line
+height. **Grid 2** halves it. Change the format or the margins and the grid re-fits itself, taking
+the paragraph leading with it.
 
-Every role other than paragraph is **aligned to one of the two grids**: its line height snaps so the
-line box is a whole number of full or half baselines, and the panel reports the arithmetic
-("line height 1.05 snaps to 1.146 so the line box is 2 × full baseline = 60.8 px"). Paragraph
-defines the grid, so its line height is free. Any role can be set to *Free* to use a typed line
-height as it is.
+Set the row count directly, or type a paragraph line height and the nearest whole row count that
+still fits is used — the panel reports both ("grid 1 divides the 1190 px between the top and bottom
+margins into 39 rows of 30.51 px, so it fits exactly"). Both grids draw on the canvas in the guide
+colour, down the margin box; show both, either, or neither.
 
-The text stack follows the same rhythm: the gap between blocks runs as a whole number of half
-baselines, and a top-aligned stack is shifted down so its first line box starts exactly on a grid
-line, wherever the rectangle sits. Switch *Snap the stack to the baseline grid* off to use padding
-and gap exactly as typed. Centred and bottom-aligned stacks keep the internal rhythm but float
-relative to the drawn grid.
+Every role other than paragraph is **aligned to grid 1 or grid 2**: its line height snaps so the
+line box is a whole number of that grid's rows, with the arithmetic reported ("line height 1.05
+snaps to 1.205 so the line box is 3 × grid 1 = 91.5 px"). A line box is never snapped shorter than
+the type itself. Any role can be set to *Free* to use a typed line height as it is.
+
+The text stack follows the same rhythm: the gap between blocks runs as a whole number of grid 2
+rows, and a top-aligned stack is shifted down so its first line box starts exactly on a grid line,
+wherever the rectangle sits. Switch *Snap the stack to the baseline grid* off to use padding and gap
+exactly as typed. Centred and bottom-aligned stacks keep the internal rhythm but float relative to
+the drawn grid.
 
 **Text blocks** — four blocks fill the rectangle, one per role by default. Each has its own text,
 its own role and its own alignment (left / centre / right). The stack sits at the top, middle or

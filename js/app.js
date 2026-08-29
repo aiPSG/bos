@@ -76,8 +76,8 @@
     { id: "pi", name: "Pi — 3.142", r: Math.PI }
   ];
   var SNAPS = [
-    { id: "full", name: "Full baseline" },
-    { id: "half", name: "Half baseline" },
+    { id: "full", name: "Grid 1" },
+    { id: "half", name: "Grid 2" },
     { id: "free", name: "Free — as typed" }
   ];
   var FAMILIES = [
@@ -604,27 +604,55 @@
     return Math.max(1, paraPx() * (state.type.roles[role].mult || 1));
   }
 
-  // the baseline grid is the paragraph's own line box; the second grid is half of it
+  // the height the grid has to fill: the format minus the top and bottom margins
+  function contentH() {
+    var m = margins();
+    return Math.max(1, state.stage.h - m.top - m.bottom);
+  }
+
+  // grid 1 divides that height into whole rows, so it always fits exactly. the stored
+  // paragraph line height is the target; the row count is the nearest whole number to it
+  function gridRows() {
+    var maxRows = Math.max(1, Math.floor(contentH() / (paraPx() * 0.5)));
+    var target = Math.max(0.5, state.type.roles.paragraph.lh);
+    return clamp(Math.round(contentH() / (paraPx() * target)), 1, maxRows);
+  }
+
+  // grid 1 is one row; grid 2 halves it
   function baseline() {
-    return Math.max(1, paraPx() * state.type.roles.paragraph.lh);
+    return contentH() / gridRows();
   }
 
-  // a role's line height, snapped so its line box is a whole number of baselines
-  function roleLh(role) {
-    var r = state.type.roles[role];
-    if (role === "paragraph" || r.snap === "free") return r.lh;
-    var unit = r.snap === "half" ? baseline() / 2 : baseline();
-    var size = rolePx(role);
-    var steps = Math.max(1, Math.round(size * r.lh / unit));
-    return steps * unit / size;
+  // and the row height is what the paragraph line height actually is
+  function paraLh() {
+    return baseline() / paraPx();
   }
 
-  // how many baseline steps a role occupies, for the panel to report
+  // typing a row count writes back through the target line height
+  function setRows(rows) {
+    var r = Math.max(1, Math.round(rows));
+    state.type.roles.paragraph.lh = round(contentH() / r / paraPx(), 4);
+  }
+
+  function roleUnit(role) {
+    return state.type.roles[role].snap === "half" ? baseline() / 2 : baseline();
+  }
+
+  // how many grid rows a role's line box occupies
   function roleSteps(role) {
     var r = state.type.roles[role];
     if (role === "paragraph" || r.snap === "free") return null;
-    var unit = r.snap === "half" ? baseline() / 2 : baseline();
-    return Math.max(1, Math.round(rolePx(role) * r.lh / unit));
+    var unit = roleUnit(role), size = rolePx(role);
+    // never round down into a line box shorter than the type itself
+    return Math.max(1, Math.ceil(size / unit), Math.round(size * r.lh / unit));
+  }
+
+  // a role's line height, snapped so its line box is a whole number of grid rows
+  function roleLh(role) {
+    var r = state.type.roles[role];
+    if (role === "paragraph") return paraLh();
+    if (r.snap === "free") return r.lh;
+    return roleSteps(role) * roleUnit(role) / rolePx(role);
   }
 
   function applyScale(id) {
@@ -795,7 +823,7 @@
       top: m.top * s + "px",
       left: m.left * s + "px",
       right: m.right * s + "px",
-      height: Math.max(0, (state.stage.h - m.top - m.bottom) * s) + "px",
+      height: contentH() * s + "px",
       backgroundImage: layers.join(",")
     });
   }
@@ -1004,8 +1032,8 @@
       lines.push("}");
       lines.push("");
       lines.push(".rectangle .text > * { margin: 0; }");
-      lines.push("/* baseline grid: " + round(baseline(), 2) + "px, half grid " +
-        round(baseline() / 2, 2) + "px */");
+      lines.push("/* grid 1: " + gridRows() + " rows of " + round(baseline(), 3) + "px filling the " +
+        round(contentH(), 2) + "px content height; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
 
       var roles = [];
       used.forEach(function (b) { if (roles.indexOf(b.role) < 0) roles.push(b.role); });
@@ -1018,8 +1046,10 @@
             ? "  /* " + round(state.type.paragraph, 3) + "% of the " + basisLabel() + " */"
             : "  /* " + round(st.mult, 3) + " × paragraph */"));
         lines.push("  line-height: " + round(lh, 4) + ";" +
-          (steps ? "  /* " + round(size * lh, 1) + "px = " + steps + " × " +
-            (st.snap === "half" ? "half" : "full") + " baseline */" : ""));
+          (r === "paragraph"
+            ? "  /* one row of grid 1 = " + round(size * lh, 3) + "px */"
+            : steps ? "  /* " + round(size * lh, 2) + "px = " + steps + " × grid " +
+              (st.snap === "half" ? "2" : "1") + " */" : ""));
         lines.push("  font-weight: " + st.weight + ";");
         lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
@@ -1309,14 +1339,17 @@
       "pick a ratio above or type any multiple.";
 
     $("#type-grid").value = ty.grid;
-    $("#type-grid-hint").textContent = "The baseline is the paragraph line box: " +
-      round(paraPx(), 1) + " × " + round(ty.roles.paragraph.lh, 2) + " = " + round(baseline(), 1) +
-      " px, with a half grid at " + round(baseline() / 2, 1) + " px. It is drawn from the top margin down.";
+    setValue($("#type-rows"), gridRows());
+    $("#type-rowpx").value = round(baseline(), 2) + " px";
+    $("#type-grid-hint").textContent = "Grid 1 divides the " + round(contentH(), 1) +
+      " px between the top and bottom margins into " + gridRows() + " rows of " + round(baseline(), 2) +
+      " px, so it fits exactly. That row is the paragraph line height — " + round(paraPx(), 1) + " px × " +
+      round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.";
 
     $("#type-level").value = ty.editing;
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
-    setValue($("#type-lh"), round(ty.editing === "paragraph" || st2.snap === "free" ? st2.lh : st2.lh, 3));
+    setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
     $("#type-snap").value = ty.editing === "paragraph" ? "free" : st2.snap;
     $("#type-snap").disabled = ty.editing === "paragraph";
     setValue($("#type-ls"), st2.ls);
@@ -1325,12 +1358,14 @@
     var eff = roleLh(ty.editing), steps = roleSteps(ty.editing);
     $("#type-lh-px").textContent = "= " + round(rolePx(ty.editing) * eff, 1) + " px";
     $("#type-style-hint").textContent = ty.editing === "paragraph"
-      ? "Paragraph sets the baseline, so its line height is free — everything else lines up to it."
+      ? "Paragraph rides grid 1: " + gridRows() + " rows fill the content height exactly, so its line " +
+        "height is " + round(paraLh(), 4) + ". Type another and the nearest whole row count that still " +
+        "fits is used."
       : steps
         ? "Line height " + round(st2.lh, 2) + " snaps to " + round(eff, 3) + " so the line box is " +
-          steps + " × " + (st2.snap === "half" ? "half" : "full") + " baseline = " +
+          steps + " × grid " + (st2.snap === "half" ? "2" : "1") + " = " +
           round(rolePx(ty.editing) * eff, 1) + " px."
-        : "Free: the typed line height is used as it is, off the grid.";
+        : "Free: the typed line height is used as it is, off both grids.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
     setValue($("#text-gap"), fmt(state.text.gap));
@@ -1339,7 +1374,7 @@
     var offNow = textOffset();
     $("#text-snap-hint").textContent = !state.text.snapGrid
       ? "Padding and gap are used exactly as typed."
-      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) + " — a whole number of half baselines" +
+      : "Gap " + fmt(state.text.gap) + " runs as " + round(textGap(), 1) + " — a whole number of grid 2 rows" +
         (state.text.align === "top"
           ? (offNow ? ", and the stack drops " + round(offNow, 1) + " px to start on a grid line." : ", and the stack already starts on a grid line.")
           : ". Only a top-aligned stack can be pinned to the drawn grid; centred and bottom stacks keep the rhythm but float.");
@@ -1598,10 +1633,14 @@
       render();
     });
     onChange("#type-grid", function (el) { state.type.grid = el.value; });
+    numInput("#type-rows", function (v) { setRows(v); }, 1);
     onChange("#type-tag", function (el) { styleOf().tag = el.value; });
     onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
-    numInput("#type-lh", function (v) { styleOf().lh = round(v, 3); }, .5);
+    numInput("#type-lh", function (v) {
+      if (state.type.editing === "paragraph") setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      else styleOf().lh = round(v, 3);
+    }, .5);
     numInput("#type-ls", function (v) { styleOf().ls = round(v, 3); });
     onChange("#type-transform", function (el) { styleOf().transform = el.value; });
     onInput("#type-color", function (el) { styleOf().color = el.value; });

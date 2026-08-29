@@ -230,11 +230,15 @@
 
       <h3 class="sub-head">Baseline grid</h3>
       <div class="row">
+        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" step="1"></label>
+        <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>
+      </div>
+      <div class="row">
         <label class="field grow"><span>Show on the canvas</span>
           <select id="type-grid">
             <option value="both">Both grids</option>
-            <option value="full">Full baseline only</option>
-            <option value="half">Half baseline only</option>
+            <option value="full">Grid 1 only</option>
+            <option value="half">Grid 2 only</option>
             <option value="off">Off</option>
           </select>
         </label>
