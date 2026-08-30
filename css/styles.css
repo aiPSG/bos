@@ -250,6 +250,7 @@ body.panning .viewport{cursor:grabbing}
 
 .guides{position:absolute;inset:0;--guide:#ffffff}
 .guide{position:absolute;pointer-events:auto}
+body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins panel */
 .guide::before{content:"";position:absolute}
 .guide.h{left:0;right:0;height:11px;margin-top:-5px;cursor:ns-resize}
 .guide.h::before{left:0;right:0;top:5px;height:1px;

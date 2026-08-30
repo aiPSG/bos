@@ -22,7 +22,8 @@ in step, so it only decouples once you set it by hand.
 
 Dragging a shape therefore snaps it to the nearest of the nine positions (the cells appear while
 you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
-from the logo.
+from the logo. **The guides are locked out of the box**, so a stray drag on the canvas cannot move
+them; *Lock the guides* in the Margins panel releases them.
 
 The dashed guides that mark the margin box pick their own colour: the app works out the luminance
 of what sits behind them — the stage colour, with the average colour of a background image blended
@@ -47,13 +48,18 @@ stretch or tile, with an opacity slider.
 **Rectangle** — it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
 the panel reports what it runs as. Then: position, anchor, height, and a **width** that works one of
-three ways — *set by hand*, *fill the width between the margins*
-(`width = format width − left margin − right margin`), or *fit the text*, where the box takes the
-width of its longest line plus the side padding and grows and shrinks as you type. In the last two
-the width field shows the computed value.
+four ways — *set by hand*, *fill between the margins*
+(`width = format width − left margin − right margin`), *fill the format* edge to edge, or *fit the
+text*, where the box takes the width of its longest line plus the side padding and grows and shrinks
+as you type. The **height** has the first three of those. Filling wins over everything else on that
+axis: a filled height is not snapped to the grid and a format-filling width is not snapped to the
+columns, because both already end on an edge of their own. In any mode but *set by hand* the field
+shows the computed value.
 
-It also **snaps to the columns**: the width runs a whole number of columns with their gutters, and
-the left edge sits on a column line — typed, dragged or resized by a handle, it lands on the grid.
+It also **snaps to the columns**: the left edge sits on a column line, and the right edge on one
+too — either the right edge of a column, or a gutter further on at the left side of the next one, so
+a box can end flush with a column or with the gap before the following one. Typed, dragged or
+resized by a handle, it lands on the grid.
 And whatever the mode, **the box is never narrower than its text**: the longest line plus the side
 padding on both sides is its floor, so the copy never spills out of it. When even the whole column
 grid is too narrow for a line, the text wins and the box grows past it.

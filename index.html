@@ -104,7 +104,10 @@
           <input type="number" id="margin-factor" min="0" step="0.05">
         </label>
       </div>
-      <label class="check"><input type="checkbox" id="margin-linked"><span>Link all sides</span></label>
+      <div class="row toggles">
+        <label class="check"><input type="checkbox" id="margin-linked"><span>Link all sides</span></label>
+        <label class="check"><input type="checkbox" id="margin-locked"><span>Lock the guides</span></label>
+      </div>
       <div class="row">
         <label class="field"><span>Top</span><input type="number" id="margin-top" step="1"></label>
         <label class="field"><span>Right</span><input type="number" id="margin-right" step="1"></label>
@@ -141,13 +144,23 @@
         <div class="field"><span>Position in format</span><div class="grid3" id="rect-align"></div></div>
         <div class="field"><span>Anchor point</span><div class="grid3" id="rect-anchor"></div></div>
       </div>
-      <label class="field grow"><span>Width</span>
-        <select id="rect-wmode">
-          <option value="fixed">Set by hand</option>
-          <option value="full">Fill between the margins</option>
-          <option value="fit">Fit around the text</option>
-        </select>
-      </label>
+      <div class="row">
+        <label class="field"><span>Width</span>
+          <select id="rect-wmode">
+            <option value="fixed">Set by hand</option>
+            <option value="full">Fill between the margins</option>
+            <option value="format">Fill the format</option>
+            <option value="fit">Fit around the text</option>
+          </select>
+        </label>
+        <label class="field"><span>Height</span>
+          <select id="rect-hmode">
+            <option value="fixed">Set by hand</option>
+            <option value="full">Fill between the margins</option>
+            <option value="format">Fill the format</option>
+          </select>
+        </label>
+      </div>
       <div class="row">
         <label class="field"><span>Width</span><input type="number" id="rect-w" min="1" step="1"></label>
         <label class="field"><span>Height</span><input type="number" id="rect-h" min="1" step="1"></label>
@@ -361,7 +374,7 @@
       </aside>
     </div>
 
-    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · drag the dashed guides for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
+    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
   </main>
 
 </div>

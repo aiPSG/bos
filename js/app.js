@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v10";
+  var STORAGE_KEY = "bos.design.v11";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -220,15 +220,16 @@
 
   function defaults() {
     return {
-      v: 10,
+      v: 11,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
-      margin: { mode: "manual", factor: 1, linked: true, top: 80, right: 80, bottom: 80, left: 80 },
+      margin: { mode: "manual", factor: 1, linked: true, locked: true, top: 80, right: 80, bottom: 80, left: 80 },
       round: true,
       rect: {
-        // wmode: fixed width, fill between the margins, or fit around the text
-        visible: true, w: 520, h: 360, wmode: "fixed", grid: 2, cols: true,
+        // wmode / hmode: a set size, filling between the margins, filling the whole
+        // format edge to edge, or (width only) fitting around the text
+        visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
@@ -493,13 +494,19 @@
 
   function sizeOf(name) {
     if (name === "logo") return logoSize();
-    var c = content(), u = gridUnit(state.rect.grid), r = state.rect;
-    var w = r.wmode === "full" ? c.w : r.wmode === "fit" ? minRectW() : r.w;
+    var c = content(), u = gridUnit(state.rect.grid), r = state.rect, st = state.stage;
+    var w = r.wmode === "format" ? st.w : r.wmode === "full" ? c.w
+      : r.wmode === "fit" ? minRectW() : r.w;
     // the text sets the floor: it is never narrower than its longest line and the padding
     w = Math.max(MIN_SIZE, w, minRectW());
-    if (r.cols) w = snapCols(w);
-    // the rectangle stands a whole number of rows tall
-    return { w: w, h: Math.max(u, Math.round(r.h / u) * u) };
+    // a filled width already ends on an edge of its own, so only a set one is snapped
+    if (r.cols && (r.wmode === "fixed" || r.wmode === "fit")) w = snapCols(w);
+
+    // a filled height runs to the margin or the format edge; otherwise it stands a
+    // whole number of rows tall
+    var h = r.hmode === "format" ? st.h : r.hmode === "full" ? c.h
+      : Math.max(u, Math.round(r.h / u) * u);
+    return { w: w, h: Math.max(MIN_SIZE, h) };
   }
 
   // anchor point of the shape lands on the aligned point of the content box
@@ -512,8 +519,11 @@
     var x = c.x + c.w * fh(el.align.h) - s.w * fh(el.anchor.h);
     // and its top edge sits on a grid line, its left edge on a column line
     if (name === "rect") {
-      y = snapY(y, state.rect.grid);
-      if (state.rect.cols) x = c.x + Math.round((x - c.x) / colStep()) * colStep();
+      if (state.rect.hmode === "format") y = 0;
+      else if (state.rect.hmode === "full") y = c.y;
+      else y = snapY(y, state.rect.grid);
+      if (state.rect.wmode === "format") x = 0;
+      else if (state.rect.cols) x = c.x + Math.round((x - c.x) / colStep()) * colStep();
     }
     return { x: x, y: y, w: s.w, h: s.h };
   }
@@ -545,13 +555,25 @@
     return textVisible() ? Math.max(MIN_SIZE, textW + state.text.padding * 2) : MIN_SIZE;
   }
 
-  // the nearest whole number of columns — never one too narrow for the text
+  // every width whose right edge lands on a column line: the right edge of a column,
+  // or — a gutter further on — the left edge of the next one
+  function colWidths() {
+    var n = colCount(), g = Math.max(0, state.cols.gutter), out = [], k;
+    for (k = 1; k <= n; k++) {
+      out.push(colSpan(k));
+      if (k < n) out.push(colSpan(k) + g);
+    }
+    return out;
+  }
+
+  // the nearest of those — never one too narrow for the text
   function snapCols(w) {
-    var n = colCount(), min = minRectW();
-    var k = clamp(Math.round((w + Math.max(0, state.cols.gutter)) / colStep()), 1, n);
-    while (k < n && colSpan(k) < min - 0.01) k++;
-    var span = colSpan(k);
-    return span < min - 0.01 ? w : span;      // wider than the whole grid: the text wins
+    var min = minRectW();
+    var wide = colWidths().filter(function (v) { return v >= min - 0.01; });
+    if (!wide.length) return w;               // wider than the whole grid: the text wins
+    return wide.reduce(function (best, v) {
+      return Math.abs(v - w) < Math.abs(best - w) - 0.001 ? v : best;
+    }, wide[0]);
   }
 
   /* ---------------------------------------------------------- corner radius */
@@ -1197,15 +1219,22 @@
     // the rectangle lands on the baseline grid and on a column line, so its edges are
     // written out as they are measured rather than as margins that would round elsewhere
     if (name === "rect") {
-      if (full) {
+      if (state.rect.wmode === "format") { out.push("left: 0"); out.push("right: 0"); }
+      else if (full) {
         out.push("left: " + fmt(m.left) + "px");
         out.push("right: " + fmt(m.right) + "px");
       } else {
         out.push("left: " + fmt(b.x) + "px");
         out.push("width: " + fmt(b.w) + "px");
       }
-      out.push("top: " + fmt(b.y) + "px");
-      out.push("height: " + fmt(b.h) + "px");
+      if (state.rect.hmode === "format") { out.push("top: 0"); out.push("bottom: 0"); }
+      else if (state.rect.hmode === "full") {
+        out.push("top: " + fmt(m.top) + "px");
+        out.push("bottom: " + fmt(m.bottom) + "px");
+      } else {
+        out.push("top: " + fmt(b.y) + "px");
+        out.push("height: " + fmt(b.h) + "px");
+      }
       return out.map(function (l) { return indent + l + ";"; }).join("\n");
     }
 
@@ -1575,22 +1604,34 @@
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
     $("#rect-grid").value = String(r.grid);
     var rb = box("rect");
-    $("#rect-grid-hint").textContent = "Height " + fmt(r.h) + " runs as " + round(rb.h, 2) + " — " +
-      Math.round(rb.h / gridUnit(r.grid)) + " rows of grid " + r.grid + " — and the top edge sits on row " +
-      round((rb.y - margins().top) / gridUnit(r.grid), 2) + ".";
+    $("#rect-grid-hint").textContent = r.hmode !== "fixed"
+      ? "Height " + round(rb.h, 2) + " — filling " +
+        (r.hmode === "format" ? "the format from edge to edge" : "the space between the top and bottom margins") +
+        ", so it is not snapped to the grid."
+      : "Height " + fmt(r.h) + " runs as " + round(rb.h, 2) + " — " +
+        Math.round(rb.h / gridUnit(r.grid)) + " rows of grid " + r.grid + " — and the top edge sits on row " +
+        round((rb.y - margins().top) / gridUnit(r.grid), 2) + ".";
+    $("#margin-locked").checked = !!state.margin.locked;
     $("#rect-wmode").value = r.wmode;
+    $("#rect-hmode").value = r.hmode;
+    $("#rect-h").disabled = r.hmode !== "fixed";
     $("#rect-w").disabled = r.wmode !== "fixed";
     setValue($("#rect-w"), fmt(sizeOf("rect").w));
     $("#rect-cols").checked = !!r.cols;
     var rw = sizeOf("rect").w, floor = minRectW();
     var spans = clamp(Math.round((rw + state.cols.gutter) / colStep()), 1, colCount());
+    var snapped = r.cols && (r.wmode === "fixed" || r.wmode === "fit");
     $("#rect-width-hint").textContent =
-      (!r.cols ? "Width " + round(rw, 2) + ". "
+      (r.wmode === "format" ? "Width " + round(rw, 2) + " — the whole format, edge to edge. "
+        : !snapped ? "Width " + round(rw, 2) + ". "
         : Math.abs(colSpan(spans) - rw) < 0.02
           ? "Width " + round(rw, 2) + " — " + spans + " of the " + colCount() +
-            " columns — and the left edge sits on a column line. "
-          : "Width " + round(rw, 2) + ", wider than all " + colCount() +
-            " columns together, because the text needs it. ") +
+            " columns — and both edges sit on a column line. "
+          : Math.abs(colSpan(spans) + state.cols.gutter - rw) < 0.02
+            ? "Width " + round(rw, 2) + " — " + spans + " of the " + colCount() +
+              " columns and a gutter, so the right edge sits on the left side of the next column. "
+            : "Width " + round(rw, 2) + ", wider than all " + colCount() +
+              " columns together, because the text needs it. ") +
       (textVisible()
         ? "It never goes below " + round(floor, 2) + ": the longest line of text (" +
           round(textW, 2) + ") plus the padding on both sides."
@@ -1717,6 +1758,7 @@
       });
     });
 
+    document.body.classList.toggle("guides-locked", !!state.margin.locked);
     document.body.classList.toggle("sel-rect", state.sel === "rect");
     document.body.classList.toggle("sel-logo", state.sel === "logo");
   }
@@ -1847,6 +1889,11 @@
       state.rect.shape = el.value;
     });
     onChange("#rect-cols", function (el) { state.rect.cols = el.checked; });
+    onChange("#rect-hmode", function (el) {
+      if (el.value === "fixed") state.rect.h = round(sizeOf("rect").h, 1);   // start from what is on screen
+      state.rect.hmode = el.value;
+    });
+    onChange("#margin-locked", function (el) { state.margin.locked = el.checked; });
     onChange("#corner-preset", function (el) {
       var p = CORNER_PRESETS.filter(function (x) { return x.id === el.value; })[0];
       if (!p) return;
@@ -2159,7 +2206,7 @@
       var h = sy ? Math.max(MIN_SIZE, s0.h + dy) : s0.h;
       if (ev.shiftKey && sx && sy) h = w / ratio;
       if (sx && state.rect.wmode === "fixed") state.rect.w = snap(w);
-      if (sy) state.rect.h = Math.max(MIN_SIZE, snap(h));
+      if (sy && state.rect.hmode === "fixed") state.rect.h = Math.max(MIN_SIZE, snap(h));
     });
   }
 
@@ -2183,6 +2230,7 @@
   }
 
   function startGuide(e, side) {
+    if (state.margin.locked) return;          // unlock them in the Margins panel to drag
     drag(e, function (ev) {
       var p = toStage(ev), st = state.stage;
       var v = side === "left" ? p.x : side === "right" ? st.w - p.x
