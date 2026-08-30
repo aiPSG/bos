@@ -30,64 +30,99 @@
         <label class="field color"><span>Colour</span><input type="color" id="stage-bg"></label>
       </div>
       <label class="check"><input type="checkbox" id="round-values"><span>Round all values to whole numbers</span></label>
-    </details>
-
-    <details class="group">
-      <summary><h2>Background image</h2></summary>
-      <div class="row">
-        <button type="button" class="ghost grow" id="bg-upload-btn">Upload image…</button>
-        <button type="button" class="ghost" id="bg-clear">Clear</button>
-      </div>
-      <input type="file" id="bg-file" accept="image/*" hidden>
-      <label class="field grow"><span>Image URL</span>
-        <input type="text" id="bg-url" placeholder="https://…" spellcheck="false" autocomplete="off">
-      </label>
-      <div class="row">
-        <label class="field"><span>Fit</span>
-          <select id="bg-fit">
-            <option value="cover">Cover</option>
-            <option value="contain">Contain</option>
-            <option value="stretch">Stretch</option>
-            <option value="tile">Tile</option>
-          </select>
-        </label>
-        <label class="field"><span>Opacity <b id="bg-opacity-val">100%</b></span>
-          <input type="range" id="bg-opacity" min="0" max="100" step="1">
-        </label>
-      </div>
-
       <details class="sub">
-        <summary><h3>Generate with ComfyUI on RunPod</h3></summary>
-        <p class="hint warn" id="key-warning"></p>
-        <label class="field grow"><span>Endpoint — RunPod endpoint ID, or a full URL</span>
-          <input type="text" id="cf-endpoint" placeholder="abc123xyz  ·  or  https://…" spellcheck="false" autocomplete="off">
-        </label>
-        <label class="field grow"><span>API key</span>
-          <input type="password" id="cf-key" placeholder="rpa_…" spellcheck="false" autocomplete="off">
-        </label>
-        <div class="row toggles">
-          <label class="check"><input type="checkbox" id="cf-remember"><span>Remember key in this browser</span></label>
-          <button type="button" class="ghost" id="cf-forget">Forget key</button>
-        </div>
-        <label class="field grow"><span>Workflow JSON — ComfyUI API format</span>
-          <textarea id="cf-workflow" rows="6" spellcheck="false" placeholder='{"3": {"class_type": "KSampler", "inputs": {"seed": {{seed}}, …}}, …}'></textarea>
-        </label>
-        <p class="hint">Placeholders replaced before sending: <code>{{prompt}}</code>, <code>{{negative}}</code>,
-          <code>{{seed}}</code>, <code>{{width}}</code>, <code>{{height}}</code>.
-          <code>{{prompt}}</code> and <code>{{negative}}</code> are inserted as JSON strings — write them <em>without</em> surrounding quotes.</p>
-        <label class="field grow"><span>Prompt</span><textarea id="cf-prompt" rows="2" spellcheck="false"></textarea></label>
-        <label class="field grow"><span>Negative prompt</span><textarea id="cf-negative" rows="2" spellcheck="false"></textarea></label>
+        <summary><h3>Background image</h3></summary>
         <div class="row">
-          <label class="field"><span>Seed</span><input type="number" id="cf-seed" step="1"></label>
-          <label class="field seed-btn"><span>&nbsp;</span><button type="button" class="ghost" id="cf-random">Randomise</button></label>
+          <button type="button" class="ghost grow" id="bg-upload-btn">Upload image…</button>
+          <button type="button" class="ghost" id="bg-clear">Clear</button>
         </div>
-        <button type="button" class="primary wide" id="cf-generate">Generate background</button>
-        <p class="status" id="cf-status"></p>
-        <details class="sub" id="cf-raw-wrap" hidden>
-          <summary><h3>Raw response</h3></summary>
-          <pre class="css-out" id="cf-raw"></pre>
+        <input type="file" id="bg-file" accept="image/*" hidden>
+        <label class="field grow"><span>Image URL</span>
+          <input type="text" id="bg-url" placeholder="https://…" spellcheck="false" autocomplete="off">
+        </label>
+        <div class="row">
+          <label class="field"><span>Fit</span>
+            <select id="bg-fit">
+              <option value="cover">Cover</option>
+              <option value="contain">Contain</option>
+              <option value="stretch">Stretch</option>
+              <option value="tile">Tile</option>
+            </select>
+          </label>
+          <label class="field"><span>Opacity <b id="bg-opacity-val">100%</b></span>
+            <input type="range" id="bg-opacity" min="0" max="100" step="1">
+          </label>
+        </div>
+
+        <details class="sub">
+          <summary><h3>Generate with ComfyUI on RunPod</h3></summary>
+          <p class="hint warn" id="key-warning"></p>
+          <label class="field grow"><span>Endpoint — RunPod endpoint ID, or a full URL</span>
+            <input type="text" id="cf-endpoint" placeholder="abc123xyz  ·  or  https://…" spellcheck="false" autocomplete="off">
+          </label>
+          <label class="field grow"><span>API key</span>
+            <input type="password" id="cf-key" placeholder="rpa_…" spellcheck="false" autocomplete="off">
+          </label>
+          <div class="row toggles">
+            <label class="check"><input type="checkbox" id="cf-remember"><span>Remember key in this browser</span></label>
+            <button type="button" class="ghost" id="cf-forget">Forget key</button>
+          </div>
+          <label class="field grow"><span>Workflow JSON — ComfyUI API format</span>
+            <textarea id="cf-workflow" rows="6" spellcheck="false" placeholder='{"3": {"class_type": "KSampler", "inputs": {"seed": {{seed}}, …}}, …}'></textarea>
+          </label>
+          <p class="hint">Placeholders replaced before sending: <code>{{prompt}}</code>, <code>{{negative}}</code>,
+            <code>{{seed}}</code>, <code>{{width}}</code>, <code>{{height}}</code>.
+            <code>{{prompt}}</code> and <code>{{negative}}</code> are inserted as JSON strings — write them <em>without</em> surrounding quotes.</p>
+          <label class="field grow"><span>Prompt</span><textarea id="cf-prompt" rows="2" spellcheck="false"></textarea></label>
+          <label class="field grow"><span>Negative prompt</span><textarea id="cf-negative" rows="2" spellcheck="false"></textarea></label>
+          <div class="row">
+            <label class="field"><span>Seed</span><input type="number" id="cf-seed" step="1"></label>
+            <label class="field seed-btn"><span>&nbsp;</span><button type="button" class="ghost" id="cf-random">Randomise</button></label>
+          </div>
+          <button type="button" class="primary wide" id="cf-generate">Generate background</button>
+          <p class="status" id="cf-status"></p>
+          <details class="sub" id="cf-raw-wrap" hidden>
+            <summary><h3>Raw response</h3></summary>
+            <pre class="css-out" id="cf-raw"></pre>
+          </details>
         </details>
       </details>
+    </details>
+
+    <details class="group" open>
+      <summary><h2>Logo</h2></summary>
+      <label class="check"><input type="checkbox" id="logo-visible"><span>Show logo circle</span></label>
+      <div class="row aligners">
+        <div class="field"><span>Position in format</span><div class="grid3" id="logo-align"></div></div>
+        <div class="field"><span>Anchor point</span><div class="grid3" id="logo-anchor"></div></div>
+      </div>
+      <div class="row">
+        <button type="button" class="ghost grow" id="logo-upload-btn">Upload a logo…</button>
+        <button type="button" class="ghost" id="logo-clear">Clear</button>
+      </div>
+      <input type="file" id="logo-file" accept="image/*,.svg" hidden>
+      <div class="row">
+        <label class="field"><span>Size</span><input type="number" id="logo-h" min="0" step="0.1"></label>
+        <label class="field unit"><span>Measured as</span>
+          <select id="logo-hu">
+            <option value="%">% of long side</option>
+            <option value="px">px</option>
+            <option value="col">columns wide</option>
+          </select>
+        </label>
+      </div>
+      <div class="seg" id="logo-cols">
+        <button type="button" data-cols="1">1 column</button>
+        <button type="button" data-cols="1.5">1.5</button>
+        <button type="button" data-cols="2">2</button>
+      </div>
+      <div class="row">
+        <label class="field color grow" id="logo-fill-field"><span>Fill</span><input type="color" id="logo-fill"></label>
+      </div>
+      <p class="hint" id="logo-size-hint"></p>
+      <p class="hint">The height defines the logo; the width follows the artwork's proportions. A
+        percentage is a share of the format's <b>longest side</b>, so the logo holds its scale in
+        portrait and landscape alike. Without artwork it stays a circle.</p>
     </details>
 
     <details class="group" open>
@@ -177,54 +212,26 @@
       <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
       <p class="hint" id="rect-grid-hint"></p>
       <p class="hint" id="rect-width-hint"></p>
-    </details>
-
-    <details class="group" open>
-      <summary><h2>Corners</h2></summary>
-      <label class="field grow"><span>Shape</span>
-        <select id="corner-shape"></select>
-      </label>
-      <p class="hint" id="corner-shape-hint"></p>
-      <label class="field grow" id="corner-preset-field"><span>Corner style</span>
-        <select id="corner-preset"></select>
-      </label>
-      <div class="row toggles">
-        <label class="check"><input type="checkbox" id="corners-linked"><span>Link all corners</span></label>
-        <label class="check"><input type="checkbox" id="corners-elliptical"><span>Elliptical</span></label>
-      </div>
-      <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
-      <div id="corners"></div>
-      <label class="field grow shorthand" id="shorthand-field"><span>border-radius</span>
-        <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
-      </label>
-      <p class="hint" id="shorthand-hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
-    </details>
-
-    <details class="group" open>
-      <summary><h2>Logo</h2></summary>
-      <label class="check"><input type="checkbox" id="logo-visible"><span>Show logo circle</span></label>
-      <div class="row aligners">
-        <div class="field"><span>Position in format</span><div class="grid3" id="logo-align"></div></div>
-        <div class="field"><span>Anchor point</span><div class="grid3" id="logo-anchor"></div></div>
-      </div>
-      <div class="row">
-        <button type="button" class="ghost grow" id="logo-upload-btn">Upload a logo…</button>
-        <button type="button" class="ghost" id="logo-clear">Clear</button>
-      </div>
-      <input type="file" id="logo-file" accept="image/*,.svg" hidden>
-      <div class="row">
-        <label class="field"><span>Height</span><input type="number" id="logo-h" min="0" step="0.1"></label>
-        <label class="field unit"><span>Unit</span>
-          <select id="logo-hu"><option value="%">% of long side</option><option value="px">px</option></select>
+      <details class="sub" open>
+        <summary><h3>Corners</h3></summary>
+        <label class="field grow"><span>Shape</span>
+          <select id="corner-shape"></select>
         </label>
-      </div>
-      <div class="row">
-        <label class="field color grow" id="logo-fill-field"><span>Fill</span><input type="color" id="logo-fill"></label>
-      </div>
-      <p class="hint" id="logo-size-hint"></p>
-      <p class="hint">The height defines the logo; the width follows the artwork's proportions. A
-        percentage is a share of the format's <b>longest side</b>, so the logo holds its scale in
-        portrait and landscape alike. Without artwork it stays a circle.</p>
+        <p class="hint" id="corner-shape-hint"></p>
+        <label class="field grow" id="corner-preset-field"><span>Corner style</span>
+          <select id="corner-preset"></select>
+        </label>
+        <div class="row toggles">
+          <label class="check"><input type="checkbox" id="corners-linked"><span>Link all corners</span></label>
+          <label class="check"><input type="checkbox" id="corners-elliptical"><span>Elliptical</span></label>
+        </div>
+        <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
+        <div id="corners"></div>
+        <label class="field grow shorthand" id="shorthand-field"><span>border-radius</span>
+          <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
+        </label>
+        <p class="hint" id="shorthand-hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
+      </details>
     </details>
 
     <details class="group" open>
@@ -347,6 +354,8 @@
     <div class="toolbar">
       <div class="readout" id="readout"></div>
       <div class="zoom">
+        <button type="button" class="ghost" id="undo" title="Undo (⌘/Ctrl + Z)" disabled>↶</button>
+        <button type="button" class="ghost" id="redo" title="Redo (⌘/Ctrl + Shift + Z)" disabled>↷</button>
         <button type="button" class="ghost" id="rail-toggle" title="Show or hide the format previews">Formats</button>
         <button type="button" class="ghost" id="overlay-toggle" title="Show or hide every guide and grid at once">Guides</button>
         <button type="button" class="ghost" id="zoom-out" title="Zoom out">−</button>
@@ -371,6 +380,11 @@
         <div class="baseline" id="baseline" hidden></div>
         <div class="cells" id="cells" hidden></div>
           <div class="frame" id="frame" tabindex="0" hidden></div>
+          <div class="block-frame" id="block-frame" hidden>
+            <span class="bhandle" data-bdir="w" title="Drag the left edge of the field"></span>
+            <span class="bhandle" data-bdir="e" title="Drag the right edge of the field"></span>
+            <span class="bhandle size" data-bdir="size" title="Drag to size this role"></span>
+          </div>
         </div>
       </div>
 
@@ -380,7 +394,7 @@
       </aside>
     </div>
 
-    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
+    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · click a text block to pick it up, double-click to type into it, drag its edges to resize the field or its round grip to size the type · click empty canvas to deselect · ⌘/Ctrl + Z undoes · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
   </main>
 
 </div>

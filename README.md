@@ -88,7 +88,10 @@ CSS output carries whichever the shape uses.
 height defines the logo and the width follows the artwork's own proportions**; an SVG with nothing
 but a `viewBox` is measured from that. The height is given in `px` or, by default, as **a percentage
 of the format's longest side**, so the logo holds its scale whichever way the format turns — 10% is
-135 on a 1350-tall portrait and 192 on a 1920-wide landscape. Resize handles keep the ratio and
+135 on a 1350-tall portrait and 192 on a 1920-wide landscape. It can also be **measured in columns**:
+one, one and a half or two columns wide (or any number you type), gutters included, with the height
+following the artwork — and when the margins are themselves derived from the logo, the two are
+solved together in one step rather than chasing each other. Resize handles keep the ratio and
 write back in whatever unit is set. Its size is what the margin rule multiplies, so a percentage
 logo gives margins that scale with the format too.
 
@@ -157,7 +160,16 @@ top. Toggle the rail with **Formats** in the toolbar.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift
-constrains, arrow keys step through the alignment cells. Live CSS **and markup** output with copy buttons; the
+constrains, arrow keys step through the alignment cells. Clicking empty canvas **deselects**, and
+hiding the guides hides the handles with them. **⌘/Ctrl + Z undoes** and ⌘/Ctrl + Shift + Z redoes,
+from the keyboard or the two toolbar buttons; a burst of changes — a drag, a run of keystrokes —
+settles into one step.
+
+**Text on the canvas** — click a block to pick it up, **double-click to type straight into it** (the
+panel follows every keystroke, and Escape leaves), drag its **side handles** to draw the field in
+from either edge, or its round grip to **size that role** on the spot. A field drawn in wraps its
+lines inside itself; one that fills the padding column keeps to the line breaks you typed. Both
+insets are numbers in the panel too, with the resulting field width beside them. Live CSS **and markup** output with copy buttons; the
 state is kept in `localStorage` and **Reset** restores the defaults.
 
 ## Generating a background with ComfyUI on RunPod
@@ -203,6 +215,12 @@ python3 -m http.server 8000
 `.github/workflows/pages.yml` publishes the repository root to GitHub Pages on every push to
 `main`, and can be run by hand from the Actions tab. It needs **Settings → Pages → Source: GitHub
 Actions** selected once.
+
+## The panel
+
+Seven groups, in the order the design comes together: **Format** (with background image inside it),
+**Logo**, **Margins** (with the column grid), **Rectangle** (with corners), **Typography**,
+**Text blocks**, **CSS**.
 
 ## Layout
 

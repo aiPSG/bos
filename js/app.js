@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v12";
+  var STORAGE_KEY = "bos.design.v13";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -220,7 +220,7 @@
 
   function defaults() {
     return {
-      v: 12,
+      v: 13,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -273,10 +273,12 @@
         // each block sits on a row of its own, counted from the top or the bottom
         // edge of the rectangle, so the text travels with the box as it is resized
         blocks: [
-          { visible: true, role: "headline", align: "left", row: 2, grid: 1, from: "top", text: "Headline goes\nhere" },
-          { visible: true, role: "subline", align: "left", row: 5, grid: 1, from: "top", text: "A subline carrying\nthe second thought" },
-          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", text: "A supporting line of copy\nthat explains the headline." },
-          { visible: true, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", text: "Small print: terms and credits." }
+          // padL / padR inset the field from the sides of the padding column. A field
+          // that has been drawn in wraps its lines; one that fills the column does not
+          { visible: true, role: "headline", align: "left", row: 2, grid: 1, from: "top", padL: 0, padR: 0, text: "Headline goes\nhere" },
+          { visible: true, role: "subline", align: "left", row: 5, grid: 1, from: "top", padL: 0, padR: 0, text: "A subline carrying\nthe second thought" },
+          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", padL: 0, padR: 0, text: "A supporting line of copy\nthat explains the headline." },
+          { visible: true, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", padL: 0, padR: 0, text: "Small print: terms and credits." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -284,7 +286,8 @@
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
       showRail: true,
       showGuides: true,          // one switch for every guide and grid on the canvas
-      sel: "rect"
+      sel: "rect",
+      selBlock: -1               // which text block carries the field handles
     };
   }
 
@@ -325,7 +328,11 @@
       s.type = Object.assign(d.type, s.type);
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
       if (!Array.isArray(s.text.blocks) || !s.text.blocks.length) s.text.blocks = d.text.blocks;
-      s.text.blocks.forEach(function (b) { if (b.from !== "bottom") b.from = "top"; });
+      s.text.blocks.forEach(function (b) {
+        if (b.from !== "bottom") b.from = "top";
+        if (!isFinite(b.padL)) b.padL = 0;
+        if (!isFinite(b.padR)) b.padR = 0;
+      });
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -428,32 +435,59 @@
     return len.u === "%" ? len.v / 100 * longSide() : len.v;
   }
 
-  // the logo is defined by its height; the width follows the artwork's aspect ratio
+  // the logo is defined by its height; the width follows the artwork's aspect ratio.
+  // sized in columns it is the other way round: the width spans the columns and the
+  // height follows, so the artwork keeps its proportions either way
   function logoSize() {
-    var lg = state.logo;
-    var h = Math.max(MIN_SIZE, lenPx(lg.h));
+    var lg = state.logo, h;
+    if (lg.h.u === "col") {
+      var w = Math.max(MIN_SIZE, colSpan(lg.h.v));
+      return { w: w, h: Math.max(MIN_SIZE, w / (lg.aspect || 1)) };
+    }
+    h = Math.max(MIN_SIZE, lenPx(lg.h));
     return { w: Math.max(MIN_SIZE, h * (lg.aspect || 1)), h: h };
   }
 
   function setLogoHeightPx(px) {
     var len = state.logo.h;
+    if (len.u === "col") {                       // dragging writes back in columns too
+      len.v = Math.max(0.1, round(colsAcross(px * (state.logo.aspect || 1)), 2));
+      return;
+    }
     var v = len.u === "%" ? px / Math.max(1, longSide()) * 100 : px;
     len.v = Math.max(state.round ? 1 : 0.1, snap(v));
   }
 
   function setLogoUnit(u) {
-    var len = state.logo.h, px = lenPx(len);
+    var len = state.logo.h, sz = logoSize(), px = sz.h;
     len.u = u;
-    len.v = Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, longSide()) * 100 : px));
+    len.v = u === "col" ? Math.max(0.1, round(colsAcross(sz.w), 2))
+      : Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, longSide()) * 100 : px));
   }
 
   function margins() {
     var m = state.margin;
     if (m.mode !== "manual") {
-      var v = snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w) + (m.buffer || 0));
+      // a logo sized in columns is measured from the columns, which are measured from
+      // these margins — so the two are solved together rather than chasing each other
+      var v = state.logo.h.u === "col"
+        ? snap(marginFromColumnLogo())
+        : snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w) + (m.buffer || 0));
       return { top: v, right: v, bottom: v, left: v };
     }
     return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
+  }
+
+  // margin = factor x logo + buffer, where the logo spans n of the columns that the
+  // margins themselves leave room for. One equation, one unknown.
+  function marginFromColumnLogo() {
+    var m = state.margin, W = state.stage.w;
+    var k = Math.max(1, Math.round(state.cols.n)), g = Math.max(0, state.cols.gutter);
+    var n = Math.max(0.1, state.logo.h.v);
+    var fe = m.factor / (m.mode === "logoH" ? (state.logo.aspect || 1) : 1);
+    var A = fe * n / k;
+    var v = (A * (W - (k - 1) * g) + fe * (n - 1) * g + (m.buffer || 0)) / (1 + 2 * A);
+    return clamp(v, 0, W / 2 - MIN_SIZE);
   }
 
   // the box the shapes are aligned inside: the format inset by the margins
@@ -551,9 +585,17 @@
   }
   function colCount() { return Math.max(1, Math.round(state.cols.n)); }
   function colStep() { return colWidth() + Math.max(0, state.cols.gutter); }
+  // a span of n columns, gutters included — n need not be whole: 1.5 columns is a
+  // column, a gutter and half a column
   function colSpan(k) {
-    var n = Math.max(1, k);
-    return n * colWidth() + (n - 1) * Math.max(0, state.cols.gutter);
+    var n = Math.max(0, k);
+    return n <= 0 ? 0 : n * colWidth() + (n - 1) * Math.max(0, state.cols.gutter);
+  }
+
+  // how many columns a width spans, the inverse of colSpan
+  function colsAcross(w) {
+    var g = Math.max(0, state.cols.gutter);
+    return Math.max(0.1, (w + g) / (colWidth() + g));
   }
 
   // the width the text needs: its longest line plus the padding on both sides
@@ -686,6 +728,7 @@
   function cacheEls() {
     els.viewport = $("#viewport"); els.stage = $("#stage"); els.frame = $("#frame");
     els.guides = $("#guides"); els.cells = $("#cells"); els.cssOut = $("#css-out");
+    els.blockFrame = $("#block-frame");
     els.overlay = $("#overlay"); els.railList = $("#rail-list"); els.baseline = $("#baseline");
     els.columns = $("#columns");
     els.readout = $("#readout"); els.zoomValue = $("#zoom-value"); els.shorthand = $("#radius-shorthand");
@@ -898,6 +941,38 @@
     return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
+  // the text block being typed into on the canvas, or -1
+  var editing = -1, pressedBlock = -1;
+
+  function startEditing(i) {
+    if (editing === i) return;
+    editing = i;
+    render();
+    requestAnimationFrame(function () {
+      var el = els.stage.querySelector('.tb[data-i="' + i + '"]');
+      if (!el) return;
+      el.focus();
+      var sel = window.getSelection();
+      if (sel && el.lastChild) {
+        var r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    });
+  }
+
+  function stopEditing() {
+    if (editing < 0) return;
+    var el = els.stage.querySelector('.tb[data-i="' + editing + '"]');
+    if (el) el.blur();
+    editing = -1;
+    var stack = els.stage._rect && els.stage._rect._text;
+    if (stack) stack.dataset.sig = "";        // rebuild, which restores the baseline probe
+    render();
+  }
+
   // in a box that fills the format, text aligned to a side can hang on the format's own
   // margin instead of the box padding — the padding still holds the other side
   function sidePad(align) {
@@ -919,6 +994,10 @@
     var sig = blocks.map(function (b) {
       return b.role + "\u0000" + state.type.roles[b.role].tag + "\u0000" + b.text;
     }).join("\u0001");
+    // rebuilding the stack would take the caret with it, so the block being typed
+    // into keeps its own node — the DOM already holds what was typed
+    var typing = editing >= 0 && rectEl.parentNode === els.stage;
+    if (typing) stack.dataset.sig = sig;
     if (stack.dataset.sig !== sig) {
       stack.dataset.sig = sig;
       stack.innerHTML = "";
@@ -943,8 +1022,11 @@
       el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
         top: (rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin) * s + "px",
-        marginLeft: sp.l * s + "px",
-        marginRight: sp.r * s + "px",
+        marginLeft: (sp.l + (b.padL || 0)) * s + "px",
+        marginRight: (sp.r + (b.padR || 0)) * s + "px",
+        // a field drawn in by hand wraps inside itself; one that fills the column
+        // keeps to the line breaks that were typed
+        whiteSpace: (b.padL || b.padR) ? "pre-wrap" : "pre",
         fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
@@ -953,6 +1035,13 @@
         color: st.color,
         textAlign: b.align
       });
+      var edit = rectEl.parentNode === els.stage && editing === +el.dataset.i;
+      if (edit !== (el.getAttribute("contenteditable") === "true")) {
+        if (edit) el.setAttribute("contenteditable", "true");
+        else el.removeAttribute("contenteditable");
+      }
+      el.classList.toggle("editing", edit);
+      el.classList.toggle("picked", rectEl.parentNode === els.stage && state.selBlock === +el.dataset.i);
     });
   }
 
@@ -1068,6 +1157,7 @@
     renderColumns(s);
     placeBlocks(els.stage._rect && els.stage._rect._text, s);
     renderFrame(s);
+    renderBlockFrame();
     renderRail();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
     renderReadout();
@@ -1173,7 +1263,8 @@
   var frameFor = null;
   function renderFrame(s) {
     var name = state.sel;
-    var shown = name && state[name] && state[name].visible;
+    // the handles are part of the furniture: hiding the guides hides them too
+    var shown = name && state[name] && state[name].visible && state.showGuides !== false;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
     var key = name;
@@ -1197,6 +1288,24 @@
       el.style.left = (n === "tl" || n === "bl" ? rx : b.w * s - rx) + "px";
       el.style.top = (n === "tl" || n === "tr" ? ry : b.h * s - ry) + "px";
     });
+  }
+
+  // the field around the selected block, measured straight off the element
+  function renderBlockFrame() {
+    var i = state.selBlock, el = i >= 0 && els.stage.querySelector('.tb[data-i="' + i + '"]');
+    var shown = !!el && state.showGuides !== false;
+    els.blockFrame.hidden = !shown;
+    if (!shown) return;
+    var r = el.getBoundingClientRect(), st = els.stage.getBoundingClientRect();
+    Object.assign(els.blockFrame.style, {
+      left: r.left - st.left + "px", top: r.top - st.top + "px",
+      width: r.width + "px", height: r.height + "px"
+    });
+    var size = els.blockFrame.querySelector(".bhandle.size");
+    size.style.left = r.width + "px";
+    size.style.top = r.height + "px";
+    els.blockFrame.querySelector('[data-bdir="w"]').style.left = "0px";
+    els.blockFrame.querySelector('[data-bdir="e"]').style.left = r.width + "px";
   }
 
   function renderCells(name) {
@@ -1425,7 +1534,80 @@
       renderStage();
       renderCSS();
       save();
+      recordHistory();
     });
+  }
+
+  /* ------------------------------------------------------------------ undo */
+
+  // a burst of changes — a drag, a run of keystrokes — settles into one step
+  var past = [], future = [], histTimer = null, lastSnap = null, restoring = false;
+  var HISTORY_MAX = 80, HISTORY_QUIET = 400;
+
+  function snapshot() {
+    try { return JSON.stringify(state); } catch (e) { return null; }
+  }
+
+  function recordHistory() {
+    if (restoring) return;
+    clearTimeout(histTimer);
+    histTimer = setTimeout(function () {
+      var now = snapshot();
+      if (!now || now === lastSnap) return;
+      if (lastSnap !== null) {
+        past.push(lastSnap);
+        if (past.length > HISTORY_MAX) past.shift();
+        future.length = 0;
+      }
+      lastSnap = now;
+      syncHistoryButtons();
+    }, HISTORY_QUIET);
+  }
+
+  // fold a change that has not settled yet into the stack, so undo never skips it
+  function settleHistory() {
+    clearTimeout(histTimer);
+    var now = snapshot();
+    if (now && lastSnap !== null && now !== lastSnap) {
+      past.push(now === lastSnap ? now : lastSnap);
+      if (past.length > HISTORY_MAX) past.shift();
+      lastSnap = now;
+      future.length = 0;
+    }
+    return now;
+  }
+
+  function restore(json) {
+    restoring = true;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    state = JSON.parse(json);
+    lastSnap = json;
+    buildFamilySelect();
+    buildTextBlocks();
+    blOffset = {};
+    frameFor = null;
+    render();
+    requestAnimationFrame(function () { restoring = false; syncHistoryButtons(); });
+  }
+
+  function undo() {
+    var now = settleHistory();
+    if (!past.length) return;
+    if (now) future.push(now);
+    restore(past.pop());
+  }
+
+  function redo() {
+    if (!future.length) return;
+    var now = snapshot();
+    if (now) past.push(now);
+    restore(future.pop());
+  }
+
+  function syncHistoryButtons() {
+    var u = $("#undo"), r = $("#redo");
+    if (u) u.disabled = !past.length;
+    if (r) r.disabled = !future.length;
   }
 
   /* ------------------------------------------------------------- the panel */
@@ -1537,6 +1719,12 @@
           "</select>" +
         "</div>" +
         '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
+        '<div class="block-row">' +
+          "<span>Field</span>" +
+          '<input type="number" min="0" step="1" data-block="padL" title="Inset from the left">' +
+          '<input type="number" min="0" step="1" data-block="padR" title="Inset from the right">' +
+          '<span class="px" data-fieldw="' + i + '"></span>' +
+        "</div>" +
         '<div class="block-row">' +
           "<span>Row</span>" +
           '<input type="number" step="1" data-block="row">' +
@@ -1703,9 +1891,18 @@
     $("#logo-fill").value = lg.fill;
     $("#logo-fill-field").hidden = !!lg.src;
     var ls = logoSize();
+    $("#logo-cols").hidden = lg.h.u !== "col";
+    Array.prototype.forEach.call($("#logo-cols").children, function (btn) {
+      btn.setAttribute("aria-pressed",
+        Math.abs(+btn.dataset.cols - lg.h.v) < 0.005 ? "true" : "false");
+    });
     $("#logo-size-hint").textContent = (lg.src ? "Artwork " : "Circle ") +
-      fmt(ls.w) + " × " + fmt(ls.h) + " — long side of this format is " + fmt(longSide()) +
-      (lg.src ? ", artwork ratio " + round(lg.aspect, 3) + ":1" : "") + ".";
+      fmt(ls.w) + " × " + fmt(ls.h) +
+      (lg.h.u === "col"
+        ? " — " + round(lg.h.v, 2) + " of the " + colCount() + " columns (" + round(colWidth(), 2) +
+          " each), with the height following the " + round(lg.aspect, 3) + ":1 artwork."
+        : " — long side of this format is " + fmt(longSide()) +
+          (lg.src ? ", artwork ratio " + round(lg.aspect, 3) + ":1" : "") + ".");
 
     var ty = state.type, st2 = ty.roles[ty.editing];
     $("#type-family").value = ty.family;
@@ -1792,6 +1989,10 @@
       setValue(row.querySelector('[data-block="row"]'), b.row);
       row.querySelector('[data-block="grid"]').value = String(b.grid);
       row.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
+      setValue(row.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
+      setValue(row.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
+      var fw = sizeOf("rect").w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
+      row.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
       Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
         btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
       });
@@ -1906,6 +2107,12 @@
     onChange("#logo-visible", function (el) { state.logo.visible = el.checked; if (el.checked) state.sel = "logo"; });
     numInput("#logo-h", function (v) { state.logo.h.v = Math.max(0.01, round(v, 2)); }, 0);
     onChange("#logo-hu", function (el) { setLogoUnit(el.value); });
+    $("#logo-cols").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-cols]");
+      if (!btn) return;
+      state.logo.h = { v: +btn.dataset.cols, u: "col" };
+      render();
+    });
     $("#logo-upload-btn").addEventListener("click", function () { $("#logo-file").click(); });
     $("#logo-file").addEventListener("change", function (e) {
       var file = e.target.files && e.target.files[0];
@@ -2082,6 +2289,9 @@
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "text") b.text = e.target.value;
       else if (what === "row" && e.target.value !== "") b.row = Math.round(num(e.target.value, b.row));
+      else if ((what === "padL" || what === "padR") && e.target.value !== "") {
+        b[what] = Math.max(0, snap(num(e.target.value, b[what] || 0)));
+      }
       else return;
       render();
     });
@@ -2105,6 +2315,8 @@
       render();
     });
 
+    $("#undo").addEventListener("click", undo);
+    $("#redo").addEventListener("click", redo);
     $("#rail-toggle").addEventListener("click", function () {
       state.showRail = !state.showRail;
       render();
@@ -2235,6 +2447,38 @@
     });
   }
 
+  // drag a field edge in or out; a field narrower than the column wraps its lines
+  function startFieldResize(e, index, dir) {
+    var b = state.text.blocks[index];
+    if (!b) return;
+    var start = toStage(e), l0 = b.padL || 0, r0 = b.padR || 0;
+    var room = Math.max(MIN_SIZE, sizeOf("rect").w - state.text.padding * 2);
+    drag(e, function (ev) {
+      var dx = toStage(ev).x - start.x;
+      if (dir === "w") b.padL = clamp(snap(l0 + dx), 0, room - (b.padR || 0) - MIN_SIZE);
+      else b.padR = clamp(snap(r0 - dx), 0, room - (b.padL || 0) - MIN_SIZE);
+    });
+  }
+
+  // drag the grip to size the role this block carries
+  function startTypeScale(e, index) {
+    var b = state.text.blocks[index];
+    if (!b) return;
+    var ty = state.type, role = b.role;
+    var start = toStage(e), from = role === "paragraph" ? ty.paragraph : ty.roles[role].mult;
+    var px0 = rolePx(role);
+    drag(e, function (ev) {
+      var dy = toStage(ev).y - start.y;
+      var k = clamp(1 + dy / Math.max(40, px0 * 4), 0.05, 20);
+      if (role === "paragraph") ty.paragraph = clamp(round(from * k, 3), 0.05, 100);
+      else {
+        ty.roles[role].mult = clamp(round(from * k, 3), 0.01, 50);
+        ty.system = "custom";
+      }
+      ty.editing = role;
+    });
+  }
+
   function startResize(e, dir) {
     var name = state.sel, el = state[name];
     var sx = dir.indexOf("w") > -1 ? -1 : dir.indexOf("e") > -1 ? 1 : 0;
@@ -2295,6 +2539,32 @@
   }
 
   function bindCanvas() {
+    // the drag captures the pointer, so the double click arrives on the viewport —
+    // the block that was pressed is remembered instead of read off the event
+    els.viewport.addEventListener("dblclick", function (e) {
+      if (pressedBlock < 0) return;
+      e.preventDefault();
+      state.selBlock = pressedBlock;
+      startEditing(pressedBlock);
+    });
+
+    // typing on the canvas writes straight back to the block
+    els.stage.addEventListener("input", function (e) {
+      var tb = e.target.closest && e.target.closest(".tb");
+      if (!tb || tb.dataset.i === undefined || editing !== +tb.dataset.i) return;
+      var b = state.text.blocks[+tb.dataset.i];
+      if (!b) return;
+      b.text = (tb.innerText || "").replace(/\u00a0/g, " ").replace(/\n$/, "");
+      render();
+    });
+    els.stage.addEventListener("keydown", function (e) {
+      if (editing < 0) return;
+      if (e.key === "Escape") { e.preventDefault(); stopEditing(); }
+    });
+    els.stage.addEventListener("focusout", function (e) {
+      if (editing >= 0 && e.target.classList.contains("tb")) stopEditing();
+    });
+
     els.viewport.addEventListener("pointerdown", function (e) {
       if (e.button === 1 || spaceDown) return startPan(e);
       if (e.button !== 0) return;
@@ -2304,13 +2574,25 @@
         els.frame.focus();
         return t.classList.contains("radius") ? startRadius(e, t.dataset.corner) : startResize(e, t.dataset.dir);
       }
+      if (t.classList.contains("bhandle")) {
+        return t.dataset.bdir === "size"
+          ? startTypeScale(e, state.selBlock)
+          : startFieldResize(e, state.selBlock, t.dataset.bdir);
+      }
       var tb = t.closest && t.closest(".tb");
+      pressedBlock = tb && tb.dataset.i !== undefined ? +tb.dataset.i : -1;
       if (tb && tb.dataset.i !== undefined) {
+        var i = +tb.dataset.i;
+        if (editing === i) return;                 // typing: let the caret land
+        if (editing >= 0) stopEditing();
         state.sel = "rect";
+        state.selBlock = i;
         els.frame.focus();
         render();
-        return startTextDrag(e, +tb.dataset.i);
+        return startTextDrag(e, i);
       }
+      if (editing >= 0) stopEditing();
+      if (state.selBlock >= 0) state.selBlock = -1;
       var shape = t.closest && t.closest(".shape");
       if (shape) {
         state.sel = shape.dataset.el;
@@ -2318,7 +2600,9 @@
         render();
         return startShapeDrag(e, state.sel);
       }
-      if (t === els.frame) { els.frame.focus(); return startShapeDrag(e, state.sel); }
+      if (t === els.frame && state.sel) { els.frame.focus(); return startShapeDrag(e, state.sel); }
+      // a click on nothing in particular clears the selection
+      if (state.sel) { state.sel = ""; render(); }
       startPan(e);
     });
 
@@ -2339,6 +2623,12 @@
 
     window.addEventListener("keydown", function (e) {
       var t = e.target;
+      // undo works wherever you are, including inside a field
+      if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z" || e.key === "y")) {
+        e.preventDefault();
+        if (e.key === "y" || e.shiftKey) redo(); else undo();
+        return;
+      }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
       if (e.code === "Space") { spaceDown = true; document.body.classList.add("can-pan"); return; }
       var map = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };

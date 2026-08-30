@@ -192,9 +192,11 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 .block-head .check{margin:0;font-size:11px;color:var(--text-dim);white-space:nowrap}
 .block-head select{flex:0 1 auto;width:auto;min-width:0;padding-top:5px;padding-bottom:5px;font-size:12px}
 .block-row{display:grid;grid-template-columns:30px 1fr 74px 108px;gap:6px;align-items:center;margin:8px 0}
+.block-row .px{font-size:11px;color:var(--text-dim);text-align:right;font-variant-numeric:tabular-nums}
 .block-row>span{font-size:11px;color:var(--text-dim)}
 .block-row input,.block-row select{padding:6px 7px;font-size:12px}
 .block textarea{min-height:52px}
+#logo-cols{margin-bottom:8px}
 .seg{display:flex;gap:3px;padding:3px;background:var(--bg-input);border:1px solid var(--line);border-radius:6px}
 .seg button{
   flex:1;padding:4px 0;border:1px solid transparent;border-radius:4px;
@@ -279,6 +281,18 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 .overlay>*{pointer-events:auto}
 .overlay .guides{pointer-events:none}
 .columns{position:absolute;pointer-events:none}
+
+/* the frame around the selected text block: its field edges and a size grip */
+.block-frame{position:absolute;pointer-events:none;outline:1px dashed var(--accent);outline-offset:0}
+.bhandle{
+  position:absolute;pointer-events:auto;background:var(--accent);border:1px solid #fff;border-radius:2px;
+}
+.bhandle[data-bdir=w],.bhandle[data-bdir=e]{top:0;bottom:0;width:5px;margin-left:-2px;cursor:ew-resize;border-radius:3px}
+.bhandle[data-bdir=e]{margin-left:-3px}
+.bhandle.size{width:11px;height:11px;margin:-5px 0 0 -5px;border-radius:50%;cursor:ns-resize}
+.tb.picked{outline:1px dashed rgba(255,255,255,.35)}
+.tb.editing{outline:1px solid var(--accent);cursor:text}
+.tb.editing:focus{outline:2px solid var(--accent)}
 .baseline{position:absolute;pointer-events:none}
 .cells{position:absolute;inset:0;pointer-events:none}
 .cell{
