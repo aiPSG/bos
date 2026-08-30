@@ -316,6 +316,7 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 }
 body.rail-open .rail{display:block}
 body.rail-open #rail-toggle{background:var(--accent-dim);border-color:var(--accent)}
+body.overlays-on #overlay-toggle{background:var(--accent-dim);border-color:var(--accent)}
 
 .rail-head{
   position:sticky;top:0;z-index:1;

@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v11";
+  var STORAGE_KEY = "bos.design.v12";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -220,11 +220,13 @@
 
   function defaults() {
     return {
-      v: 11,
+      v: 12,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
-      margin: { mode: "manual", factor: 1, linked: true, locked: true, top: 80, right: 80, bottom: 80, left: 80 },
+      // in a logo mode every margin is factor × the logo size, plus a buffer on top
+      margin: { mode: "manual", factor: 1, buffer: 0, linked: true, locked: true,
+        top: 80, right: 80, bottom: 80, left: 80 },
       round: true,
       rect: {
         // wmode / hmode: a set size, filling between the margins, filling the whole
@@ -265,6 +267,9 @@
       },
       text: {
         padding: 48,
+        // in a box that fills the format, left- and right-aligned text can take the
+        // format's own margin on that side instead of the box padding
+        marginPad: true,
         // each block sits on a row of its own, counted from the top or the bottom
         // edge of the rectangle, so the text travels with the box as it is resized
         blocks: [
@@ -278,6 +283,7 @@
       cols: { n: 6, gutter: 24, show: true },
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
       showRail: true,
+      showGuides: true,          // one switch for every guide and grid on the canvas
       sel: "rect"
     };
   }
@@ -444,7 +450,7 @@
   function margins() {
     var m = state.margin;
     if (m.mode !== "manual") {
-      var v = snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w));
+      var v = snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w) + (m.buffer || 0));
       return { top: v, right: v, bottom: v, left: v };
     }
     return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
@@ -892,6 +898,17 @@
     return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
+  // in a box that fills the format, text aligned to a side can hang on the format's own
+  // margin instead of the box padding — the padding still holds the other side
+  function sidePad(align) {
+    var t = state.text, m = margins();
+    if (!t.marginPad || state.rect.wmode !== "format") return { l: 0, r: 0 };
+    return {
+      l: align === "left" ? m.left - t.padding : 0,
+      r: align === "right" ? m.right - t.padding : 0
+    };
+  }
+
   function paintText(rectEl, s) {
     var t = state.text;
     var blocks = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
@@ -922,10 +939,12 @@
 
     var origin = box("rect").y + t.padding;                    // top of the stack, in format units
     Array.prototype.forEach.call(stack.children, function (el, i) {
-      var b = blocks[i], st = state.type.roles[b.role];
+      var b = blocks[i], st = state.type.roles[b.role], sp = sidePad(b.align);
       el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
         top: (rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin) * s + "px",
+        marginLeft: sp.l * s + "px",
+        marginRight: sp.r * s + "px",
         fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
@@ -1036,6 +1055,8 @@
       width: st.w * s + "px", height: st.h * s + "px", left: p.x + "px", top: p.y + "px"
     });
 
+    var show = state.showGuides !== false;
+    els.guides.hidden = !show;
     els.guides.style.setProperty("--guide", guideColour());
     var m = margins();
     els.guides.querySelector("[data-side=top]").style.top = m.top * s + "px";
@@ -1054,7 +1075,7 @@
 
   // the baseline grid: paragraph line boxes, drawn down the margin box from its top edge
   function renderBaseline(s) {
-    var mode = state.type.grid;
+    var mode = state.showGuides === false ? "off" : state.type.grid;
     var unit = baseline() * s, m = margins();
     var c = hexRgb(guideColour());
     var rgba = function (a) {
@@ -1083,7 +1104,7 @@
   // the column grid, drawn across the content box
   function renderColumns(s) {
     var c = state.cols, m = margins();
-    els.columns.hidden = !c.show || c.n < 1;
+    els.columns.hidden = !c.show || c.n < 1 || state.showGuides === false;
     if (els.columns.hidden) return;
     var col = colWidth() * s, gut = c.gutter * s;
     var rgb = hexRgb(guideColour());
@@ -1325,8 +1346,11 @@
       lines.push(".rectangle .text > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
       var origin = box("rect").y + t.padding;
       used.forEach(function (b, i) {
+        var sp = sidePad(b.align);
         lines.push(".rectangle .text > :nth-child(" + (i + 1) + ") { top: " +
-          round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px; }" +
+          round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px;" +
+          (sp.l ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
+          (sp.r ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
           "  /* baseline on row " + b.row + " of grid " + b.grid +
           ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " edge */");
       });
@@ -1578,6 +1602,8 @@
 
     $("#margin-mode").value = m.mode;
     $("#margin-factor-field").hidden = m.mode === "manual";
+    $("#margin-buffer-field").hidden = m.mode === "manual";
+    setValue($("#margin-buffer"), fmt(m.buffer || 0));
     setValue($("#margin-factor"), m.factor);
     $("#margin-linked").checked = m.linked;
     var mm = margins();
@@ -1595,10 +1621,12 @@
         (state.bg.src ? "the background image" : state.stage.bg.toUpperCase()) + "."
       : "Fixed at " + state.guides.color.toUpperCase() + ".";
 
+    var lbase = m.mode === "logoH" ? logoSize().h : logoSize().w;
     $("#margin-hint").textContent = m.mode === "manual"
       ? "The margins define the box both shapes are aligned inside."
       : "Every margin is " + m.factor + " × the logo " + (m.mode === "logoH" ? "height" : "width") +
-        " (" + fmt(m.mode === "logoH" ? logoSize().h : logoSize().w) + ") = " + fmt(mm.top) + ".";
+        " (" + fmt(lbase) + ")" +
+        (m.buffer ? " + a buffer of " + fmt(m.buffer) : "") + " = " + fmt(mm.top) + ".";
 
     $("#rect-visible").checked = r.visible;
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
@@ -1734,6 +1762,17 @@
         : "Free: the typed line height is used as it is, off both grids.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
+    $("#text-margin-pad").checked = !!state.text.marginPad;
+    var spL = sidePad("left"), spR = sidePad("right");
+    $("#text-pad-hint").textContent = !state.text.marginPad
+      ? "Every block runs in a column " + fmt(state.text.padding) + " from both sides of the box."
+      : state.rect.wmode !== "format"
+        ? "It applies once the width is set to fill the format — the box is then wider than the " +
+          "margins, and side-aligned text would otherwise start inside them."
+        : "Left-aligned text starts on the left margin (" + fmt(mm.left) + ", " +
+          (spL.l >= 0 ? fmt(spL.l) + " past" : fmt(-spL.l) + " short of") + " the padding); " +
+          "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
+          "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Rows are counted from the top or the bottom edge of the rectangle, " +
       "so the text travels with the box — and a block set from the bottom keeps its distance to that edge " +
       "as the box is resized. Grid 1 rows are " + round(baseline(), 2) +
@@ -1759,6 +1798,10 @@
     });
 
     document.body.classList.toggle("guides-locked", !!state.margin.locked);
+    var ov = state.showGuides !== false;
+    document.body.classList.toggle("overlays-on", ov);
+    $("#overlay-toggle").setAttribute("aria-pressed", ov ? "true" : "false");
+    $("#overlay-toggle").title = ov ? "Hide every guide and grid" : "Show the guides and grids again";
     document.body.classList.toggle("sel-rect", state.sel === "rect");
     document.body.classList.toggle("sel-logo", state.sel === "logo");
   }
@@ -1842,6 +1885,7 @@
       state.margin.mode = el.value;
     });
     numInput("#margin-factor", function (v) { state.margin.factor = round(v, 3); }, 0);
+    numInput("#margin-buffer", function (v) { state.margin.buffer = snap(v); });
     onChange("#margin-linked", function (el) {
       state.margin.linked = el.checked;
       if (el.checked) setMargin("top", state.margin.top);
@@ -1894,6 +1938,7 @@
       state.rect.hmode = el.value;
     });
     onChange("#margin-locked", function (el) { state.margin.locked = el.checked; });
+    onChange("#text-margin-pad", function (el) { state.text.marginPad = el.checked; });
     onChange("#corner-preset", function (el) {
       var p = CORNER_PRESETS.filter(function (x) { return x.id === el.value; })[0];
       if (!p) return;
@@ -2062,6 +2107,11 @@
 
     $("#rail-toggle").addEventListener("click", function () {
       state.showRail = !state.showRail;
+      render();
+    });
+    // one switch for every guide and grid on the canvas
+    $("#overlay-toggle").addEventListener("click", function () {
+      state.showGuides = state.showGuides === false;
       render();
     });
     $("#rail-list").addEventListener("click", function (e) {
@@ -2238,7 +2288,8 @@
       v = Math.max(0, snap(v));
       if (state.margin.mode !== "manual") {
         var base = state.margin.mode === "logoH" ? logoSize().h : logoSize().w;
-        state.margin.factor = round(Math.max(0, v / Math.max(MIN_SIZE, base)), 3);
+        var over = v - (state.margin.buffer || 0);              // the buffer is a constant on top
+        state.margin.factor = round(Math.max(0, over / Math.max(MIN_SIZE, base)), 3);
       } else setMargin(side, v);
     });
   }

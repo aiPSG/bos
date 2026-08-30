@@ -103,6 +103,9 @@
         <label class="field" id="margin-factor-field"><span>Factor</span>
           <input type="number" id="margin-factor" min="0" step="0.05">
         </label>
+        <label class="field" id="margin-buffer-field"><span>Buffer</span>
+          <input type="number" id="margin-buffer" step="1">
+        </label>
       </div>
       <div class="row toggles">
         <label class="check"><input type="checkbox" id="margin-linked"><span>Link all sides</span></label>
@@ -321,6 +324,8 @@
         <label class="field grow"><span>Side padding — the column the blocks run in</span>
           <input type="number" id="text-padding" min="0" step="1"></label>
       </div>
+      <label class="check"><input type="checkbox" id="text-margin-pad"><span>Hang side-aligned text on the format margins when the box fills the format</span></label>
+      <p class="hint" id="text-pad-hint"></p>
       <div id="text-blocks"></div>
       <p class="hint" id="text-rows-hint"></p>
       <p class="hint">Each block sits on a row of its own, counted from the top margin, and can be
@@ -343,6 +348,7 @@
       <div class="readout" id="readout"></div>
       <div class="zoom">
         <button type="button" class="ghost" id="rail-toggle" title="Show or hide the format previews">Formats</button>
+        <button type="button" class="ghost" id="overlay-toggle" title="Show or hide every guide and grid at once">Guides</button>
         <button type="button" class="ghost" id="zoom-out" title="Zoom out">−</button>
         <button type="button" class="ghost" id="zoom-value" title="Zoom to fit">100%</button>
         <button type="button" class="ghost" id="zoom-in" title="Zoom in">+</button>
