@@ -12,8 +12,11 @@ Positions are not free coordinates. A shape's place on the format comes from thr
 
 1. **Margins** — the box both shapes are aligned inside. Set per side (linked or not), or
    derived from the logo: `margin = factor × logo width + buffer`, or `× logo height`, the usual
-   clear-space rule with a constant of your own on top. Dragging a guide in a logo mode solves for
-   the factor with the buffer taken off first, so the buffer stays what you set it to.
+   clear-space rule with a constant of your own on top. The factor gives every side the same base;
+   **each side then adds a buffer of its own**, so the four can differ while sharing the rule — the
+   four fields hold those buffers and their labels report what each side comes to. Switching the
+   source to the logo **unlinks the sides**, since that is the point of having four; link them again
+   and they move together. Dragging a guide moves that side's buffer and leaves the factor alone.
 2. **Position in format** — which of the nine points of the margin box the shape goes to.
 3. **Anchor point** — which of the nine points *of the shape* lands on it.
 

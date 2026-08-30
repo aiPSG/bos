@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v13";
+  var STORAGE_KEY = "bos.design.v14";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -220,13 +220,15 @@
 
   function defaults() {
     return {
-      v: 13,
+      v: 14,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
-      // in a logo mode every margin is factor × the logo size, plus a buffer on top
-      margin: { mode: "manual", factor: 1, buffer: 0, linked: true, locked: true,
-        top: 80, right: 80, bottom: 80, left: 80 },
+      // in a logo mode every margin is factor × the logo size, plus a buffer of its own
+      // on each side — so the four can differ while sharing the same base
+      margin: { mode: "manual", factor: 1, linked: true, locked: true,
+        top: 80, right: 80, bottom: 80, left: 80,
+        buf: { top: 0, right: 0, bottom: 0, left: 0 } },
       round: true,
       rect: {
         // wmode / hmode: a set size, filling between the margins, filling the whole
@@ -335,6 +337,8 @@
       });
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
+      if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
+      SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
       if (!isFinite(s.logo.aspect) || s.logo.aspect <= 0) s.logo.aspect = 1;
       return Object.assign(d, s);
@@ -465,28 +469,38 @@
       : Math.max(state.round ? 1 : 0.1, snap(u === "%" ? px / Math.max(1, longSide()) * 100 : px));
   }
 
-  function margins() {
-    var m = state.margin;
-    if (m.mode !== "manual") {
-      // a logo sized in columns is measured from the columns, which are measured from
-      // these margins — so the two are solved together rather than chasing each other
-      var v = state.logo.h.u === "col"
-        ? snap(marginFromColumnLogo())
-        : snap(m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w) + (m.buffer || 0));
-      return { top: v, right: v, bottom: v, left: v };
-    }
-    return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
+  function buf(side) {
+    var b = state.margin.buf;
+    return b && isFinite(b[side]) ? b[side] : 0;
   }
 
-  // margin = factor x logo + buffer, where the logo spans n of the columns that the
-  // margins themselves leave room for. One equation, one unknown.
-  function marginFromColumnLogo() {
+  // what the logo rule gives every side before its own buffer is added
+  function marginBase() {
+    var m = state.margin;
+    if (m.mode === "manual") return 0;
+    // a logo sized in columns is measured from the columns, which are measured from
+    // these margins — so the two are solved together rather than chasing each other
+    if (state.logo.h.u === "col") return baseFromColumnLogo();
+    return m.factor * (m.mode === "logoH" ? logoSize().h : logoSize().w);
+  }
+
+  function margins() {
+    var m = state.margin;
+    if (m.mode === "manual") return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
+    var base = marginBase(), out = {};
+    SIDES.forEach(function (side) { out[side] = Math.max(0, snap(base + buf(side))); });
+    return out;
+  }
+
+  // base = factor x logo, where the logo spans n of the columns that the margins —
+  // base plus the left and right buffers — leave room for. One equation, one unknown.
+  function baseFromColumnLogo() {
     var m = state.margin, W = state.stage.w;
     var k = Math.max(1, Math.round(state.cols.n)), g = Math.max(0, state.cols.gutter);
     var n = Math.max(0.1, state.logo.h.v);
     var fe = m.factor / (m.mode === "logoH" ? (state.logo.aspect || 1) : 1);
     var A = fe * n / k;
-    var v = (A * (W - (k - 1) * g) + fe * (n - 1) * g + (m.buffer || 0)) / (1 + 2 * A);
+    var v = (A * (W - buf("left") - buf("right") - (k - 1) * g) + fe * (n - 1) * g) / (1 + 2 * A);
     return clamp(v, 0, W / 2 - MIN_SIZE);
   }
 
@@ -1790,15 +1804,17 @@
 
     $("#margin-mode").value = m.mode;
     $("#margin-factor-field").hidden = m.mode === "manual";
-    $("#margin-buffer-field").hidden = m.mode === "manual";
-    setValue($("#margin-buffer"), fmt(m.buffer || 0));
     setValue($("#margin-factor"), m.factor);
     $("#margin-linked").checked = m.linked;
-    var mm = margins();
+    var mm = margins(), derived = m.mode !== "manual";
+    var SIDE_NAMES = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" };
     SIDES.forEach(function (s) {
-      var input = $("#margin-" + s);
-      setValue(input, fmt(mm[s]));
-      input.disabled = m.mode !== "manual";
+      // set by hand the fields are the margins themselves; derived they are the
+      // buffer each side adds to the shared base
+      setValue($("#margin-" + s), fmt(derived ? buf(s) : mm[s]));
+      $("#margin-" + s).disabled = false;
+      $('[data-mlabel="' + s + '"]').textContent =
+        SIDE_NAMES[s] + (derived ? " + " + fmt(mm[s]) : "");
     });
     var gm = state.guides.mode, gc = guideColour();
     $("#guide-mode").value = gm;
@@ -1809,12 +1825,13 @@
         (state.bg.src ? "the background image" : state.stage.bg.toUpperCase()) + "."
       : "Fixed at " + state.guides.color.toUpperCase() + ".";
 
-    var lbase = m.mode === "logoH" ? logoSize().h : logoSize().w;
     $("#margin-hint").textContent = m.mode === "manual"
       ? "The margins define the box both shapes are aligned inside."
-      : "Every margin is " + m.factor + " × the logo " + (m.mode === "logoH" ? "height" : "width") +
-        " (" + fmt(lbase) + ")" +
-        (m.buffer ? " + a buffer of " + fmt(m.buffer) : "") + " = " + fmt(mm.top) + ".";
+      : "Every side starts from " + m.factor + " × the logo " +
+        (m.mode === "logoH" ? "height" : "width") + " = " + round(marginBase(), 2) +
+        ", and each field above adds its own buffer to that: " +
+        SIDES.map(function (s) { return fmt(mm[s]); }).join(" / ") +
+        " top, right, bottom, left. Dragging a guide moves that side's buffer.";
 
     $("#rect-visible").checked = r.visible;
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
@@ -2079,20 +2096,27 @@
     });
 
     onChange("#margin-mode", function (el) {
-      if (el.value === "manual" && state.margin.mode !== "manual") {
+      var m = state.margin;
+      if (el.value === "manual" && m.mode !== "manual") {
         var mm = margins();                              // keep what the logo rule produced
-        SIDES.forEach(function (s) { state.margin[s] = mm[s]; });
+        SIDES.forEach(function (s) { m[s] = mm[s]; });
+      } else if (el.value !== "manual" && m.mode === "manual") {
+        m.linked = false;                                // the four sides start out free
       }
-      state.margin.mode = el.value;
+      m.mode = el.value;
     });
     numInput("#margin-factor", function (v) { state.margin.factor = round(v, 3); }, 0);
-    numInput("#margin-buffer", function (v) { state.margin.buffer = snap(v); });
     onChange("#margin-linked", function (el) {
-      state.margin.linked = el.checked;
-      if (el.checked) setMargin("top", state.margin.top);
+      var m = state.margin;
+      m.linked = el.checked;
+      if (!el.checked) return;
+      if (m.mode === "manual") setMargin("top", m.top); else setBuffer("top", buf("top"));
     });
     SIDES.forEach(function (side) {
-      numInput("#margin-" + side, function (v) { setMargin(side, snap(v)); }, 0);
+      numInput("#margin-" + side, function (v) {
+        if (state.margin.mode === "manual") setMargin(side, Math.max(0, snap(v)));
+        else setBuffer(side, snap(v));
+      });
     });
 
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
@@ -2347,6 +2371,12 @@
     return { x: r.width / 2, y: r.height / 2 };
   }
 
+  function setBuffer(side, v) {
+    var m = state.margin;
+    if (m.linked) SIDES.forEach(function (s) { m.buf[s] = v; });
+    else m.buf[side] = v;
+  }
+
   function setMargin(side, v) {
     var m = state.margin, max = (side === "left" || side === "right" ? state.stage.w : state.stage.h) - MIN_SIZE;
     v = clamp(v, 0, max);
@@ -2530,11 +2560,10 @@
       var v = side === "left" ? p.x : side === "right" ? st.w - p.x
         : side === "top" ? p.y : st.h - p.y;
       v = Math.max(0, snap(v));
-      if (state.margin.mode !== "manual") {
-        var base = state.margin.mode === "logoH" ? logoSize().h : logoSize().w;
-        var over = v - (state.margin.buffer || 0);              // the buffer is a constant on top
-        state.margin.factor = round(Math.max(0, over / Math.max(MIN_SIZE, base)), 3);
-      } else setMargin(side, v);
+      // in a logo mode the base is shared by all four sides, so a guide moves the
+      // buffer on its own side rather than dragging the other three with it
+      if (state.margin.mode !== "manual") setBuffer(side, snap(v - marginBase()));
+      else setMargin(side, v);
     });
   }
 
