@@ -11,8 +11,9 @@ dragging on the canvas.
 Positions are not free coordinates. A shape's place on the format comes from three things:
 
 1. **Margins** — the box both shapes are aligned inside. Set per side (linked or not), or
-   derived from the logo: `margin = factor × logo width` or `× logo height`, the usual clear-space
-   rule.
+   derived from the logo: `margin = factor × logo width + buffer`, or `× logo height`, the usual
+   clear-space rule with a constant of your own on top. Dragging a guide in a logo mode solves for
+   the factor with the buffer taken off first, so the buffer stays what you set it to.
 2. **Position in format** — which of the nine points of the margin box the shape goes to.
 3. **Anchor point** — which of the nine points *of the shape* lands on it.
 
@@ -23,7 +24,9 @@ in step, so it only decouples once you set it by hand.
 Dragging a shape therefore snaps it to the nearest of the nine positions (the cells appear while
 you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
 from the logo. **The guides are locked out of the box**, so a stray drag on the canvas cannot move
-them; *Lock the guides* in the Margins panel releases them.
+them; *Lock the guides* in the Margins panel releases them. **Guides** in the toolbar takes every
+guide and grid off the canvas at once — margin guides, both baseline grids and the columns — and
+puts them back, so a design can be looked at without them.
 
 The dashed guides that mark the margin box pick their own colour: the app works out the luminance
 of what sits behind them — the stage colour, with the average colour of a background image blended
@@ -138,7 +141,10 @@ shorter — headings riding the top, small print riding the bottom. The origin i
 block's own grid first, so a block on grid 1 always lands on a grid 1 line even when the rectangle
 sits on a half row. Switching a block between the grids keeps it where it is and
 renumbers the row. Each block also has its own text, its own role and its own alignment
-(left / centre / right); the side padding sets the column they all run in. **Lines break where you
+(left / centre / right); the side padding sets the column they all run in. In a box that **fills the
+format**, side-aligned text can *hang on the format margins* instead of that padding — left-aligned
+text starts on the left margin, right-aligned text ends on the right one, centred text keeps the
+padding — so type stays on the margin even when the box bleeds to the format edge. **Lines break where you
 type a line break** — nothing wraps on its own, so a long line makes the box wider (in *fit the
 text*) rather than the box making the line break. The box stays visible while any block has text,
 even with the rectangle itself switched off, so text can sit straight on the format.
