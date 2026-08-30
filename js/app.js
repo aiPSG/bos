@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v8";
+  var STORAGE_KEY = "bos.design.v9";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -128,14 +128,15 @@
 
   function defaults() {
     return {
-      v: 8,
+      v: 9,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       margin: { mode: "manual", factor: 1, linked: true, top: 80, right: 80, bottom: 80, left: 80 },
       round: true,
       rect: {
-        visible: true, w: 520, h: 360, full: false, grid: 2,
+        // wmode: fixed width, fill between the margins, or fit around the text
+        visible: true, w: 520, h: 360, wmode: "fixed", grid: 2,
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", linked: true, elliptical: false,
         corners: {
@@ -156,13 +157,14 @@
         basis: "height",        // what the paragraph percentage measures against
         paragraph: 1.5,         // percent of that basis — the anchor of the whole scale
         system: "custom",       // which ratio filled the multipliers in, if any
+        rows: 39,               // how many rows grid 1 divides the content height into
         grid: "both",           // baseline grid on the canvas: off | full | half | both
         // every role is a multiple of the paragraph size; line heights snap to the
         // baseline grid unless a role is set free
         roles: {
           headline:   { mult: 2.618, tag: "h1", snap: "full", weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
           subline:    { mult: 1.618, tag: "h2", snap: "half", weight: 600, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
-          paragraph:  { mult: 1, tag: "p", snap: "free", weight: 400, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
+          paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
           smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
         },
         google: [], uploads: [],
@@ -171,14 +173,16 @@
       text: {
         padding: 48,
         // each block sits on a row of its own, counted from the top margin
+        // rows are counted from the top edge of the rectangle, so the text travels with it
         blocks: [
-          { visible: true, role: "headline", align: "left", row: 28, grid: 1, text: "Headline goes here" },
-          { visible: true, role: "subline", align: "left", row: 31, grid: 1, text: "A subline carrying the second thought" },
-          { visible: true, role: "paragraph", align: "left", row: 34, grid: 1, text: "A supporting line of copy that explains the headline in a few words." },
-          { visible: true, role: "smallprint", align: "left", row: 72, grid: 2, text: "Small print: terms, credits and the things set in the quiet size." }
+          { visible: true, role: "headline", align: "left", row: 2, grid: 1, text: "Headline goes\nhere" },
+          { visible: true, role: "subline", align: "left", row: 5, grid: 1, text: "A subline carrying\nthe second thought" },
+          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, text: "A supporting line of copy\nthat explains the headline." },
+          { visible: true, role: "smallprint", align: "left", row: 21, grid: 2, text: "Small print: terms and credits." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
+      cols: { n: 6, gutter: 24, show: true },
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
       showRail: true,
       sel: "rect"
@@ -216,7 +220,7 @@
       if (!raw) return null;
       var s = JSON.parse(raw), d = defaults();
       if (s.v !== d.v) return null;
-      ["stage", "bg", "comfy", "margin", "logo", "view", "text", "guides"].forEach(function (k) {
+      ["stage", "bg", "comfy", "margin", "logo", "view", "text", "guides", "cols"].forEach(function (k) {
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
@@ -367,9 +371,11 @@
     return which === 1 ? baseline() : baseline() / 2;
   }
 
-  // y of a grid line, counted from the top margin
+  // y of a row, counted from the top edge of the rectangle so the text travels with it.
+  // the edge is pulled onto the block's own grid first, so a row on grid 1 always
+  // lands on a grid 1 line even when the rectangle sits on a half row
   function rowY(row, which) {
-    return margins().top + row * gridUnit(which);
+    return snapY(box("rect").y, which) + row * gridUnit(which);
   }
 
   // the nearest grid line to a y position
@@ -380,12 +386,18 @@
 
   function sizeOf(name) {
     if (name === "logo") return logoSize();
-    var c = content(), u = gridUnit(state.rect.grid);
+    var c = content(), u = gridUnit(state.rect.grid), r = state.rect;
+    var w = r.wmode === "full" ? c.w
+      : r.wmode === "fit" ? Math.max(MIN_SIZE, textW + state.text.padding * 2)
+      : r.w;
     // the rectangle stands a whole number of rows tall
-    return { w: state.rect.full ? c.w : state.rect.w, h: Math.max(u, Math.round(state.rect.h / u) * u) };
+    return { w: w, h: Math.max(u, Math.round(r.h / u) * u) };
   }
 
   // anchor point of the shape lands on the aligned point of the content box
+  // the widest line of text, measured on the main stage and reused by every preview
+  var textW = 0;
+
   function box(name) {
     var el = state[name], c = content(), s = sizeOf(name);
     var y = c.y + c.h * fv(el.align.v) - s.h * fv(el.anchor.v);
@@ -405,6 +417,12 @@
     el.align = { h: h, v: v };
     if (mh) el.anchor.h = h;
     if (mv) el.anchor.v = v;
+  }
+
+  // the content box divided into columns with a gutter between them
+  function colWidth() {
+    var c = state.cols, w = content().w;
+    return Math.max(1, (w - Math.max(0, c.n - 1) * c.gutter) / Math.max(1, c.n));
   }
 
   /* ---------------------------------------------------------- corner radius */
@@ -489,6 +507,7 @@
     els.viewport = $("#viewport"); els.stage = $("#stage"); els.frame = $("#frame");
     els.guides = $("#guides"); els.cells = $("#cells"); els.cssOut = $("#css-out");
     els.overlay = $("#overlay"); els.railList = $("#rail-list"); els.baseline = $("#baseline");
+    els.columns = $("#columns");
     els.readout = $("#readout"); els.zoomValue = $("#zoom-value"); els.shorthand = $("#radius-shorthand");
   }
 
@@ -630,12 +649,9 @@
     return Math.max(1, state.stage.h - m.top - m.bottom);
   }
 
-  // grid 1 divides that height into whole rows, so it always fits exactly. the stored
-  // paragraph line height is the target; the row count is the nearest whole number to it
+  // grid 1 divides that height into whole rows, so it always fits exactly
   function gridRows() {
-    var maxRows = Math.max(1, Math.floor(contentH() / (paraPx() * 0.5)));
-    var target = Math.max(0.5, state.type.roles.paragraph.lh);
-    return clamp(Math.round(contentH() / (paraPx() * target)), 1, maxRows);
+    return clamp(Math.round(state.type.rows), 1, 400);
   }
 
   // grid 1 is one row; grid 2 halves it
@@ -643,15 +659,14 @@
     return contentH() / gridRows();
   }
 
-  // and the row height is what the paragraph line height actually is
+  // by default the row height is the paragraph line height; set it free to type your own
   function paraLh() {
-    return baseline() / paraPx();
+    var p = state.type.roles.paragraph;
+    return p.snap === "free" ? p.lh : baseline() / paraPx();
   }
 
-  // typing a row count writes back through the target line height
   function setRows(rows) {
-    var r = Math.max(1, Math.round(rows));
-    state.type.roles.paragraph.lh = round(contentH() / r / paraPx(), 4);
+    state.type.rows = clamp(Math.round(rows), 1, 400);
   }
 
   function roleUnit(role) {
@@ -757,10 +772,17 @@
     if (kids.length !== blocks.length) return;
 
     var stageTop = els.stage.getBoundingClientRect().top;
+    var widest = 0;
     var reads = kids.map(function (el, i) {
       var probe = el._probe || el.querySelector(".bl-probe");
       if (!probe) return null;
       var r = el.getBoundingClientRect();
+      // a range around the text reports the widest line, whatever the box is doing
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        widest = Math.max(widest, range.getBoundingClientRect().width / s);
+      } catch (e) {}
       return {
         top: parseFloat(el.style.top) || 0,
         boxTop: r.top - stageTop,
@@ -768,6 +790,10 @@
         target: rowY(blocks[i].row, blocks[i].grid) * s
       };
     });
+    if (widest > 0 && Math.abs(widest - textW) > 0.5) {
+      textW = widest;                         // the fit width settles on the next paint
+      if (state.rect.wmode === "fit") render();
+    } else if (widest > 0) textW = widest;
     reads.forEach(function (r, i) {
       if (!r) return;
       blOffset[blocks[i].role] = (r.baseline - r.boxTop) / s;
@@ -840,6 +866,7 @@
     els.guides.querySelector("[data-side=right]").style.left = (st.w - m.right) * s + "px";
 
     renderBaseline(s);
+    renderColumns(s);
     placeBlocks(els.stage._rect && els.stage._rect._text, s);
     renderFrame(s);
     renderRail();
@@ -872,6 +899,26 @@
       right: m.right * s + "px",
       height: contentH() * s + "px",
       backgroundImage: layers.join(",")
+    });
+  }
+
+  // the column grid, drawn across the content box
+  function renderColumns(s) {
+    var c = state.cols, m = margins();
+    els.columns.hidden = !c.show || c.n < 1;
+    if (els.columns.hidden) return;
+    var col = colWidth() * s, gut = c.gutter * s;
+    var rgb = hexRgb(guideColour());
+    var tint = "rgba(" + Math.round(rgb.r) + "," + Math.round(rgb.g) + "," + Math.round(rgb.b) + ",0.09)";
+    Object.assign(els.columns.style, {
+      left: m.left * s + "px",
+      top: m.top * s + "px",
+      width: content().w * s + "px",
+      height: contentH() * s + "px",
+      backgroundImage: col >= 1
+        ? "repeating-linear-gradient(to right," + tint + " 0 " + col + "px,transparent " +
+          col + "px " + (col + gut) + "px)"
+        : "none"
     });
   }
 
@@ -935,7 +982,7 @@
 
     var b = box(name);
     Object.assign(els.frame.style, shapeStyle(name, s));
-    els.frame.classList.toggle("full-width", name === "rect" && state.rect.full);
+    els.frame.classList.toggle("full-width", name === "rect" && state.rect.wmode !== "fixed");
     els.frame.classList.toggle("round", name === "logo" && !state.logo.src);
 
     var pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
@@ -989,9 +1036,9 @@
 
   function positionCSS(name, indent) {
     var el = state[name], b = box(name), m = margins(), out = [], tx = null, ty = null;
-    var full = name === "rect" && state.rect.full;
+    var full = name === "rect" && state.rect.wmode !== "fixed";
 
-    if (full) {
+    if (full && state.rect.wmode === "full") {
       out.push("left: " + fmt(m.left) + "px");
       out.push("right: " + fmt(m.right) + "px");
     } else if (el.align.h === "left" && el.anchor.h === "left") out.push("left: " + fmt(m.left) + "px");
@@ -1073,7 +1120,7 @@
       lines.push("  font-family: " + familyStack() + ";");
       lines.push("}");
       lines.push("");
-      lines.push(".rectangle .text > * { position: absolute; left: 0; right: 0; margin: 0; }");
+      lines.push(".rectangle .text > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
       var origin = box("rect").y + t.padding;
       used.forEach(function (b, i) {
         lines.push(".rectangle .text > :nth-child(" + (i + 1) + ") { top: " +
@@ -1344,8 +1391,8 @@
     $("#rect-grid-hint").textContent = "Height " + fmt(r.h) + " runs as " + round(rb.h, 2) + " — " +
       Math.round(rb.h / gridUnit(r.grid)) + " rows of grid " + r.grid + " — and the top edge sits on row " +
       round((rb.y - margins().top) / gridUnit(r.grid), 2) + ".";
-    $("#rect-full").checked = r.full;
-    $("#rect-w").disabled = r.full;
+    $("#rect-wmode").value = r.wmode;
+    $("#rect-w").disabled = r.wmode !== "fixed";
     setValue($("#rect-w"), fmt(sizeOf("rect").w));
     setValue($("#rect-h"), fmt(r.h));
     $("#rect-fill").value = r.fill;
@@ -1408,17 +1455,24 @@
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
     setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
-    $("#type-snap").value = ty.editing === "paragraph" ? "free" : st2.snap;
-    $("#type-snap").disabled = ty.editing === "paragraph";
+    $("#type-snap").innerHTML = (ty.editing === "paragraph"
+      ? [{ id: "fit", name: "Fit grid 1" }, { id: "free", name: "Free — as typed" }]
+      : SNAPS).map(function (x) {
+        return '<option value="' + x.id + '">' + esc(x.name) + "</option>";
+      }).join("");
+    $("#type-snap").value = st2.snap;
+    if ($("#type-snap").selectedIndex < 0) $("#type-snap").selectedIndex = 0;
     setValue($("#type-ls"), st2.ls);
     $("#type-transform").value = st2.transform;
     $("#type-color").value = st2.color;
     var eff = roleLh(ty.editing), steps = roleSteps(ty.editing);
     $("#type-lh-px").textContent = "= " + round(rolePx(ty.editing) * eff, 1) + " px";
     $("#type-style-hint").textContent = ty.editing === "paragraph"
-      ? "Paragraph rides grid 1: " + gridRows() + " rows fill the content height exactly, so its line " +
-        "height is " + round(paraLh(), 4) + ". Type another and the nearest whole row count that still " +
-        "fits is used."
+      ? (st2.snap === "free"
+        ? "Free: the paragraph line height is " + round(st2.lh, 3) + " as typed. Grid 1 keeps its " +
+          gridRows() + " rows of " + round(baseline(), 2) + " px."
+        : "Paragraph rides grid 1: " + gridRows() + " rows fill the content height exactly, so its line " +
+          "height is " + round(paraLh(), 4) + ". Type another and the nearest whole row count that still fits is used.")
       : steps
         ? "Line height " + round(st2.lh, 2) + " snaps to " + round(eff, 3) + " so the line box is " +
           steps + " × grid " + (st2.snap === "half" ? "2" : "1") + " = " +
@@ -1426,8 +1480,16 @@
         : "Free: the typed line height is used as it is, off both grids.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
-    $("#text-rows-hint").textContent = "Grid 1 has " + gridRows() + " rows of " + round(baseline(), 2) +
-      " px; grid 2 has " + gridRows() * 2 + " of " + round(baseline() / 2, 2) + " px. Row 0 is the top margin.";
+    $("#text-rows-hint").textContent = "Rows are counted from the top edge of the rectangle, which sits on a " +
+      "grid line itself, so the text travels with the box. Grid 1 rows are " + round(baseline(), 2) +
+      " px, grid 2 rows " + round(baseline() / 2, 2) + " px.";
+
+    setValue($("#col-n"), state.cols.n);
+    setValue($("#col-gutter"), fmt(state.cols.gutter));
+    $("#col-show").checked = state.cols.show;
+    $("#col-hint").textContent = state.cols.n + " columns of " + round(colWidth(), 2) +
+      " px with a " + fmt(state.cols.gutter) + " px gutter fill the " + round(content().w, 2) +
+      " px between the left and right margins.";
     Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
       var b = state.text.blocks[i];
       row.querySelector('[data-block="visible"]').checked = b.visible;
@@ -1532,9 +1594,9 @@
     });
 
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
-    onChange("#rect-full", function (el) {
-      if (el.checked) state.rect.w = sizeOf("rect").w;
-      state.rect.full = el.checked;
+    onChange("#rect-wmode", function (el) {
+      if (el.value === "fixed") state.rect.w = round(sizeOf("rect").w, 1);   // start from what is on screen
+      state.rect.wmode = el.value;
     });
     numInput("#rect-w", function (v) { state.rect.w = snap(v); }, MIN_SIZE);
     numInput("#rect-h", function (v) { state.rect.h = snap(v); }, MIN_SIZE);
@@ -1685,12 +1747,16 @@
       render();
     });
     onChange("#type-grid", function (el) { state.type.grid = el.value; });
+    numInput("#col-n", function (v) { state.cols.n = clamp(Math.round(v), 1, 48); }, 1);
+    numInput("#col-gutter", function (v) { state.cols.gutter = Math.max(0, snap(v)); }, 0);
+    onChange("#col-show", function (el) { state.cols.show = el.checked; });
     numInput("#type-rows", function (v) { setRows(v); }, 1);
     onChange("#type-tag", function (el) { styleOf().tag = el.value; });
     onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
     numInput("#type-lh", function (v) {
-      if (state.type.editing === "paragraph") setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      var p = state.type.roles.paragraph;
+      if (state.type.editing === "paragraph" && p.snap !== "free") setRows(contentH() / (paraPx() * Math.max(0.5, v)));
       else styleOf().lh = round(v, 3);
     }, .5);
     numInput("#type-ls", function (v) { styleOf().ls = round(v, 3); });
@@ -1717,7 +1783,7 @@
       else if (what === "grid") {
         var y = rowY(b.row, b.grid);                       // keep it where it is
         b.grid = +e.target.value;
-        b.row = Math.round((y - margins().top) / gridUnit(b.grid));
+        b.row = Math.round((y - snapY(box("rect").y, b.grid)) / gridUnit(b.grid));
       } else return;
       render();
     });
@@ -1873,7 +1939,7 @@
       var w = sx ? Math.max(MIN_SIZE, s0.w + dx) : s0.w;
       var h = sy ? Math.max(MIN_SIZE, s0.h + dy) : s0.h;
       if (ev.shiftKey && sx && sy) h = w / ratio;
-      if (sx && !state.rect.full) state.rect.w = snap(w);
+      if (sx && state.rect.wmode === "fixed") state.rect.w = snap(w);
       if (sy) state.rect.h = Math.max(MIN_SIZE, snap(h));
     });
   }

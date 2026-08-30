@@ -267,7 +267,8 @@ body.panning .viewport{cursor:grabbing}
 .text-stack{position:absolute;pointer-events:none}
 .text-stack .tb{
   position:absolute;left:0;right:0;
-  margin:0;padding:0;font:inherit;overflow-wrap:anywhere;
+  margin:0;padding:0;font:inherit;
+  white-space:pre;                 /* only the line breaks you type */
   pointer-events:auto;cursor:ns-resize;
 }
 .text-stack .tb:hover{outline:1px dashed var(--accent);outline-offset:2px}
@@ -276,6 +277,7 @@ body.panning .viewport{cursor:grabbing}
 .overlay{position:absolute;pointer-events:none}
 .overlay>*{pointer-events:auto}
 .overlay .guides{pointer-events:none}
+.columns{position:absolute;pointer-events:none}
 .baseline{position:absolute;pointer-events:none}
 .cells{position:absolute;inset:0;pointer-events:none}
 .cell{

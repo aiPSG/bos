@@ -30,6 +30,12 @@ over it by its opacity — and takes whichever of black or white contrasts more.
 luminance where the two are equal, so the guides never wash out on a pale format or disappear on a
 dark one. **Guide colour** in the Margins section switches that to a colour you pick instead.
 
+**Columns** — the box between the left and right margins is divided into a number of columns with a
+gutter between them, drawn on the canvas in the guide colour. Set the column count and the gutter;
+the panel reports the column width that falls out of them ("12 columns of 62 px with a 16 px gutter
+fill the 920 px between the left and right margins"). The grid can be hidden without losing the
+numbers.
+
 ## What you can set
 
 **Format** — width and height, or a preset (square, 4:5, 9:16, 16:9, A5, A4); background colour;
@@ -40,10 +46,11 @@ stretch or tile, with an opacity slider.
 
 **Rectangle** — it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
-the panel reports what it runs as. Then: position, anchor, width and height, or **fill the width
-between the margins**
-(`width = format width − left margin − right margin`). While that is on, the width field shows the
-computed value and the margins drive the width.
+the panel reports what it runs as. Then: position, anchor, height, and a **width** that works one of
+three ways — *set by hand*, *fill the width between the margins*
+(`width = format width − left margin − right margin`), or *fit the text*, where the box takes the
+width of its longest line plus the side padding and grows and shrinks as you type. In the last two
+the width field shows the computed value.
 
 **Corners** — a **corner style** dropdown covering the shapes `border-radius` can make (sharp,
 rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave, single/paired
@@ -82,8 +89,10 @@ the paragraph leading with it.
 
 Set the row count directly, or type a paragraph line height and the nearest whole row count that
 still fits is used — the panel reports both ("grid 1 divides the 1190 px between the top and bottom
-margins into 39 rows of 30.51 px, so it fits exactly"). Both grids draw on the canvas in the guide
-colour, down the margin box; show both, either, or neither.
+margins into 39 rows of 30.51 px, so it fits exactly"). Paragraph can also be cut loose from the
+grid: set it to *Free* and the line height you type is used as it is, while grid 1 keeps its rows.
+Both grids draw on the canvas in the guide colour, down the margin box; show both, either, or
+neither.
 
 Every role other than paragraph is **aligned to grid 1 or grid 2**: its line height snaps so the
 line box is a whole number of that grid's rows, with the arithmetic reported ("line height 1.05
@@ -98,12 +107,16 @@ font, including one you upload. Every following line comes along, because line b
 rows.
 
 **Text blocks** — four blocks, **each positioned individually**. A block sits on a **row of its
-own**, counted from the top margin, on grid 1 or grid 2 — type the row number or drag the block up
-and down on the canvas, where it lands on whole rows. Switching a block between the grids keeps it
-where it is and renumbers the row. Each block also has its own text, its own role and its own
-alignment (left / centre / right); the side padding sets the column they all run in. The box stays
-visible while any block has text, even with the rectangle itself switched off, so text can sit
-straight on the format.
+own**, counted from the top edge of the rectangle, on grid 1 or grid 2 — type the row number or drag
+the block up and down on the canvas, where it lands on whole rows. Counting from the rectangle means
+**the text travels with it**: move or resize the box and the blocks keep their rows. The origin is
+pulled onto the block's own grid first, so a block on grid 1 always lands on a grid 1 line even when
+the rectangle sits on a half row. Switching a block between the grids keeps it where it is and
+renumbers the row. Each block also has its own text, its own role and its own alignment
+(left / centre / right); the side padding sets the column they all run in. **Lines break where you
+type a line break** — nothing wraps on its own, so a long line makes the box wider (in *fit the
+text*) rather than the box making the line break. The box stays visible while any block has text,
+even with the rectangle itself switched off, so text can sit straight on the format.
 
 **Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*
 design — background, margins, rectangle, corners, logo, type — at that format's dimensions, and
