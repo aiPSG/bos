@@ -52,11 +52,28 @@ three ways — *set by hand*, *fill the width between the margins*
 width of its longest line plus the side padding and grows and shrinks as you type. In the last two
 the width field shows the computed value.
 
-**Corners** — a **corner style** dropdown covering the shapes `border-radius` can make (sharp,
-rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave, single/paired
-corners). Underneath it the full CSS surface is editable: 1–4 values, `px` or `%`, per-corner
-units, and independent horizontal/vertical radii for elliptical corners. The `border-radius` field
-takes any valid shorthand — e.g. `12px 40% 0 8px / 20px 10% 5px 8px` — and the handles follow it.
+It also **snaps to the columns**: the width runs a whole number of columns with their gutters, and
+the left edge sits on a column line — typed, dragged or resized by a handle, it lands on the grid.
+And whatever the mode, **the box is never narrower than its text**: the longest line plus the side
+padding on both sides is its floor, so the copy never spills out of it. When even the whole column
+grid is too narrow for a line, the text wins and the box grows past it.
+
+**Corners** — a **shape** dropdown in three families. *Rounded* is everything `border-radius` can
+make (sharp, rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave,
+single/paired corners), with the full CSS surface editable underneath it: 1–4 values, `px` or `%`,
+per-corner units, and independent horizontal/vertical radii for elliptical corners. The
+`border-radius` field takes any valid shorthand — e.g. `12px 40% 0 8px / 20px 10% 5px 8px` — and the
+handles follow it.
+
+*Cut corners* are the ones a radius cannot make: **bevel** (a straight cut), **notch** (a square
+step) and **scoop** (an inverted round, curving into the box). They read the same four corner
+values, so each corner can be cut differently, and the round handles still drag them.
+
+*Outlines* reshape the whole box: octagon, hexagon either way up, pentagon, diamond, triangle, star,
+arrows left and right, chevron, notched banner, parallelogram, trapezoid either way up, cross,
+speech bubble, and a punched ticket. They take their one size from the top-left corner value. Cut
+and outline shapes are drawn with `clip-path` — polygons, or a path where the edge curves — and the
+CSS output carries whichever the shape uses.
 
 **Logo** — upload your own artwork (PNG, JPG, SVG, WebP) or keep the circle placeholder. **The
 height defines the logo and the width follows the artwork's own proportions**; an SVG with nothing
@@ -107,11 +124,13 @@ font, including one you upload. Every following line comes along, because line b
 rows.
 
 **Text blocks** — four blocks, **each positioned individually**. A block sits on a **row of its
-own**, counted from the top edge of the rectangle, on grid 1 or grid 2 — type the row number or drag
-the block up and down on the canvas, where it lands on whole rows. Counting from the rectangle means
-**the text travels with it**: move or resize the box and the blocks keep their rows. The origin is
-pulled onto the block's own grid first, so a block on grid 1 always lands on a grid 1 line even when
-the rectangle sits on a half row. Switching a block between the grids keeps it where it is and
+own**, counted from the top *or the bottom* edge of the rectangle, on grid 1 or grid 2 — type the
+row number or drag the block up and down on the canvas, where it lands on whole rows. Counting from
+the rectangle means **the text travels with it**: move the box and the blocks keep their rows, and
+each block **holds its distance to the edge it is anchored to** as the box is made taller or
+shorter — headings riding the top, small print riding the bottom. The origin is pulled onto the
+block's own grid first, so a block on grid 1 always lands on a grid 1 line even when the rectangle
+sits on a half row. Switching a block between the grids keeps it where it is and
 renumbers the row. Each block also has its own text, its own role and its own alignment
 (left / centre / right); the side padding sets the column they all run in. **Lines break where you
 type a line break** — nothing wraps on its own, so a long line makes the box wider (in *fit the

@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v9";
+  var STORAGE_KEY = "bos.design.v10";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -113,6 +113,98 @@
     { id: "top-only", name: "Two corners — top", value: "48px 48px 0 0" }
   ];
 
+  /* Shapes border-radius cannot make, cut with clip-path. The four corner values
+     drive them: a "cut corner" style uses all four as the legs of the cut, an
+     outline shape uses the top-left pair as its one size. */
+  function pts(list) {
+    return "polygon(" + list.map(function (p) {
+      return round(p[0], 2) + "px " + round(p[1], 2) + "px";
+    }).join(", ") + ")";
+  }
+  function arcPath(steps) { return 'path("' + steps.join(" ") + '")'; }
+  function at(x, y) { return round(x, 2) + " " + round(y, 2); }
+  // a concave quarter turn, or a straight line when the corner has no size
+  function scoopTo(r, x, y) {
+    return (r.x > 0 && r.y > 0 ? "A " + round(r.x, 2) + " " + round(r.y, 2) + " 0 0 0 " : "L ") + at(x, y);
+  }
+
+  var SHAPES = [
+    { id: "radius", group: "Rounded", name: "Rounded — border-radius" },
+
+    { id: "bevel", group: "Cut corners", name: "Bevel — straight cut", corner: true,
+      fn: function (w, h, c) {
+        return pts([[c.tl.x, 0], [w - c.tr.x, 0], [w, c.tr.y], [w, h - c.br.y],
+                    [w - c.br.x, h], [c.bl.x, h], [0, h - c.bl.y], [0, c.tl.y]]);
+      } },
+    { id: "notch", group: "Cut corners", name: "Notch — square step", corner: true,
+      fn: function (w, h, c) {
+        return pts([[c.tl.x, c.tl.y], [c.tl.x, 0], [w - c.tr.x, 0], [w - c.tr.x, c.tr.y],
+                    [w, c.tr.y], [w, h - c.br.y], [w - c.br.x, h - c.br.y], [w - c.br.x, h],
+                    [c.bl.x, h], [c.bl.x, h - c.bl.y], [0, h - c.bl.y], [0, c.tl.y]]);
+      } },
+    { id: "scoop", group: "Cut corners", name: "Scoop — inverted round", corner: true,
+      fn: function (w, h, c) {
+        return arcPath(["M " + at(c.tl.x, 0), "L " + at(w - c.tr.x, 0), scoopTo(c.tr, w, c.tr.y),
+          "L " + at(w, h - c.br.y), scoopTo(c.br, w - c.br.x, h), "L " + at(c.bl.x, h),
+          scoopTo(c.bl, 0, h - c.bl.y), "L " + at(0, c.tl.y), scoopTo(c.tl, c.tl.x, 0), "Z"]);
+      } },
+
+    { id: "octagon", group: "Outlines", name: "Octagon",
+      fn: function (w, h, k, ky) {
+        return pts([[k, 0], [w - k, 0], [w, ky], [w, h - ky], [w - k, h], [k, h], [0, h - ky], [0, ky]]);
+      } },
+    { id: "hexagon", group: "Outlines", name: "Hexagon — points left and right",
+      fn: function (w, h, k) { return pts([[k, 0], [w - k, 0], [w, h / 2], [w - k, h], [k, h], [0, h / 2]]); } },
+    { id: "hexagon-v", group: "Outlines", name: "Hexagon — points top and bottom",
+      fn: function (w, h, k, ky) { return pts([[w / 2, 0], [w, ky], [w, h - ky], [w / 2, h], [0, h - ky], [0, ky]]); } },
+    { id: "pentagon", group: "Outlines", name: "Pentagon",
+      fn: function (w, h) { return pts([[w / 2, 0], [w, h * .38], [w * .82, h], [w * .18, h], [0, h * .38]]); } },
+    { id: "diamond", group: "Outlines", name: "Diamond",
+      fn: function (w, h) { return pts([[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]]); } },
+    { id: "triangle", group: "Outlines", name: "Triangle",
+      fn: function (w, h) { return pts([[w / 2, 0], [w, h], [0, h]]); } },
+    { id: "star", group: "Outlines", name: "Star — five points",
+      fn: function (w, h) {
+        return pts([[.5, 0], [.61, .35], [.98, .35], [.68, .57], [.79, .91],
+                    [.5, .7], [.21, .91], [.32, .57], [.02, .35], [.39, .35]]
+          .map(function (p) { return [p[0] * w, p[1] * h]; }));
+      } },
+    { id: "arrow-right", group: "Outlines", name: "Arrow — right",
+      fn: function (w, h, k) { return pts([[0, 0], [w - k, 0], [w, h / 2], [w - k, h], [0, h]]); } },
+    { id: "arrow-left", group: "Outlines", name: "Arrow — left",
+      fn: function (w, h, k) { return pts([[k, 0], [w, 0], [w, h], [k, h], [0, h / 2]]); } },
+    { id: "chevron", group: "Outlines", name: "Chevron — right",
+      fn: function (w, h, k) { return pts([[0, 0], [w - k, 0], [w, h / 2], [w - k, h], [0, h], [k, h / 2]]); } },
+    { id: "banner", group: "Outlines", name: "Banner — notched end",
+      fn: function (w, h, k) { return pts([[0, 0], [w, 0], [w - k, h / 2], [w, h], [0, h]]); } },
+    { id: "parallelogram", group: "Outlines", name: "Parallelogram",
+      fn: function (w, h, k) { return pts([[k, 0], [w, 0], [w - k, h], [0, h]]); } },
+    { id: "trapezoid", group: "Outlines", name: "Trapezoid",
+      fn: function (w, h, k) { return pts([[k, 0], [w - k, 0], [w, h], [0, h]]); } },
+    { id: "trapezoid-down", group: "Outlines", name: "Trapezoid — inverted",
+      fn: function (w, h, k) { return pts([[0, 0], [w, 0], [w - k, h], [k, h]]); } },
+    { id: "cross", group: "Outlines", name: "Cross",
+      fn: function (w, h, k, ky) {
+        return pts([[k, 0], [w - k, 0], [w - k, ky], [w, ky], [w, h - ky], [w - k, h - ky],
+                    [w - k, h], [k, h], [k, h - ky], [0, h - ky], [0, ky], [k, ky]]);
+      } },
+    { id: "bubble", group: "Outlines", name: "Speech bubble",
+      fn: function (w, h, k, ky) {
+        return pts([[0, 0], [w, 0], [w, h - ky], [k * 2, h - ky], [k, h], [k, h - ky], [0, h - ky]]);
+      } },
+    { id: "ticket", group: "Outlines", name: "Ticket — punched sides",
+      fn: function (w, h, k) {
+        var r = { x: k, y: k };
+        return arcPath(["M 0 0", "L " + at(w, 0), "L " + at(w, h / 2 - k),
+          scoopTo(r, w, h / 2 + k), "L " + at(w, h), "L " + at(0, h), "L " + at(0, h / 2 + k),
+          scoopTo(r, 0, h / 2 - k), "Z"]);
+      } }
+  ];
+
+  function shapeDef(id) {
+    return SHAPES.filter(function (x) { return x.id === (id || state.rect.shape); })[0] || SHAPES[0];
+  }
+
   var DEFAULT_WORKFLOW =
     '{\n  "3": {\n    "class_type": "KSampler",\n    "inputs": { "seed": {{seed}}, "steps": 25, "cfg": 7,\n' +
     '      "sampler_name": "euler", "scheduler": "normal", "denoise": 1,\n' +
@@ -128,7 +220,7 @@
 
   function defaults() {
     return {
-      v: 9,
+      v: 10,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -136,9 +228,9 @@
       round: true,
       rect: {
         // wmode: fixed width, fill between the margins, or fit around the text
-        visible: true, w: 520, h: 360, wmode: "fixed", grid: 2,
+        visible: true, w: 520, h: 360, wmode: "fixed", grid: 2, cols: true,
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
-        fill: "#4f7cff", linked: true, elliptical: false,
+        fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
           tl: { x: 32, ux: "px", y: 32, uy: "px" }, tr: { x: 32, ux: "px", y: 32, uy: "px" },
           br: { x: 32, ux: "px", y: 32, uy: "px" }, bl: { x: 32, ux: "px", y: 32, uy: "px" }
@@ -172,13 +264,13 @@
       },
       text: {
         padding: 48,
-        // each block sits on a row of its own, counted from the top margin
-        // rows are counted from the top edge of the rectangle, so the text travels with it
+        // each block sits on a row of its own, counted from the top or the bottom
+        // edge of the rectangle, so the text travels with the box as it is resized
         blocks: [
-          { visible: true, role: "headline", align: "left", row: 2, grid: 1, text: "Headline goes\nhere" },
-          { visible: true, role: "subline", align: "left", row: 5, grid: 1, text: "A subline carrying\nthe second thought" },
-          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, text: "A supporting line of copy\nthat explains the headline." },
-          { visible: true, role: "smallprint", align: "left", row: 21, grid: 2, text: "Small print: terms and credits." }
+          { visible: true, role: "headline", align: "left", row: 2, grid: 1, from: "top", text: "Headline goes\nhere" },
+          { visible: true, role: "subline", align: "left", row: 5, grid: 1, from: "top", text: "A subline carrying\nthe second thought" },
+          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", text: "A supporting line of copy\nthat explains the headline." },
+          { visible: true, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", text: "Small print: terms and credits." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -226,6 +318,7 @@
       s.type = Object.assign(d.type, s.type);
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
       if (!Array.isArray(s.text.blocks) || !s.text.blocks.length) s.text.blocks = d.text.blocks;
+      s.text.blocks.forEach(function (b) { if (b.from !== "bottom") b.from = "top"; });
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -371,11 +464,25 @@
     return which === 1 ? baseline() : baseline() / 2;
   }
 
-  // y of a row, counted from the top edge of the rectangle so the text travels with it.
-  // the edge is pulled onto the block's own grid first, so a row on grid 1 always
-  // lands on a grid 1 line even when the rectangle sits on a half row
-  function rowY(row, which) {
-    return snapY(box("rect").y, which) + row * gridUnit(which);
+  // the edge of the rectangle a block counts its rows from, pulled onto that block's
+  // own grid so a row on grid 1 always lands on a grid 1 line even when the
+  // rectangle sits on a half row
+  function rowOrigin(which, from) {
+    var b = box("rect");
+    return snapY(from === "bottom" ? b.y + b.h : b.y, which);
+  }
+
+  // y of a row, counted from the top or the bottom edge of the rectangle, so the
+  // text travels with the box — and stays put against the edge it is anchored to
+  function rowY(row, which, from) {
+    var u = gridUnit(which);
+    return rowOrigin(which, from) + (from === "bottom" ? -row * u : row * u);
+  }
+
+  // the row a y position falls on, the other way round
+  function rowAt(y, which, from) {
+    var u = gridUnit(which), d = y - rowOrigin(which, from);
+    return Math.round((from === "bottom" ? -d : d) / u);
   }
 
   // the nearest grid line to a y position
@@ -387,9 +494,10 @@
   function sizeOf(name) {
     if (name === "logo") return logoSize();
     var c = content(), u = gridUnit(state.rect.grid), r = state.rect;
-    var w = r.wmode === "full" ? c.w
-      : r.wmode === "fit" ? Math.max(MIN_SIZE, textW + state.text.padding * 2)
-      : r.w;
+    var w = r.wmode === "full" ? c.w : r.wmode === "fit" ? minRectW() : r.w;
+    // the text sets the floor: it is never narrower than its longest line and the padding
+    w = Math.max(MIN_SIZE, w, minRectW());
+    if (r.cols) w = snapCols(w);
     // the rectangle stands a whole number of rows tall
     return { w: w, h: Math.max(u, Math.round(r.h / u) * u) };
   }
@@ -401,12 +509,13 @@
   function box(name) {
     var el = state[name], c = content(), s = sizeOf(name);
     var y = c.y + c.h * fv(el.align.v) - s.h * fv(el.anchor.v);
-    // and its top edge sits on a grid line
-    if (name === "rect") y = snapY(y, state.rect.grid);
-    return {
-      x: c.x + c.w * fh(el.align.h) - s.w * fh(el.anchor.h),
-      y: y, w: s.w, h: s.h
-    };
+    var x = c.x + c.w * fh(el.align.h) - s.w * fh(el.anchor.h);
+    // and its top edge sits on a grid line, its left edge on a column line
+    if (name === "rect") {
+      y = snapY(y, state.rect.grid);
+      if (state.rect.cols) x = c.x + Math.round((x - c.x) / colStep()) * colStep();
+    }
+    return { x: x, y: y, w: s.w, h: s.h };
   }
 
   // clicking or dragging a shape to a new position also moves its anchor,
@@ -423,6 +532,26 @@
   function colWidth() {
     var c = state.cols, w = content().w;
     return Math.max(1, (w - Math.max(0, c.n - 1) * c.gutter) / Math.max(1, c.n));
+  }
+  function colCount() { return Math.max(1, Math.round(state.cols.n)); }
+  function colStep() { return colWidth() + Math.max(0, state.cols.gutter); }
+  function colSpan(k) {
+    var n = Math.max(1, k);
+    return n * colWidth() + (n - 1) * Math.max(0, state.cols.gutter);
+  }
+
+  // the width the text needs: its longest line plus the padding on both sides
+  function minRectW() {
+    return textVisible() ? Math.max(MIN_SIZE, textW + state.text.padding * 2) : MIN_SIZE;
+  }
+
+  // the nearest whole number of columns — never one too narrow for the text
+  function snapCols(w) {
+    var n = colCount(), min = minRectW();
+    var k = clamp(Math.round((w + Math.max(0, state.cols.gutter)) / colStep()), 1, n);
+    while (k < n && colSpan(k) < min - 0.01) k++;
+    var span = colSpan(k);
+    return span < min - 0.01 ? w : span;      // wider than the whole grid: the text wins
   }
 
   /* ---------------------------------------------------------- corner radius */
@@ -455,6 +584,29 @@
     var same = function (a) { return a.every(function (v) { return v === a[0]; }); };
     var side = function (a) { return same(a) ? a[0] : a.join(" "); };
     return same(hx) && same(vy) && hx[0] === vy[0] ? hx[0] : side(hx) + " / " + side(vy);
+  }
+
+  // the corner sizes in rendered pixels, never past the middle of the box
+  function cutSizes(w, h, pxScale) {
+    var out = {};
+    CORNERS.forEach(function (n) {
+      out[n] = {
+        x: clamp(cornerPx(n, "x") * pxScale, 0, w / 2),
+        y: clamp(cornerPx(n, "y") * pxScale, 0, h / 2)
+      };
+    });
+    return out;
+  }
+
+  // the clip-path for the chosen shape, built at the size it is drawn
+  function clipCSS(pxScale) {
+    var def = shapeDef();
+    if (!def.fn) return "none";
+    var sz = sizeOf("rect"), s = pxScale || 1, w = sz.w * s, h = sz.h * s;
+    if (w <= 0 || h <= 0) return "none";
+    if (def.corner) return def.fn(w, h, cutSizes(w, h, s));
+    var c = cutSizes(w, h, s);
+    return def.fn(w, h, c.tl.x, c.tl.y);
   }
 
   function parseRadius(text) {
@@ -751,7 +903,7 @@
       var b = blocks[i], st = state.type.roles[b.role];
       el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
-        top: (rowY(b.row, b.grid) - baselineInBox(b.role) - origin) * s + "px",
+        top: (rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin) * s + "px",
         fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
@@ -787,12 +939,14 @@
         top: parseFloat(el.style.top) || 0,
         boxTop: r.top - stageTop,
         baseline: probe.getBoundingClientRect().bottom - stageTop,
-        target: rowY(blocks[i].row, blocks[i].grid) * s
+        target: rowY(blocks[i].row, blocks[i].grid, blocks[i].from) * s
       };
     });
     if (widest > 0 && Math.abs(widest - textW) > 0.5) {
-      textW = widest;                         // the fit width settles on the next paint
-      if (state.rect.wmode === "fit") render();
+      // the box is never narrower than its text, so a new measurement can resize it.
+      // nothing wraps, so the measurement does not depend on the box: this settles at once
+      textW = widest;
+      render();
     } else if (widest > 0) textW = widest;
     reads.forEach(function (r, i) {
       if (!r) return;
@@ -826,9 +980,11 @@
       var showRect = state.rect.visible || textVisible();
       rectEl.hidden = !showRect;
       if (showRect) {
+        var shaped = state.rect.shape !== "radius";
         Object.assign(rectEl.style, shapeStyle("rect", s), {
           background: state.rect.visible ? state.rect.fill : "transparent",
-          borderRadius: radiusCSS(s)
+          borderRadius: shaped ? "0" : radiusCSS(s),
+          clipPath: shaped ? clipCSS(s) : "none"
         });
         paintText(rectEl, s);
       }
@@ -1036,12 +1192,24 @@
 
   function positionCSS(name, indent) {
     var el = state[name], b = box(name), m = margins(), out = [], tx = null, ty = null;
-    var full = name === "rect" && state.rect.wmode !== "fixed";
+    var full = name === "rect" && state.rect.wmode === "full";
 
-    if (full && state.rect.wmode === "full") {
-      out.push("left: " + fmt(m.left) + "px");
-      out.push("right: " + fmt(m.right) + "px");
-    } else if (el.align.h === "left" && el.anchor.h === "left") out.push("left: " + fmt(m.left) + "px");
+    // the rectangle lands on the baseline grid and on a column line, so its edges are
+    // written out as they are measured rather than as margins that would round elsewhere
+    if (name === "rect") {
+      if (full) {
+        out.push("left: " + fmt(m.left) + "px");
+        out.push("right: " + fmt(m.right) + "px");
+      } else {
+        out.push("left: " + fmt(b.x) + "px");
+        out.push("width: " + fmt(b.w) + "px");
+      }
+      out.push("top: " + fmt(b.y) + "px");
+      out.push("height: " + fmt(b.h) + "px");
+      return out.map(function (l) { return indent + l + ";"; }).join("\n");
+    }
+
+    if (el.align.h === "left" && el.anchor.h === "left") out.push("left: " + fmt(m.left) + "px");
     else if (el.align.h === "right" && el.anchor.h === "right") out.push("right: " + fmt(m.right) + "px");
     else if (el.align.h === "center" && el.anchor.h === "center") { out.push("left: 50%"); tx = "-50%"; }
     else out.push("left: " + fmt(b.x) + "px");
@@ -1051,7 +1219,7 @@
     else if (el.align.v === "middle" && el.anchor.v === "middle") { out.push("top: 50%"); ty = "-50%"; }
     else out.push("top: " + fmt(b.y) + "px");
 
-    if (!full) out.push("width: " + fmt(b.w) + "px");
+    out.push("width: " + fmt(b.w) + "px");
     out.push("height: " + fmt(b.h) + "px");
     if (tx || ty) out.push("transform: translate(" + (tx || "0") + ", " + (ty || "0") + ")");
     return out.map(function (l) { return indent + l + ";"; }).join("\n");
@@ -1081,7 +1249,12 @@
       lines.push(".rectangle {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("rect", "  "));
-      lines.push("  border-radius: " + radiusCSS(1) + ";");
+      if (state.rect.shape === "radius") {
+        lines.push("  border-radius: " + radiusCSS(1) + ";");
+      } else {
+        lines.push("  clip-path: " + clipCSS(1) + ";");
+        lines.push("  /* " + shapeDef().name + ", cut at this size — the points are in px */");
+      }
       lines.push("  background: " + state.rect.fill + ";");
       lines.push("}");
     }
@@ -1124,8 +1297,9 @@
       var origin = box("rect").y + t.padding;
       used.forEach(function (b, i) {
         lines.push(".rectangle .text > :nth-child(" + (i + 1) + ") { top: " +
-          round(rowY(b.row, b.grid) - baselineInBox(b.role) - origin, 2) + "px; }" +
-          "  /* baseline on row " + b.row + " of grid " + b.grid + " */");
+          round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px; }" +
+          "  /* baseline on row " + b.row + " of grid " + b.grid +
+          ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " edge */");
       });
       lines.push("/* grid 1: " + gridRows() + " rows of " + round(baseline(), 3) + "px filling the " +
         round(contentH(), 2) + "px content height; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
@@ -1212,6 +1386,17 @@
         '<input type="number" min="0" step="1" class="axis-y" data-radius="' + n + '" data-axis="y">' +
         '<select class="axis-y" data-unit="' + n + '" data-axis="y"><option>px</option><option>%</option></select>' +
         "</div>";
+    }).join("");
+  }
+
+  function buildShapeSelect() {
+    var groups = [];
+    SHAPES.forEach(function (sh) { if (groups.indexOf(sh.group) < 0) groups.push(sh.group); });
+    $("#corner-shape").innerHTML = groups.map(function (g) {
+      return '<optgroup label="' + esc(g) + '">' +
+        SHAPES.filter(function (sh) { return sh.group === g; }).map(function (sh) {
+          return '<option value="' + sh.id + '">' + esc(sh.name) + "</option>";
+        }).join("") + "</optgroup>";
     }).join("");
   }
 
@@ -1303,6 +1488,8 @@
           "<span>Row</span>" +
           '<input type="number" step="1" data-block="row">' +
           '<select data-block="grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>' +
+          '<select data-block="from"><option value="top">from the top</option>' +
+            '<option value="bottom">from the bottom</option></select>' +
         "</div>" +
         '<div class="seg" data-block="align">' +
           ["left", "center", "right"].map(function (a) {
@@ -1394,9 +1581,35 @@
     $("#rect-wmode").value = r.wmode;
     $("#rect-w").disabled = r.wmode !== "fixed";
     setValue($("#rect-w"), fmt(sizeOf("rect").w));
+    $("#rect-cols").checked = !!r.cols;
+    var rw = sizeOf("rect").w, floor = minRectW();
+    var spans = clamp(Math.round((rw + state.cols.gutter) / colStep()), 1, colCount());
+    $("#rect-width-hint").textContent =
+      (!r.cols ? "Width " + round(rw, 2) + ". "
+        : Math.abs(colSpan(spans) - rw) < 0.02
+          ? "Width " + round(rw, 2) + " — " + spans + " of the " + colCount() +
+            " columns — and the left edge sits on a column line. "
+          : "Width " + round(rw, 2) + ", wider than all " + colCount() +
+            " columns together, because the text needs it. ") +
+      (textVisible()
+        ? "It never goes below " + round(floor, 2) + ": the longest line of text (" +
+          round(textW, 2) + ") plus the padding on both sides."
+        : "");
     setValue($("#rect-h"), fmt(r.h));
     $("#rect-fill").value = r.fill;
 
+    var shape = shapeDef();
+    $("#corner-shape").value = shape.id;
+    var rounded = shape.id === "radius";
+    $("#corner-preset-field").hidden = !rounded;
+    $("#shorthand-field").hidden = !rounded;
+    $("#shorthand-hint").hidden = !rounded;
+    $("#corner-shape-hint").textContent = rounded
+      ? "Every shape border-radius can make. Below it the corners are editable one by one."
+      : shape.corner
+        ? shape.name + ": the four corner values below are the legs of each cut, so the corners can differ."
+        : shape.name + ": the top-left corner values set the size of the shape — " +
+          round(cornerPx("tl", "x"), 2) + " across, " + round(cornerPx("tl", "y"), 2) + " down.";
     $("#corner-preset").value = matchedPreset();
     $("#corners-linked").checked = r.linked;
     $("#corners-elliptical").checked = r.elliptical;
@@ -1480,8 +1693,9 @@
         : "Free: the typed line height is used as it is, off both grids.";
 
     setValue($("#text-padding"), fmt(state.text.padding));
-    $("#text-rows-hint").textContent = "Rows are counted from the top edge of the rectangle, which sits on a " +
-      "grid line itself, so the text travels with the box. Grid 1 rows are " + round(baseline(), 2) +
+    $("#text-rows-hint").textContent = "Rows are counted from the top or the bottom edge of the rectangle, " +
+      "so the text travels with the box — and a block set from the bottom keeps its distance to that edge " +
+      "as the box is resized. Grid 1 rows are " + round(baseline(), 2) +
       " px, grid 2 rows " + round(baseline() / 2, 2) + " px.";
 
     setValue($("#col-n"), state.cols.n);
@@ -1497,6 +1711,7 @@
       setValue(row.querySelector('[data-block="text"]'), b.text);
       setValue(row.querySelector('[data-block="row"]'), b.row);
       row.querySelector('[data-block="grid"]').value = String(b.grid);
+      row.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
       Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
         btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
       });
@@ -1628,6 +1843,10 @@
       });
     });
 
+    onChange("#corner-shape", function (el) {
+      state.rect.shape = el.value;
+    });
+    onChange("#rect-cols", function (el) { state.rect.cols = el.checked; });
     onChange("#corner-preset", function (el) {
       var p = CORNER_PRESETS.filter(function (x) { return x.id === el.value; })[0];
       if (!p) return;
@@ -1780,10 +1999,10 @@
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "visible") b.visible = e.target.checked;
       else if (what === "role") b.role = e.target.value;
-      else if (what === "grid") {
-        var y = rowY(b.row, b.grid);                       // keep it where it is
-        b.grid = +e.target.value;
-        b.row = Math.round((y - snapY(box("rect").y, b.grid)) / gridUnit(b.grid));
+      else if (what === "grid" || what === "from") {
+        var y = rowY(b.row, b.grid, b.from);               // keep it where it is
+        if (what === "grid") b.grid = +e.target.value; else b.from = e.target.value;
+        b.row = rowAt(y, b.grid, b.from);
       } else return;
       render();
     });
@@ -1914,8 +2133,8 @@
     if (!b) return;
     var start = toStage(e), row0 = b.row;
     drag(e, function (ev) {
-      var dy = toStage(ev).y - start.y;
-      b.row = row0 + Math.round(dy / gridUnit(b.grid));
+      var dy = toStage(ev).y - start.y, steps = Math.round(dy / gridUnit(b.grid));
+      b.row = row0 + (b.from === "bottom" ? -steps : steps);   // rows count upward from the bottom
     });
   }
 
@@ -2314,6 +2533,7 @@
 
   cacheEls();
   buildCornerRows();
+  buildShapeSelect();
   buildPresetSelect();
   buildFormatSelect();
   buildTypeSelects();

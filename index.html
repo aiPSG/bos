@@ -158,12 +158,18 @@
         </label>
         <label class="field color"><span>Fill</span><input type="color" id="rect-fill"></label>
       </div>
+      <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
       <p class="hint" id="rect-grid-hint"></p>
+      <p class="hint" id="rect-width-hint"></p>
     </details>
 
     <details class="group" open>
       <summary><h2>Corners</h2></summary>
-      <label class="field grow"><span>Corner style</span>
+      <label class="field grow"><span>Shape</span>
+        <select id="corner-shape"></select>
+      </label>
+      <p class="hint" id="corner-shape-hint"></p>
+      <label class="field grow" id="corner-preset-field"><span>Corner style</span>
         <select id="corner-preset"></select>
       </label>
       <div class="row toggles">
@@ -172,10 +178,10 @@
       </div>
       <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
       <div id="corners"></div>
-      <label class="field grow shorthand"><span>border-radius</span>
+      <label class="field grow shorthand" id="shorthand-field"><span>border-radius</span>
         <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
       </label>
-      <p class="hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
+      <p class="hint" id="shorthand-hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
     </details>
 
     <details class="group" open>
