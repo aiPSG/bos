@@ -112,7 +112,9 @@ solved together in one step rather than chasing each other. Resize handles keep 
 write back in whatever unit is set. Its size is what the margin rule multiplies, so a percentage
 logo gives margins that scale with the format too.
 
-**Typography** — the type scale has four roles: **headline, subline, paragraph and small print**.
+**Typography** — the type scale has five roles: **display, headline, subline, paragraph and small
+print**. Display is the biggest of them, one ratio step past the headline (4.236 × paragraph out of
+the box, against the headline's 2.618).
 
 *Paragraph is the anchor*: its size is a percentage of the format (1.5% of the format height by
 default; the basis can be the height, the longest side or the width). Every other role is a
@@ -121,7 +123,8 @@ each resolves to in pixels.
 
 *Size relations* fills those multiples from a design ratio: the golden and silver ratios, root two,
 three and five, Euler's number, pi, and the musical intervals from a minor second to the octave.
-Picking one sets headline to `ratio²`, subline to `ratio` and small print to `1 / ratio`. **Typing
+Picking one sets display to `ratio³`, headline to `ratio²`, subline to `ratio` and small print to
+`1 / ratio`. **Typing
 over any multiple is always allowed** — the moment you do, the system reads *Custom* and your value
 stands.
 
@@ -152,12 +155,15 @@ the first baseline — and moved so that baseline lands on the row it was given.
 font, including one you upload. Every following line comes along, because line boxes are whole grid
 rows.
 
-**Text blocks** — as many as you drag out of the tray, each **positioned individually**. A block
-whose row carries it **above or below the rectangle** stops taking its horizontal place from the box
-and **lines up on the columns instead**: its edges land on column lines, so text that has left the
-box still belongs to the page. A block placed while the rectangle is still in the tray runs in the **margin box**
-instead, and keeps exactly where it sits when the rectangle arrives or leaves — the rows are
-renumbered against the new frame. A block sits on a **row of its
+**Text blocks** — as many as you drag out of the tray, each **positioned individually**.
+
+*A block belongs to the rectangle only while it sits inside it.* Inside, it takes the box padding
+and **travels with the box** as that is moved or resized — the top-anchored ones follow the top edge,
+the bottom-anchored ones the bottom edge. Anywhere else — above the box, below it, or with no
+rectangle on the stage at all — a block **lines up on the columns**, its edges landing on column
+lines, and it stays exactly where it is whatever the rectangle does. Rows are counted from the top or
+the bottom margin, so the page is what a block is pinned to; the rectangle can come and go under it
+without anything jumping.  A block sits on a **row of its
 own**, counted from the top *or the bottom* edge of the rectangle, on grid 1 or grid 2 — type the
 row number or drag the block up and down on the canvas, where it lands on whole rows. Counting from
 the rectangle means **the text travels with it**: move the box and the blocks keep their rows, and

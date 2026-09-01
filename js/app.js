@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v16";
+  var STORAGE_KEY = "bos.design.v17";
 
   /* Templates for the jobs this gets used for. Each carries a format and the
      scaffolding that suits it — margins, columns and the number of baseline rows —
@@ -108,16 +108,18 @@
   var GF_KEY_STORAGE = "bos.gfonts.key";
 
   // the type scale is four roles; paragraph is the anchor and the rest are multiples of it
-  var ROLES = ["headline", "subline", "paragraph", "smallprint"];
+  var ROLES = ["display", "headline", "subline", "paragraph", "smallprint"];
   var ROLE_SEEDS = {
+    display: "A display line",
     headline: "Headline goes\nhere",
     subline: "A subline carrying\nthe second thought",
     paragraph: "A supporting line of copy\nthat explains the headline.",
     smallprint: "Small print: terms and credits."
   };
-  var ROLE_ROWS = { headline: 2, subline: 5, paragraph: 8, smallprint: 1 };
+  var ROLE_ROWS = { display: 2, headline: 2, subline: 5, paragraph: 8, smallprint: 1 };
   var ROLE_NAMES = {
-    headline: "Headline", subline: "Subline", paragraph: "Paragraph", smallprint: "Small print"
+    display: "Display", headline: "Headline", subline: "Subline",
+    paragraph: "Paragraph", smallprint: "Small print"
   };
   var TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div"];
   var BASES = [
@@ -289,7 +291,7 @@
 
   function defaults() {
     return {
-      v: 16,
+      v: 17,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -329,8 +331,10 @@
         // every role is a multiple of the paragraph size; line heights snap to the
         // baseline grid unless a role is set free
         roles: {
-          headline:   { mult: 2.618, tag: "h1", snap: "full", weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
-          subline:    { mult: 1.618, tag: "h2", snap: "half", weight: 600, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
+          // display is the biggest of them: the golden ratio one step past the headline
+          display:    { mult: 4.236, tag: "h1", snap: "full", weight: 700, lh: 1, ls: -0.03, transform: "none", color: "#ffffff" },
+          headline:   { mult: 2.618, tag: "h2", snap: "full", weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
+          subline:    { mult: 1.618, tag: "h3", snap: "half", weight: 600, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
           paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
           smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
         },
@@ -584,18 +588,18 @@
     return which === 1 ? baseline() : baseline() / 2;
   }
 
-  // text hangs on the rectangle when there is one, and on the margin box when there
-  // is not — so a block can be pulled onto the stage on its own
+  // the box the text stack is painted into: the rectangle when there is one, the
+  // margin box when there is not
   function textFrame() {
     return state.rect.placed ? box("rect") : content();
   }
 
-  // the edge of that frame a block counts its rows from, pulled onto the block's own
-  // grid so a row on grid 1 always lands on a grid 1 line even when the frame sits
-  // on a half row
+  // rows are counted from the margin box, not from the rectangle, so a block only
+  // moves when the page moves. What rides along with the rectangle is decided by
+  // where a block sits (see carryBlocks), not by the coordinates it is stored in
   function rowOrigin(which, from) {
-    var b = textFrame();
-    return snapY(from === "bottom" ? b.y + b.h : b.y, which);
+    var c = content();
+    return snapY(from === "bottom" ? c.y + c.h : c.y, which);
   }
 
   // y of a row, counted from the top or the bottom edge of the rectangle, so the
@@ -1002,6 +1006,7 @@
     var sys = SCALES.filter(function (x) { return x.id === id; })[0];
     if (!sys) return;
     var r = state.type.roles;
+    r.display.mult = round(sys.r * sys.r * sys.r, 3);
     r.headline.mult = round(sys.r * sys.r, 3);
     r.subline.mult = round(sys.r, 3);
     r.paragraph.mult = 1;
@@ -1055,13 +1060,16 @@
     render();
   }
 
-  // a block whose row puts it above or below the rectangle is no longer running in
-  // the box, so it lines up with the columns instead of with the box padding
-  function blockOutside(b) {
+  // a block belongs to the rectangle only while it sits inside it: that is what makes
+  // it travel with the box and take the box padding. Everywhere else — above it, below
+  // it, or with no rectangle at all — a block lines up on the columns
+  function blockInside(b) {
     if (!state.rect.placed) return false;
     var r = box("rect"), y = rowY(b.row, b.grid, b.from);
-    return y < r.y || y > r.y + r.h;
+    return y >= r.y - 0.5 && y <= r.y + r.h + 0.5;
   }
+
+  function blockOutside(b) { return !blockInside(b); }
 
   // the nearest column line — either edge of any column — to an offset measured from
   // the left margin
@@ -1270,6 +1278,7 @@
   }
 
   function renderStage() {
+    carryBlocks();
     document.body.classList.toggle("rail-open", !!state.showRail);
     var s = scale(), p = pan(), st = state.stage;
     paintInto(els.stage, st.w, st.h, s);
@@ -1630,7 +1639,7 @@
           (round(sp.r, 2) ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
           (blockOutside(b) ? "  /* on the columns, outside the box */" : "") +
           "  /* baseline on row " + b.row + " of grid " + b.grid +
-          ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " edge */");
+          ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " margin */");
       });
       lines.push("/* grid 1: " + gridRows() + " rows of " + round(baseline(), 3) + "px filling the " +
         round(contentH(), 2) + "px content height; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
@@ -1759,6 +1768,7 @@
     buildTextBlocks();
     blOffset = {};
     frameFor = null;
+    lastBox = null;              // an undone move must not drag the text along with it
     render();
     requestAnimationFrame(function () { restoring = false; syncHistoryButtons(); });
   }
@@ -2027,9 +2037,10 @@
     $("#rect-placed").checked = r.placed;
     $("#rect-visible").checked = r.visible;
     $("#rect-placed-hint").textContent = r.placed
-      ? "Take it off the stage and the text blocks run in the margin box instead."
-      : "Not on the stage — drag it out of the tray above the canvas. Text blocks placed on " +
-        "their own run in the margin box until it is.";
+      ? "Text inside the box takes its padding and travels with it; anything above or below it " +
+        "keeps to the columns and stays where it is."
+      : "Not on the stage — drag it out of the tray above the canvas. Text runs on the columns " +
+        "in the margin box without it.";
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
     $("#rect-grid").value = String(r.grid);
     var rb = box("rect");
@@ -2184,10 +2195,9 @@
           "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
           "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Blocks start off the stage: drag one out of the tray above the " +
-      "canvas, or tick it here. " +
-      "Rows are counted from the top or the bottom edge of the rectangle, " +
-      "so the text travels with the box — and a block set from the bottom keeps its distance to that edge " +
-      "as the box is resized. Grid 1 rows are " + round(baseline(), 2) +
+      "canvas, as often as you like. Rows are counted from the top or the bottom margin, and a block " +
+      "lines up on the columns unless it sits inside the rectangle — inside, it takes the box padding " +
+      "and travels with the box when that is moved or resized. Grid 1 rows are " + round(baseline(), 2) +
       " px, grid 2 rows " + round(baseline() / 2, 2) + " px.";
 
     setValue($("#col-n"), state.cols.n);
@@ -2318,7 +2328,7 @@
     });
 
     onChange("#rect-placed", function (el) {
-      keepingBlocks(function () { state.rect.placed = el.checked; });
+      state.rect.placed = el.checked;
       if (el.checked) state.sel = "rect"; else if (state.sel === "rect") state.sel = "";
     });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
@@ -2702,14 +2712,34 @@
     if (stack) stack.dataset.sig = "";
   }
 
-  // the frame under the text changes when the rectangle comes or goes; every block
-  // that is already on the stage keeps its place across that switch
-  function keepingBlocks(fn) {
-    var ys = state.text.blocks.map(function (b) {
-      return rowY(b.row, b.grid, b.from);
-    });
-    fn();
-    state.text.blocks.forEach(function (b, i) { b.row = rowAt(ys[i], b.grid, b.from); });
+  // where the rectangle sat last time round, as an offset inside the margin box
+  var lastBox = null, placing = false;
+
+  // move the rectangle, or resize it, and the text inside it comes along; anything
+  // outside stays where it is. Measured against the margin box, so changing the
+  // format or the margins moves the page rather than the box within it
+  function carryBlocks() {
+    var c = content();
+    var now = null;
+    if (state.rect.placed) {
+      var b = box("rect");
+      now = { top: b.y - c.y, bot: b.y + b.h - c.y };
+    }
+    // a rectangle being pulled out of the tray sweeps across the format on its way in;
+    // it should not collect the text it passes over
+    if (placing) { lastBox = now; return; }
+    if (lastBox && now) {
+      var dTop = now.top - lastBox.top, dBot = now.bot - lastBox.bot;
+      if (dTop || dBot) {
+        state.text.blocks.forEach(function (bl) {
+          var y = rowY(bl.row, bl.grid, bl.from) - c.y;
+          if (y < lastBox.top - 0.5 || y > lastBox.bot + 0.5) return;   // it was not in the box
+          var d = bl.from === "bottom" ? dBot : dTop;                   // it follows its own edge
+          if (d) bl.row = rowAt(rowY(bl.row, bl.grid, bl.from) + d, bl.grid, bl.from);
+        });
+      }
+    }
+    lastBox = now;
   }
 
   // pull an element out of the tray: it lands where the pointer is, snapping as it
@@ -2720,7 +2750,7 @@
     if (isRect) {
       if (state.rect.placed) return;
       b = state.rect;
-      keepingBlocks(function () { b.placed = true; });
+      b.placed = true;
       state.sel = "rect";
     } else {
       if (ROLES.indexOf(role) < 0) return;
@@ -2732,6 +2762,7 @@
       buildTextBlocks();
     }
     var landed = false, moved = false;
+    placing = true;
     var move = function (ev) {
       var p = toStage(ev), st = state.stage;
       moved = true;
@@ -2748,11 +2779,12 @@
     };
     if (isRect) { els.cells.hidden = false; renderCells("rect"); }
     drag(e, move, function () {
+      placing = false;
       els.cells.hidden = true;
       // a plain click drops it where it last sat; a drag that ends off the format
       // puts it back in the tray
       if (moved && !landed) {
-        if (isRect) keepingBlocks(function () { b.placed = false; });
+        if (isRect) b.placed = false;
         else removeBlock(i);
       }
     });
@@ -3019,7 +3051,7 @@
     // the specimens are scaled to fill the space the sheet has for them, whatever
     // size the type runs at on this format
     var stack = ROLES.reduce(function (sum, r) { return sum + rolePx(r) * roleLh(r); }, 0);
-    var k = clamp(355 / Math.max(1, stack), 0.05, 2.5);
+    var k = clamp(300 / Math.max(1, stack), 0.05, 2.5);
     var rows = ROLES.map(function (r) {
       var st = ty.roles[r], px = rolePx(r), lh = roleLh(r), steps = roleSteps(r);
       var snapName = (SNAPS.filter(function (x) { return x.id === st.snap; })[0] || {}).name || st.snap;
