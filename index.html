@@ -174,7 +174,11 @@
 
     <details class="group" open>
       <summary><h2>Rectangle</h2></summary>
-      <label class="check"><input type="checkbox" id="rect-visible"><span>Show rectangle</span></label>
+      <div class="row toggles">
+        <label class="check"><input type="checkbox" id="rect-placed"><span>On the stage</span></label>
+        <label class="check"><input type="checkbox" id="rect-visible"><span>Draw its fill</span></label>
+      </div>
+      <p class="hint" id="rect-placed-hint"></p>
       <div class="row aligners">
         <div class="field"><span>Position in format</span><div class="grid3" id="rect-align"></div></div>
         <div class="field"><span>Anchor point</span><div class="grid3" id="rect-anchor"></div></div>
@@ -361,6 +365,12 @@
         <button type="button" class="ghost" id="zoom-100" title="Zoom to 100%">1:1</button>
         <button type="button" class="ghost" id="zoom-fit" title="Zoom to fit">Fit</button>
       </div>
+    </div>
+
+    <div class="tray" id="tray">
+      <span class="tray-label">Drag onto the stage</span>
+      <div class="tray-items" id="tray-items"></div>
+      <span class="tray-hint" id="tray-hint"></span>
     </div>
 
     <div class="canvas-body">

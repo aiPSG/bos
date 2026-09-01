@@ -4,6 +4,12 @@ A small design app: one **format** (the stage) with a **margin box**, a **rectan
 **logo circle** on it. Every value can be set two ways — numerically in the side panel, or by
 dragging on the canvas.
 
+**The stage starts empty.** The rectangle and the four text blocks wait in a **tray** above the
+canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
+as it goes. Let go outside the format and it stays in the tray; a plain click drops it at the place
+it last had. Take one off again with its checkbox in the panel, and it returns to the tray with its
+settings intact.
+
 **Live:** https://aipsg.github.io/bos/
 
 ## The model
@@ -51,7 +57,8 @@ numbers.
 **Background image** — upload a file, paste a URL, or generate one (below). Fit as cover, contain,
 stretch or tile, with an opacity slider.
 
-**Rectangle** — it rides the baseline grid: its top edge sits on a grid line and its height runs a
+**Rectangle** — pulled out of the tray like everything else, and *Draw its fill* switches the fill
+off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
 the panel reports what it runs as. Then: position, anchor, height, and a **width** that works one of
 four ways — *set by hand*, *fill between the margins*
@@ -138,7 +145,10 @@ the first baseline — and moved so that baseline lands on the row it was given.
 font, including one you upload. Every following line comes along, because line boxes are whole grid
 rows.
 
-**Text blocks** — four blocks, **each positioned individually**. A block sits on a **row of its
+**Text blocks** — four blocks, each dragged out of the tray on its own and **positioned
+individually**. A block placed while the rectangle is still in the tray runs in the **margin box**
+instead, and keeps exactly where it sits when the rectangle arrives or leaves — the rows are
+renumbered against the new frame. A block sits on a **row of its
 own**, counted from the top *or the bottom* edge of the rectangle, on grid 1 or grid 2 — type the
 row number or drag the block up and down on the canvas, where it lands on whole rows. Counting from
 the rectangle means **the text travels with it**: move the box and the blocks keep their rows, and

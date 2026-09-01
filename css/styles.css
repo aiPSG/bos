@@ -280,6 +280,27 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 .overlay{position:absolute;pointer-events:none}
 .overlay>*{pointer-events:auto}
 .overlay .guides{pointer-events:none}
+/* the tray everything is pulled out of */
+.tray{
+  display:flex;align-items:center;gap:12px;flex:0 0 auto;
+  padding:8px 14px;background:var(--bg-panel);border-bottom:1px solid var(--line);
+}
+.tray-label{font-size:10px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+.tray-items{display:flex;gap:6px;flex-wrap:wrap;min-height:26px;align-items:center}
+.tray-hint{font-size:11px;color:var(--text-dim)}
+.chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px;border:1px dashed var(--line);border-radius:6px;
+  background:var(--bg-input);color:var(--text);font:inherit;font-size:11.5px;
+  cursor:grab;touch-action:none;user-select:none;
+}
+.chip:hover{background:var(--bg-input-hi);border-color:var(--accent)}
+.chip:active{cursor:grabbing}
+.chip::before{content:"";width:12px;height:9px;border:1px solid currentColor;border-radius:2px;opacity:.7}
+.chip[data-kind=text]::before{border:0;border-top:2px solid currentColor;border-bottom:2px solid currentColor;height:8px;width:14px}
+.tray-empty{font-size:11.5px;color:var(--text-dim);font-style:italic}
+
+.text-free{position:absolute}   /* text on the stage without a rectangle to sit in */
 .columns{position:absolute;pointer-events:none}
 
 /* the frame around the selected text block: its field edges and a size grip */

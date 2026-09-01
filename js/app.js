@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v14";
+  var STORAGE_KEY = "bos.design.v15";
 
   var FORMATS = [
     { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
@@ -220,7 +220,7 @@
 
   function defaults() {
     return {
-      v: 14,
+      v: 15,
       stage: { w: 1080, h: 1350, bg: "#111318" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -233,7 +233,8 @@
       rect: {
         // wmode / hmode: a set size, filling between the margins, filling the whole
         // format edge to edge, or (width only) fitting around the text
-        visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
+        // placed: dragged onto the stage from the tray. visible: drawn with its fill
+        placed: false, visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
@@ -277,10 +278,10 @@
         blocks: [
           // padL / padR inset the field from the sides of the padding column. A field
           // that has been drawn in wraps its lines; one that fills the column does not
-          { visible: true, role: "headline", align: "left", row: 2, grid: 1, from: "top", padL: 0, padR: 0, text: "Headline goes\nhere" },
-          { visible: true, role: "subline", align: "left", row: 5, grid: 1, from: "top", padL: 0, padR: 0, text: "A subline carrying\nthe second thought" },
-          { visible: true, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", padL: 0, padR: 0, text: "A supporting line of copy\nthat explains the headline." },
-          { visible: true, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", padL: 0, padR: 0, text: "Small print: terms and credits." }
+          { placed: false, role: "headline", align: "left", row: 2, grid: 1, from: "top", padL: 0, padR: 0, text: "Headline goes\nhere" },
+          { placed: false, role: "subline", align: "left", row: 5, grid: 1, from: "top", padL: 0, padR: 0, text: "A subline carrying\nthe second thought" },
+          { placed: false, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", padL: 0, padR: 0, text: "A supporting line of copy\nthat explains the headline." },
+          { placed: false, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", padL: 0, padR: 0, text: "Small print: terms and credits." }
         ]
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -331,6 +332,7 @@
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
       if (!Array.isArray(s.text.blocks) || !s.text.blocks.length) s.text.blocks = d.text.blocks;
       s.text.blocks.forEach(function (b) {
+        b.placed = !!b.placed;
         if (b.from !== "bottom") b.from = "top";
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
@@ -519,11 +521,17 @@
     return which === 1 ? baseline() : baseline() / 2;
   }
 
-  // the edge of the rectangle a block counts its rows from, pulled onto that block's
-  // own grid so a row on grid 1 always lands on a grid 1 line even when the
-  // rectangle sits on a half row
+  // text hangs on the rectangle when there is one, and on the margin box when there
+  // is not — so a block can be pulled onto the stage on its own
+  function textFrame() {
+    return state.rect.placed ? box("rect") : content();
+  }
+
+  // the edge of that frame a block counts its rows from, pulled onto the block's own
+  // grid so a row on grid 1 always lands on a grid 1 line even when the frame sits
+  // on a half row
   function rowOrigin(which, from) {
-    var b = box("rect");
+    var b = textFrame();
     return snapY(from === "bottom" ? b.y + b.h : b.y, which);
   }
 
@@ -938,8 +946,9 @@
     state.type.system = id;
   }
 
+  // is any text on the stage at all
   function textVisible() {
-    return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
+    return state.text.blocks.some(function (b) { return b.placed && b.text.trim(); });
   }
 
   // where a role's baseline sits inside its own box, in format units. measured on the
@@ -949,10 +958,6 @@
     if (blOffset[role] > 0) return blOffset[role];
     var size = rolePx(role);
     return (size * roleLh(role) - size) / 2 + size * 0.8;      // close enough for one frame
-  }
-
-  function textVisible() {
-    return state.text.blocks.some(function (b) { return b.visible && b.text.trim(); });
   }
 
   // the text block being typed into on the canvas, or -1
@@ -982,7 +987,7 @@
     var el = els.stage.querySelector('.tb[data-i="' + editing + '"]');
     if (el) el.blur();
     editing = -1;
-    var stack = els.stage._rect && els.stage._rect._text;
+    var stack = liveStack();
     if (stack) stack.dataset.sig = "";        // rebuild, which restores the baseline probe
     render();
   }
@@ -1000,7 +1005,7 @@
 
   function paintText(rectEl, s) {
     var t = state.text;
-    var blocks = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    var blocks = t.blocks.filter(function (b) { return b.placed && b.text.trim(); });
     var stack = child(rectEl, "text", "div", "text-stack");
     if (!blocks.length) { stack.hidden = true; return; }
     stack.hidden = false;
@@ -1030,7 +1035,7 @@
     }
     Object.assign(stack.style, { inset: t.padding * s + "px", fontFamily: familyStack() });
 
-    var origin = box("rect").y + t.padding;                    // top of the stack, in format units
+    var origin = textFrame().y + t.padding;                    // top of the stack, in format units
     Array.prototype.forEach.call(stack.children, function (el, i) {
       var b = blocks[i], st = state.type.roles[b.role], sp = sidePad(b.align);
       el.dataset.i = t.blocks.indexOf(b);
@@ -1063,7 +1068,7 @@
   // remember how far the baseline sits inside the box so the next paint starts there
   function placeBlocks(stack, s) {
     if (!stack || stack.hidden) return;
-    var blocks = state.text.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    var blocks = state.text.blocks.filter(function (b) { return b.placed && b.text.trim(); });
     var kids = Array.prototype.slice.call(stack.children);
     if (kids.length !== blocks.length) return;
 
@@ -1121,17 +1126,30 @@
 
       var rectEl = child(host, "rect", "div", "shape rect");
       rectEl.dataset.el = "rect";
-      var showRect = state.rect.visible || textVisible();
-      rectEl.hidden = !showRect;
-      if (showRect) {
+      rectEl.hidden = !state.rect.placed;
+      if (state.rect.placed) {
         var shaped = state.rect.shape !== "radius";
         Object.assign(rectEl.style, shapeStyle("rect", s), {
           background: state.rect.visible ? state.rect.fill : "transparent",
           borderRadius: shaped ? "0" : radiusCSS(s),
           clipPath: shaped ? clipCSS(s) : "none"
         });
-        paintText(rectEl, s);
       }
+
+      // without a rectangle the text runs in the margin box instead, in a layer of its own
+      var free = child(host, "free", "div", "text-free");
+      free.hidden = state.rect.placed || !textVisible();
+      if (!free.hidden) {
+        var c = content();
+        Object.assign(free.style, {
+          left: c.x * s + "px", top: c.y * s + "px",
+          width: c.w * s + "px", height: c.h * s + "px"
+        });
+      }
+      var textHost = state.rect.placed ? rectEl : free;
+      var idle = state.rect.placed ? free : rectEl;
+      if (idle._text) { idle.removeChild(idle._text); idle._text = null; }   // one stack at a time
+      if (!textHost.hidden) paintText(textHost, s);
 
       var logoEl = child(host, "logo", "div", "shape logo");
       logoEl.dataset.el = "logo";
@@ -1147,6 +1165,12 @@
         }
       }
     });
+  }
+
+  // the text stack in play: inside the rectangle, or in the free layer
+  function liveStack() {
+    var r = els.stage._rect, f = els.stage._free;
+    return (r && r._text) || (f && f._text) || null;
   }
 
   function renderStage() {
@@ -1169,10 +1193,11 @@
 
     renderBaseline(s);
     renderColumns(s);
-    placeBlocks(els.stage._rect && els.stage._rect._text, s);
+    placeBlocks(liveStack(), s);
     renderFrame(s);
     renderBlockFrame();
     renderRail();
+    renderTray();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
     renderReadout();
   }
@@ -1278,7 +1303,8 @@
   function renderFrame(s) {
     var name = state.sel;
     // the handles are part of the furniture: hiding the guides hides them too
-    var shown = name && state[name] && state[name].visible && state.showGuides !== false;
+    var on = name === "rect" ? state.rect.placed : name && state[name] && state[name].visible;
+    var shown = on && state.showGuides !== false;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
     var key = name;
@@ -1334,6 +1360,23 @@
     }).join("");
   }
 
+  // everything that has not been pulled onto the stage yet
+  function renderTray() {
+    var items = [];
+    if (!state.rect.placed) items.push({ id: "rect", kind: "shape", name: "Rectangle" });
+    state.text.blocks.forEach(function (b, i) {
+      if (!b.placed) items.push({ id: "block:" + i, kind: "text", name: ROLE_NAMES[b.role] });
+    });
+    var html = items.map(function (it) {
+      return '<button type="button" class="chip" data-place="' + it.id + '" data-kind="' + it.kind +
+        '" title="Drag onto the stage, or click to drop it in place">' + esc(it.name) + "</button>";
+    }).join("");
+    $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
+    $("#tray-hint").textContent = items.length
+      ? "Drag one onto the stage — it snaps to the grid as it lands. Let go outside the format to keep it here."
+      : "Take one off again with its checkbox in the panel.";
+  }
+
   function renderReadout() {
     var m = margins(), parts = [
       "Format " + fmt(state.stage.w) + " × " + fmt(state.stage.h),
@@ -1341,10 +1384,12 @@
         (state.margin.mode !== "manual" ? " (logo " + (state.margin.mode === "logoH" ? "height" : "width") +
           " × " + state.margin.factor + ")" : "")
     ];
-    if (state.rect.visible) {
+    if (state.rect.placed) {
       var b = box("rect");
       parts.push("Rectangle " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
     }
+    var onStage = state.text.blocks.filter(function (x) { return x.placed; }).length;
+    if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
     if (state.logo.visible) {
       var lg = state.logo, lb = box("logo");
       parts.push("Logo " + fmt(lb.w) + " × " + fmt(lb.h) +
@@ -1417,7 +1462,7 @@
         ? " — logo " + (state.margin.mode === "logoH" ? "height" : "width") + " × " + state.margin.factor
         : "") + " */");
     lines.push("}");
-    if (state.rect.visible) {
+    if (state.rect.placed) {
       lines.push("");
       lines.push(".rectangle {");
       lines.push("  position: absolute;");
@@ -1450,7 +1495,7 @@
       }
       lines.push("}");
     }
-    var t = state.text, used = t.blocks.filter(function (b) { return b.visible && b.text.trim(); });
+    var t = state.text, used = t.blocks.filter(function (b) { return b.placed && b.text.trim(); });
     if (used.length) {
       lines.push("");
       if (state.type.family.indexOf("g:") === 0) {
@@ -1460,17 +1505,22 @@
       } else if (state.type.family.indexOf("u:") === 0) {
         lines.push("/* @font-face for \"" + state.type.family.slice(2) + "\" — ship the uploaded file yourself */");
       }
-      lines.push(".rectangle .text {");
+      var TX = state.rect.placed ? ".rectangle .text" : ".stage .text";
+      lines.push(TX + " {");
       lines.push("  position: absolute;");
-      lines.push("  inset: " + fmt(t.padding) + "px;");
+      // inside the rectangle the padding is the whole inset; on the stage the margins
+      // carry it, since the text is running in the margin box
+      lines.push("  inset: " + (state.rect.placed
+        ? fmt(t.padding) + "px"
+        : SIDES.map(function (side) { return fmt(m[side] + t.padding); }).join("px ") + "px") + ";");
       lines.push("  font-family: " + familyStack() + ";");
       lines.push("}");
       lines.push("");
-      lines.push(".rectangle .text > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
-      var origin = box("rect").y + t.padding;
+      lines.push(TX + " > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
+      var origin = textFrame().y + t.padding;
       used.forEach(function (b, i) {
         var sp = sidePad(b.align);
-        lines.push(".rectangle .text > :nth-child(" + (i + 1) + ") { top: " +
+        lines.push(TX + " > :nth-child(" + (i + 1) + ") { top: " +
           round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px;" +
           (sp.l ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
           (sp.r ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
@@ -1485,7 +1535,7 @@
       ROLES.filter(function (r) { return roles.indexOf(r) >= 0; }).forEach(function (r) {
         var st = state.type.roles[r], size = rolePx(r), lh = roleLh(r), steps = roleSteps(r);
         lines.push("");
-        lines.push(".rectangle .text ." + r + " {");
+        lines.push(TX + " ." + r + " {");
         lines.push("  font-size: " + round(size, 2) + "px;" +
           (r === "paragraph"
             ? "  /* " + round(state.type.paragraph, 3) + "% of the " + basisLabel() + " */"
@@ -1506,7 +1556,7 @@
       used.forEach(function (b) { if (aligns.indexOf(b.align) < 0) aligns.push(b.align); });
       lines.push("");
       aligns.forEach(function (a) {
-        lines.push(".rectangle .text .align-" + a + " { text-align: " + a + "; }");
+        lines.push(TX + " .align-" + a + " { text-align: " + a + "; }");
       });
     }
     els.cssOut.textContent = lines.join("\n");
@@ -1520,19 +1570,23 @@
 
   function renderMarkup(used) {
     var out = ['<div class="stage">'];
-    var inner = [];
-    if (state.rect.visible || used.length) {
+    var inner = [], pad = state.rect.placed ? "    " : "  ";
+    var text = [];
+    if (used.length) {
+      text.push(pad + '<div class="text">');
+      used.forEach(function (b) {
+        var tag = state.type.roles[b.role].tag || "p";
+        text.push(pad + '  <' + tag + ' class="' + b.role + " align-" + b.align + '">' +
+          esc(b.text) + "</" + tag + ">");
+      });
+      text.push(pad + "</div>");
+    }
+    if (state.rect.placed) {
       inner.push('  <div class="rectangle">');
-      if (used.length) {
-        inner.push('    <div class="text">');
-        used.forEach(function (b) {
-          var tag = state.type.roles[b.role].tag || "p";
-          inner.push('      <' + tag + ' class="' + b.role + " align-" + b.align + '">' +
-            esc(b.text) + "</" + tag + ">");
-        });
-        inner.push("    </div>");
-      }
+      inner = inner.concat(text);
       inner.push("  </div>");
+    } else {
+      inner = inner.concat(text);       // text on its own runs in the margin box
     }
     if (state.logo.visible) inner.push('  <div class="logo"></div>');
     $("#markup-out").textContent = out.concat(inner, ["</div>"]).join("\n");
@@ -1727,7 +1781,7 @@
     $("#text-blocks").innerHTML = state.text.blocks.map(function (b, i) {
       return '<div class="block" data-i="' + i + '">' +
         '<div class="block-head">' +
-          '<label class="check"><input type="checkbox" data-block="visible"><span>Block ' + (i + 1) + "</span></label>" +
+          '<label class="check"><input type="checkbox" data-block="placed"><span>Block ' + (i + 1) + "</span></label>" +
           '<select data-block="role" class="level">' +
             ROLES.map(function (r) { return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>"; }).join("") +
           "</select>" +
@@ -1833,7 +1887,12 @@
         SIDES.map(function (s) { return fmt(mm[s]); }).join(" / ") +
         " top, right, bottom, left. Dragging a guide moves that side's buffer.";
 
+    $("#rect-placed").checked = r.placed;
     $("#rect-visible").checked = r.visible;
+    $("#rect-placed-hint").textContent = r.placed
+      ? "Take it off the stage and the text blocks run in the margin box instead."
+      : "Not on the stage — drag it out of the tray above the canvas. Text blocks placed on " +
+        "their own run in the margin box until it is.";
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
     $("#rect-grid").value = String(r.grid);
     var rb = box("rect");
@@ -1987,7 +2046,9 @@
           (spL.l >= 0 ? fmt(spL.l) + " past" : fmt(-spL.l) + " short of") + " the padding); " +
           "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
           "Centred text keeps the padding.";
-    $("#text-rows-hint").textContent = "Rows are counted from the top or the bottom edge of the rectangle, " +
+    $("#text-rows-hint").textContent = "Blocks start off the stage: drag one out of the tray above the " +
+      "canvas, or tick it here. " +
+      "Rows are counted from the top or the bottom edge of the rectangle, " +
       "so the text travels with the box — and a block set from the bottom keeps its distance to that edge " +
       "as the box is resized. Grid 1 rows are " + round(baseline(), 2) +
       " px, grid 2 rows " + round(baseline() / 2, 2) + " px.";
@@ -2000,7 +2061,7 @@
       " px between the left and right margins.";
     Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
       var b = state.text.blocks[i];
-      row.querySelector('[data-block="visible"]').checked = b.visible;
+      row.querySelector('[data-block="placed"]').checked = b.placed;
       row.querySelector('[data-block="role"]').value = b.role;
       setValue(row.querySelector('[data-block="text"]'), b.text);
       setValue(row.querySelector('[data-block="row"]'), b.row);
@@ -2008,7 +2069,7 @@
       row.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
       setValue(row.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
       setValue(row.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
-      var fw = sizeOf("rect").w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
+      var fw = textFrame().w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
       row.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
       Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
         btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
@@ -2119,6 +2180,10 @@
       });
     });
 
+    onChange("#rect-placed", function (el) {
+      keepingBlocks(function () { state.rect.placed = el.checked; });
+      if (el.checked) state.sel = "rect"; else if (state.sel === "rect") state.sel = "";
+    });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
     onChange("#rect-wmode", function (el) {
       if (el.value === "fixed") state.rect.w = round(sizeOf("rect").w, 1);   // start from what is on screen
@@ -2323,7 +2388,7 @@
       var row = e.target.closest(".block");
       if (!row) return;
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
-      if (what === "visible") b.visible = e.target.checked;
+      if (what === "placed") { b.placed = e.target.checked; if (!b.placed && state.selBlock === +row.dataset.i) state.selBlock = -1; }
       else if (what === "role") b.role = e.target.value;
       else if (what === "grid" || what === "from") {
         var y = rowY(b.row, b.grid, b.from);               // keep it where it is
@@ -2339,6 +2404,12 @@
       render();
     });
 
+    $("#tray-items").addEventListener("pointerdown", function (e) {
+      var chip = e.target.closest("[data-place]");
+      if (!chip || e.button !== 0) return;
+      startPlace(e, chip.dataset.place);
+      render();
+    });
     $("#undo").addEventListener("click", undo);
     $("#redo").addEventListener("click", redo);
     $("#rail-toggle").addEventListener("click", function () {
@@ -2442,7 +2513,8 @@
 
   // dragging a shape picks the alignment cell nearest the pointer
   function startShapeDrag(e, name) {
-    if (!name || !state[name] || !state[name].visible) return;
+    if (!name || !state[name]) return;
+    if (name === "rect" ? !state.rect.placed : !state[name].visible) return;
     var el = state[name], b0 = box(name), start = toStage(e);
     var mh = el.anchor.h === el.align.h, mv = el.anchor.v === el.align.v;
     els.cells.hidden = false;
@@ -2466,6 +2538,60 @@
     }, function () { els.cells.hidden = true; });
   }
 
+  // the frame under the text changes when the rectangle comes or goes; every block
+  // that is already on the stage keeps its place across that switch
+  function keepingBlocks(fn) {
+    var ys = state.text.blocks.map(function (b) {
+      return b.placed ? rowY(b.row, b.grid, b.from) : null;
+    });
+    fn();
+    state.text.blocks.forEach(function (b, i) {
+      if (ys[i] !== null) b.row = rowAt(ys[i], b.grid, b.from);
+    });
+  }
+
+  // pull an element out of the tray: it lands where the pointer is, snapping as it
+  // goes, and goes back to the tray if it is let go outside the format
+  function startPlace(e, id) {
+    var isRect = id === "rect", i = isRect ? -1 : +id.split(":")[1];
+    var b = isRect ? state.rect : state.text.blocks[i];
+    if (!b || b.placed) return;
+    if (isRect) keepingBlocks(function () { b.placed = true; }); else b.placed = true;
+    if (isRect) state.sel = "rect"; else { state.sel = "rect"; state.selBlock = i; }
+    var landed = false, moved = false;
+    var move = function (ev) {
+      var p = toStage(ev), st = state.stage;
+      moved = true;
+      landed = p.x >= 0 && p.y >= 0 && p.x <= st.w && p.y <= st.h;
+      if (isRect) {
+        var sz = sizeOf("rect"), c = content();
+        setAlign("rect",
+          nearestKey(H_KEYS, fh, c.x, c.w, sz.w, state.rect.anchor.h, p.x),
+          nearestKey(V_KEYS, fv, c.y, c.h, sz.h, state.rect.anchor.v, p.y));
+        renderCells("rect");
+      } else {
+        state.text.blocks[i].row = rowAt(p.y, state.text.blocks[i].grid, state.text.blocks[i].from);
+      }
+    };
+    if (isRect) { els.cells.hidden = false; renderCells("rect"); }
+    drag(e, move, function () {
+      els.cells.hidden = true;
+      // a plain click drops it where it last sat; a drag that ends off the format
+      // puts it back in the tray
+      if (moved && !landed) {
+        if (isRect) keepingBlocks(function () { b.placed = false; }); else b.placed = false;
+        if (!isRect) state.selBlock = -1;
+      }
+    });
+  }
+
+  // the alignment cell whose landing point is nearest a position
+  function nearestKey(keys, f, cPos, cLen, size, anchor, target) {
+    return keys.map(function (k) {
+      return { k: k, d: Math.abs(cPos + cLen * f(k) - size * f(anchor) + size / 2 - target) };
+    }).sort(function (a, b) { return a.d - b.d; })[0].k;
+  }
+
   // drag a text block up and down; it lands on whole rows of its own grid
   function startTextDrag(e, index) {
     var b = state.text.blocks[index];
@@ -2482,7 +2608,7 @@
     var b = state.text.blocks[index];
     if (!b) return;
     var start = toStage(e), l0 = b.padL || 0, r0 = b.padR || 0;
-    var room = Math.max(MIN_SIZE, sizeOf("rect").w - state.text.padding * 2);
+    var room = Math.max(MIN_SIZE, textFrame().w - state.text.padding * 2);
     drag(e, function (ev) {
       var dx = toStage(ev).x - start.x;
       if (dir === "w") b.padL = clamp(snap(l0 + dx), 0, room - (b.padR || 0) - MIN_SIZE);
