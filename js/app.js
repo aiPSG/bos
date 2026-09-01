@@ -9,16 +9,78 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v15";
+  var STORAGE_KEY = "bos.design.v16";
 
+  /* Templates for the jobs this gets used for. Each carries a format and the
+     scaffolding that suits it — margins, columns and the number of baseline rows —
+     so picking one sets up the page, not the contents. */
   var FORMATS = [
-    { id: "1080x1080", name: "Square", w: 1080, h: 1080 },
-    { id: "1080x1350", name: "Portrait 4:5", w: 1080, h: 1350 },
-    { id: "1080x1920", name: "Story 9:16", w: 1080, h: 1920 },
-    { id: "1920x1080", name: "Landscape 16:9", w: 1920, h: 1080 },
-    { id: "1240x1754", name: "A5 · 150 dpi", w: 1240, h: 1754 },
-    { id: "2480x3508", name: "A4 · 300 dpi", w: 2480, h: 3508 }
+    { id: "ig-square", group: "Social", name: "Instagram post", w: 1080, h: 1080,
+      margin: 80, cols: 6, gutter: 24, rows: 30 },
+    { id: "ig-portrait", group: "Social", name: "Instagram portrait", w: 1080, h: 1350,
+      margin: 80, cols: 6, gutter: 24, rows: 39 },
+    { id: "story", group: "Social", name: "Story / Reel", w: 1080, h: 1920,
+      margin: 90, cols: 6, gutter: 24, rows: 48 },
+    { id: "link-card", group: "Social", name: "Link card", w: 1200, h: 628,
+      margin: 56, cols: 6, gutter: 20, rows: 16 },
+    { id: "x-post", group: "Social", name: "X post", w: 1600, h: 900,
+      margin: 72, cols: 8, gutter: 24, rows: 22 },
+    { id: "yt-thumb", group: "Social", name: "YouTube thumbnail", w: 1280, h: 720,
+      margin: 56, cols: 6, gutter: 20, rows: 16 },
+
+    { id: "leaderboard", group: "Display banners", name: "Leaderboard", w: 728, h: 90,
+      margin: 10, cols: 6, gutter: 8, rows: 4 },
+    { id: "billboard-ad", group: "Display banners", name: "Billboard banner", w: 970, h: 250,
+      margin: 20, cols: 6, gutter: 12, rows: 8 },
+    { id: "mrec", group: "Display banners", name: "Medium rectangle", w: 300, h: 250,
+      margin: 16, cols: 4, gutter: 8, rows: 9 },
+    { id: "half-page", group: "Display banners", name: "Half page", w: 300, h: 600,
+      margin: 16, cols: 4, gutter: 8, rows: 22 },
+    { id: "skyscraper", group: "Display banners", name: "Wide skyscraper", w: 160, h: 600,
+      margin: 12, cols: 2, gutter: 8, rows: 24 },
+    { id: "mobile-banner", group: "Display banners", name: "Mobile banner", w: 320, h: 50,
+      margin: 8, cols: 4, gutter: 8, rows: 3 },
+
+    { id: "dooh-landscape", group: "Digital billboards", name: "Screen — landscape", w: 1920, h: 1080,
+      margin: 96, cols: 8, gutter: 32, rows: 24 },
+    { id: "dooh-portrait", group: "Digital billboards", name: "Screen — portrait", w: 1080, h: 1920,
+      margin: 80, cols: 6, gutter: 24, rows: 46 },
+    { id: "dooh-ultrawide", group: "Digital billboards", name: "Screen — ultra-wide", w: 2880, h: 810,
+      margin: 80, cols: 12, gutter: 32, rows: 14 },
+    { id: "dooh-4k", group: "Digital billboards", name: "Screen — 4K", w: 3840, h: 2160,
+      margin: 180, cols: 12, gutter: 48, rows: 30 },
+
+    { id: "lower-third", group: "Motion graphics", name: "Lower third", w: 1920, h: 1080,
+      margin: 120, cols: 12, gutter: 24, rows: 18 },
+    { id: "intro", group: "Motion graphics", name: "Intro card", w: 1920, h: 1080,
+      margin: 160, cols: 6, gutter: 32, rows: 16 },
+    { id: "outro", group: "Motion graphics", name: "Outro card", w: 1920, h: 1080,
+      margin: 160, cols: 6, gutter: 32, rows: 20 },
+    { id: "motion-vertical", group: "Motion graphics", name: "Vertical cut-down", w: 1080, h: 1920,
+      margin: 96, cols: 6, gutter: 24, rows: 44 },
+
+    { id: "book-cover", group: "Book", name: "Cover — A5", w: 1240, h: 1754,
+      margin: 100, cols: 6, gutter: 24, rows: 36 },
+    { id: "book-text", group: "Book", name: "Inside page — text", w: 1240, h: 1754,
+      margin: 140, cols: 1, gutter: 0, rows: 40 },
+    { id: "book-image", group: "Book", name: "Inside page — image", w: 1240, h: 1754,
+      margin: 70, cols: 2, gutter: 24, rows: 34 },
+    { id: "book-imagetext", group: "Book", name: "Inside page — image and text", w: 1240, h: 1754,
+      margin: 120, cols: 2, gutter: 40, rows: 38 },
+    { id: "a4-print", group: "Book", name: "A4 · 300 dpi", w: 2480, h: 3508,
+      margin: 240, cols: 6, gutter: 48, rows: 46 },
+    { id: "a5-print", group: "Book", name: "A5 · 150 dpi", w: 1240, h: 1754,
+      margin: 120, cols: 6, gutter: 24, rows: 39 }
   ];
+
+  // the aspect of a format, as a ratio when it is a tidy one and a decimal when it is not
+  function ratioLabel(w, h) {
+    var a = Math.round(w), b = Math.round(h), x = a, y = b, t;
+    while (y) { t = y; y = x % y; x = t; }
+    var rw = a / x, rh = b / x;
+    if (rw <= 32 && rh <= 32) return rw + ":" + rh;
+    return w >= h ? round(w / h, 2) + ":1" : "1:" + round(h / w, 2);
+  }
 
   // a curated set that ships with the app; the full catalogue needs a Google Fonts API key
   var GOOGLE_FONTS = [
@@ -47,6 +109,13 @@
 
   // the type scale is four roles; paragraph is the anchor and the rest are multiples of it
   var ROLES = ["headline", "subline", "paragraph", "smallprint"];
+  var ROLE_SEEDS = {
+    headline: "Headline goes\nhere",
+    subline: "A subline carrying\nthe second thought",
+    paragraph: "A supporting line of copy\nthat explains the headline.",
+    smallprint: "Small print: terms and credits."
+  };
+  var ROLE_ROWS = { headline: 2, subline: 5, paragraph: 8, smallprint: 1 };
   var ROLE_NAMES = {
     headline: "Headline", subline: "Subline", paragraph: "Paragraph", smallprint: "Small print"
   };
@@ -220,8 +289,8 @@
 
   function defaults() {
     return {
-      v: 15,
-      stage: { w: 1080, h: 1350, bg: "#111318" },
+      v: 16,
+      stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
@@ -273,16 +342,10 @@
         // in a box that fills the format, left- and right-aligned text can take the
         // format's own margin on that side instead of the box padding
         marginPad: true,
-        // each block sits on a row of its own, counted from the top or the bottom
-        // edge of the rectangle, so the text travels with the box as it is resized
-        blocks: [
-          // padL / padR inset the field from the sides of the padding column. A field
-          // that has been drawn in wraps its lines; one that fills the column does not
-          { placed: false, role: "headline", align: "left", row: 2, grid: 1, from: "top", padL: 0, padR: 0, text: "Headline goes\nhere" },
-          { placed: false, role: "subline", align: "left", row: 5, grid: 1, from: "top", padL: 0, padR: 0, text: "A subline carrying\nthe second thought" },
-          { placed: false, role: "paragraph", align: "left", row: 8, grid: 1, from: "top", padL: 0, padR: 0, text: "A supporting line of copy\nthat explains the headline." },
-          { placed: false, role: "smallprint", align: "left", row: 1, grid: 2, from: "bottom", padL: 0, padR: 0, text: "Small print: terms and credits." }
-        ]
+        // blocks are pulled out of the tray, one per drag and as many as you like.
+        // each sits on a row of its own, counted from the top or the bottom edge of
+        // the rectangle, so the text travels with the box as it is resized
+        blocks: []
       },
       guides: { mode: "auto", color: "#ff2d55" },
       cols: { n: 6, gutter: 24, show: true },
@@ -330,9 +393,9 @@
       });
       s.type = Object.assign(d.type, s.type);
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
-      if (!Array.isArray(s.text.blocks) || !s.text.blocks.length) s.text.blocks = d.text.blocks;
+      if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
+      s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
       s.text.blocks.forEach(function (b) {
-        b.placed = !!b.placed;
         if (b.from !== "bottom") b.from = "top";
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
@@ -948,7 +1011,7 @@
 
   // is any text on the stage at all
   function textVisible() {
-    return state.text.blocks.some(function (b) { return b.placed && b.text.trim(); });
+    return state.text.blocks.some(function (b) { return b.text.trim(); });
   }
 
   // where a role's baseline sits inside its own box, in format units. measured on the
@@ -992,6 +1055,39 @@
     render();
   }
 
+  // a block whose row puts it above or below the rectangle is no longer running in
+  // the box, so it lines up with the columns instead of with the box padding
+  function blockOutside(b) {
+    if (!state.rect.placed) return false;
+    var r = box("rect"), y = rowY(b.row, b.grid, b.from);
+    return y < r.y || y > r.y + r.h;
+  }
+
+  // the nearest column line — either edge of any column — to an offset measured from
+  // the left margin
+  function colLine(off) {
+    var n = colCount(), step = colStep(), w = colWidth(), cw = content().w;
+    var best = 0, bd = Infinity, k, cands = [cw];
+    for (k = 0; k < n; k++) cands.push(k * step, k * step + w);
+    cands.forEach(function (v) {
+      var d = Math.abs(v - off);
+      if (d < bd) { bd = d; best = v; }
+    });
+    return clamp(best, 0, cw);
+  }
+
+  // what a block insets from the sides of the stack it is painted in
+  function blockInsets(b) {
+    var t = state.text, sp = sidePad(b.align);
+    if (!blockOutside(b)) return { l: sp.l + (b.padL || 0), r: sp.r + (b.padR || 0) };
+    var c = content(), f = textFrame();
+    var stackL = f.x + t.padding, stackR = f.x + f.w - t.padding;
+    var left = c.x + colLine(b.padL || 0);
+    var right = c.x + colLine(c.w - (b.padR || 0));
+    if (right - left < colWidth()) right = Math.min(c.x + c.w, left + colWidth());
+    return { l: left - stackL, r: stackR - right };
+  }
+
   // in a box that fills the format, text aligned to a side can hang on the format's own
   // margin instead of the box padding — the padding still holds the other side
   function sidePad(align) {
@@ -1005,7 +1101,7 @@
 
   function paintText(rectEl, s) {
     var t = state.text;
-    var blocks = t.blocks.filter(function (b) { return b.placed && b.text.trim(); });
+    var blocks = t.blocks.filter(function (b) { return b.text.trim(); });
     var stack = child(rectEl, "text", "div", "text-stack");
     if (!blocks.length) { stack.hidden = true; return; }
     stack.hidden = false;
@@ -1037,12 +1133,12 @@
 
     var origin = textFrame().y + t.padding;                    // top of the stack, in format units
     Array.prototype.forEach.call(stack.children, function (el, i) {
-      var b = blocks[i], st = state.type.roles[b.role], sp = sidePad(b.align);
+      var b = blocks[i], st = state.type.roles[b.role], ins = blockInsets(b);
       el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
         top: (rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin) * s + "px",
-        marginLeft: (sp.l + (b.padL || 0)) * s + "px",
-        marginRight: (sp.r + (b.padR || 0)) * s + "px",
+        marginLeft: ins.l * s + "px",
+        marginRight: ins.r * s + "px",
         // a field drawn in by hand wraps inside itself; one that fills the column
         // keeps to the line breaks that were typed
         whiteSpace: (b.padL || b.padR) ? "pre-wrap" : "pre",
@@ -1068,7 +1164,7 @@
   // remember how far the baseline sits inside the box so the next paint starts there
   function placeBlocks(stack, s) {
     if (!stack || stack.hidden) return;
-    var blocks = state.text.blocks.filter(function (b) { return b.placed && b.text.trim(); });
+    var blocks = state.text.blocks.filter(function (b) { return b.text.trim(); });
     var kids = Array.prototype.slice.call(stack.children);
     if (kids.length !== blocks.length) return;
 
@@ -1254,12 +1350,17 @@
 
   var TILE = { w: 116, h: 132 };
 
+  // templates share formats, so the rail shows each size once
   function railFormats() {
-    var list = FORMATS.slice();
+    var seen = {}, list = [];
+    FORMATS.forEach(function (f) {
+      var key = f.w + "x" + f.h;
+      if (seen[key]) return;
+      seen[key] = true;
+      list.push({ id: key, name: f.name, w: f.w, h: f.h });
+    });
     var id = fmt(state.stage.w) + "x" + fmt(state.stage.h);
-    if (!list.some(function (f) { return f.id === id; })) {
-      list.unshift({ id: id, name: "Custom", w: state.stage.w, h: state.stage.h, custom: true });
-    }
+    if (!seen[id]) list.unshift({ id: id, name: "Custom", w: state.stage.w, h: state.stage.h, custom: true });
     return list;
   }
 
@@ -1346,6 +1447,9 @@
     size.style.top = r.height + "px";
     els.blockFrame.querySelector('[data-bdir="w"]').style.left = "0px";
     els.blockFrame.querySelector('[data-bdir="e"]').style.left = r.width + "px";
+    var kill = els.blockFrame.querySelector(".bhandle.kill");
+    kill.style.left = r.width + "px";
+    kill.style.top = "0px";
   }
 
   function renderCells(name) {
@@ -1364,17 +1468,17 @@
   function renderTray() {
     var items = [];
     if (!state.rect.placed) items.push({ id: "rect", kind: "shape", name: "Rectangle" });
-    state.text.blocks.forEach(function (b, i) {
-      if (!b.placed) items.push({ id: "block:" + i, kind: "text", name: ROLE_NAMES[b.role] });
+    ROLES.forEach(function (r) {
+      items.push({ id: "role:" + r, kind: "text", name: ROLE_NAMES[r] });   // as many as you like
     });
     var html = items.map(function (it) {
       return '<button type="button" class="chip" data-place="' + it.id + '" data-kind="' + it.kind +
         '" title="Drag onto the stage, or click to drop it in place">' + esc(it.name) + "</button>";
     }).join("");
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
-    $("#tray-hint").textContent = items.length
-      ? "Drag one onto the stage — it snaps to the grid as it lands. Let go outside the format to keep it here."
-      : "Take one off again with its checkbox in the panel.";
+    $("#tray-hint").textContent = "Drag one onto the stage — it snaps to the grid as it lands. " +
+      "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
+      "the ✕ on a block takes it off again.";
   }
 
   function renderReadout() {
@@ -1388,7 +1492,7 @@
       var b = box("rect");
       parts.push("Rectangle " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
     }
-    var onStage = state.text.blocks.filter(function (x) { return x.placed; }).length;
+    var onStage = state.text.blocks.length;
     if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
     if (state.logo.visible) {
       var lg = state.logo, lb = box("logo");
@@ -1495,7 +1599,7 @@
       }
       lines.push("}");
     }
-    var t = state.text, used = t.blocks.filter(function (b) { return b.placed && b.text.trim(); });
+    var t = state.text, used = t.blocks.filter(function (b) { return b.text.trim(); });
     if (used.length) {
       lines.push("");
       if (state.type.family.indexOf("g:") === 0) {
@@ -1519,11 +1623,12 @@
       lines.push(TX + " > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
       var origin = textFrame().y + t.padding;
       used.forEach(function (b, i) {
-        var sp = sidePad(b.align);
+        var sp = blockInsets(b);
         lines.push(TX + " > :nth-child(" + (i + 1) + ") { top: " +
           round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px;" +
-          (sp.l ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
-          (sp.r ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
+          (round(sp.l, 2) ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
+          (round(sp.r, 2) ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
+          (blockOutside(b) ? "  /* on the columns, outside the box */" : "") +
           "  /* baseline on row " + b.row + " of grid " + b.grid +
           ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " edge */");
       });
@@ -1711,10 +1816,33 @@
   }
 
   function buildFormatSelect() {
+    var groups = [];
+    FORMATS.forEach(function (f) { if (groups.indexOf(f.group) < 0) groups.push(f.group); });
     $("#stage-preset").innerHTML = '<option value="">Custom…</option>' +
-      FORMATS.map(function (f) {
-        return '<option value="' + f.id + '">' + esc(f.name) + " — " + f.w + " × " + f.h + "</option>";
+      groups.map(function (g) {
+        return '<optgroup label="' + esc(g) + '">' +
+          FORMATS.filter(function (f) { return f.group === g; }).map(function (f) {
+            return '<option value="' + f.id + '">' + esc(f.name) + " — " + f.w + " × " + f.h +
+              " · " + ratioLabel(f.w, f.h) + "</option>";
+          }).join("") + "</optgroup>";
       }).join("");
+  }
+
+  function formatById(id) {
+    return FORMATS.filter(function (f) { return f.id === id; })[0] || null;
+  }
+
+  // a template sets the format and the scaffolding that suits it; the elements stay
+  // in the tray, so nothing that was already drawn is thrown away
+  function applyFormat(f) {
+    state.stage.w = f.w; state.stage.h = f.h; state.stage.preset = f.id;
+    if (isFinite(f.margin)) {
+      state.margin.mode = "manual";
+      SIDES.forEach(function (side) { state.margin[side] = f.margin; });
+    }
+    if (isFinite(f.cols)) state.cols.n = f.cols;
+    if (isFinite(f.gutter)) state.cols.gutter = f.gutter;
+    if (isFinite(f.rows)) setRows(f.rows);
   }
 
   function buildFamilySelect() {
@@ -1778,13 +1906,20 @@
   }
 
   function buildTextBlocks() {
+    if (!state.text.blocks.length) {
+      $("#text-blocks").innerHTML =
+        '<p class="hint">No text on the stage yet — drag a block out of the tray above the canvas. ' +
+        "Pull one out as often as you like; each is its own block.</p>";
+      return;
+    }
     $("#text-blocks").innerHTML = state.text.blocks.map(function (b, i) {
       return '<div class="block" data-i="' + i + '">' +
         '<div class="block-head">' +
-          '<label class="check"><input type="checkbox" data-block="placed"><span>Block ' + (i + 1) + "</span></label>" +
+          '<span class="block-n">Block ' + (i + 1) + "</span>" +
           '<select data-block="role" class="level">' +
             ROLES.map(function (r) { return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>"; }).join("") +
           "</select>" +
+          '<button type="button" class="x" data-block="remove" title="Take this block off the stage">✕</button>' +
         "</div>" +
         '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
         '<div class="block-row">' +
@@ -1838,8 +1973,10 @@
     setValue($("#stage-h"), fmt(st.h));
     $("#stage-bg").value = st.bg;
     var preset = $("#stage-preset");
-    preset.value = fmt(st.w) + "x" + fmt(st.h);
+    preset.value = st.preset || "";
     if (preset.selectedIndex < 0) preset.selectedIndex = 0;
+    $("#stage-ratio").textContent = ratioLabel(st.w, st.h) +
+      (st.preset && formatById(st.preset) ? " · " + formatById(st.preset).group.toLowerCase() : " · custom");
     $("#round-values").checked = state.round;
 
     setValue($("#bg-url"), /^data:/.test(state.bg.src) ? "" : state.bg.src);
@@ -2059,9 +2196,10 @@
     $("#col-hint").textContent = state.cols.n + " columns of " + round(colWidth(), 2) +
       " px with a " + fmt(state.cols.gutter) + " px gutter fill the " + round(content().w, 2) +
       " px between the left and right margins.";
-    Array.prototype.forEach.call($("#text-blocks").children, function (row, i) {
+    if ($("#text-blocks").querySelectorAll(".block").length !== state.text.blocks.length) buildTextBlocks();
+    Array.prototype.forEach.call($("#text-blocks").querySelectorAll(".block"), function (row, i) {
       var b = state.text.blocks[i];
-      row.querySelector('[data-block="placed"]').checked = b.placed;
+
       row.querySelector('[data-block="role"]').value = b.role;
       setValue(row.querySelector('[data-block="text"]'), b.text);
       setValue(row.querySelector('[data-block="row"]'), b.row);
@@ -2101,13 +2239,12 @@
   }
 
   function bindPanel() {
-    numInput("#stage-w", function (v) { state.stage.w = snap(v); }, 1);
-    numInput("#stage-h", function (v) { state.stage.h = snap(v); }, 1);
+    numInput("#stage-w", function (v) { state.stage.w = snap(v); state.stage.preset = ""; }, 1);
+    numInput("#stage-h", function (v) { state.stage.h = snap(v); state.stage.preset = ""; }, 1);
     onInput("#stage-bg", function (el) { state.stage.bg = el.value; });
     onChange("#stage-preset", function (el) {
-      if (!el.value) return;
-      var d = el.value.split("x");
-      state.stage.w = +d[0]; state.stage.h = +d[1];
+      var f = formatById(el.value);
+      if (f) applyFormat(f);
     });
     onChange("#round-values", function (el) {
       state.round = el.checked;
@@ -2388,8 +2525,7 @@
       var row = e.target.closest(".block");
       if (!row) return;
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
-      if (what === "placed") { b.placed = e.target.checked; if (!b.placed && state.selBlock === +row.dataset.i) state.selBlock = -1; }
-      else if (what === "role") b.role = e.target.value;
+      if (what === "role") b.role = e.target.value;
       else if (what === "grid" || what === "from") {
         var y = rowY(b.row, b.grid, b.from);               // keep it where it is
         if (what === "grid") b.grid = +e.target.value; else b.from = e.target.value;
@@ -2398,6 +2534,8 @@
       render();
     });
     $("#text-blocks").addEventListener("click", function (e) {
+      var gone = e.target.closest('[data-block="remove"]');
+      if (gone) { removeBlock(+gone.closest(".block").dataset.i); render(); return; }
       var btn = e.target.closest("[data-align]");
       if (!btn) return;
       state.text.blocks[+btn.closest(".block").dataset.i].align = btn.dataset.align;
@@ -2410,6 +2548,11 @@
       startPlace(e, chip.dataset.place);
       render();
     });
+    $("#sheet-type").addEventListener("click", function () { openSheet("type"); });
+    $("#sheet-colour").addEventListener("click", function () { openSheet("colour"); });
+    $("#sheet-print").addEventListener("click", function () { window.print(); });
+    $("#sheet-close").addEventListener("click", function () { $("#sheet-wrap").hidden = true; });
+    window.addEventListener("resize", fitSheet);
     $("#undo").addEventListener("click", undo);
     $("#redo").addEventListener("click", redo);
     $("#rail-toggle").addEventListener("click", function () {
@@ -2538,26 +2681,56 @@
     }, function () { els.cells.hidden = true; });
   }
 
+  // a fresh block of a role, seeded with that role's placeholder copy
+  function newBlock(role) {
+    return {
+      role: role, align: "left", row: ROLE_ROWS[role] || 2,
+      grid: role === "smallprint" ? 2 : 1, from: role === "smallprint" ? "bottom" : "top",
+      padL: 0, padR: 0, text: ROLE_SEEDS[role] || ""
+    };
+  }
+
+  function removeBlock(i) {
+    if (i < 0 || i >= state.text.blocks.length) return;
+    state.text.blocks.splice(i, 1);
+    if (state.selBlock === i) state.selBlock = -1;
+    else if (state.selBlock > i) state.selBlock--;
+    if (editing === i) editing = -1;
+    else if (editing > i) editing--;
+    buildTextBlocks();
+    var stack = liveStack();
+    if (stack) stack.dataset.sig = "";
+  }
+
   // the frame under the text changes when the rectangle comes or goes; every block
   // that is already on the stage keeps its place across that switch
   function keepingBlocks(fn) {
     var ys = state.text.blocks.map(function (b) {
-      return b.placed ? rowY(b.row, b.grid, b.from) : null;
+      return rowY(b.row, b.grid, b.from);
     });
     fn();
-    state.text.blocks.forEach(function (b, i) {
-      if (ys[i] !== null) b.row = rowAt(ys[i], b.grid, b.from);
-    });
+    state.text.blocks.forEach(function (b, i) { b.row = rowAt(ys[i], b.grid, b.from); });
   }
 
   // pull an element out of the tray: it lands where the pointer is, snapping as it
   // goes, and goes back to the tray if it is let go outside the format
   function startPlace(e, id) {
-    var isRect = id === "rect", i = isRect ? -1 : +id.split(":")[1];
-    var b = isRect ? state.rect : state.text.blocks[i];
-    if (!b || b.placed) return;
-    if (isRect) keepingBlocks(function () { b.placed = true; }); else b.placed = true;
-    if (isRect) state.sel = "rect"; else { state.sel = "rect"; state.selBlock = i; }
+    var isRect = id === "rect", role = isRect ? null : id.split(":")[1];
+    var b, i = -1;
+    if (isRect) {
+      if (state.rect.placed) return;
+      b = state.rect;
+      keepingBlocks(function () { b.placed = true; });
+      state.sel = "rect";
+    } else {
+      if (ROLES.indexOf(role) < 0) return;
+      b = newBlock(role);
+      state.text.blocks.push(b);
+      i = state.text.blocks.length - 1;
+      state.sel = "rect";
+      state.selBlock = i;
+      buildTextBlocks();
+    }
     var landed = false, moved = false;
     var move = function (ev) {
       var p = toStage(ev), st = state.stage;
@@ -2570,7 +2743,7 @@
           nearestKey(V_KEYS, fv, c.y, c.h, sz.h, state.rect.anchor.v, p.y));
         renderCells("rect");
       } else {
-        state.text.blocks[i].row = rowAt(p.y, state.text.blocks[i].grid, state.text.blocks[i].from);
+        b.row = rowAt(p.y, b.grid, b.from);
       }
     };
     if (isRect) { els.cells.hidden = false; renderCells("rect"); }
@@ -2579,8 +2752,8 @@
       // a plain click drops it where it last sat; a drag that ends off the format
       // puts it back in the tray
       if (moved && !landed) {
-        if (isRect) keepingBlocks(function () { b.placed = false; }); else b.placed = false;
-        if (!isRect) state.selBlock = -1;
+        if (isRect) keepingBlocks(function () { b.placed = false; });
+        else removeBlock(i);
       }
     });
   }
@@ -2730,6 +2903,13 @@
         return t.classList.contains("radius") ? startRadius(e, t.dataset.corner) : startResize(e, t.dataset.dir);
       }
       if (t.classList.contains("bhandle")) {
+        if (t.dataset.bdir === "kill") {                 // the ✕ takes the block off the stage
+          e.preventDefault();
+          if (editing >= 0) stopEditing();
+          removeBlock(state.selBlock);
+          render();
+          return;
+        }
         return t.dataset.bdir === "size"
           ? startTypeScale(e, state.selBlock)
           : startFieldResize(e, state.selBlock, t.dataset.bdir);
@@ -2778,6 +2958,7 @@
 
     window.addEventListener("keydown", function (e) {
       var t = e.target;
+      if (e.key === "Escape" && !$("#sheet-wrap").hidden) { $("#sheet-wrap").hidden = true; return; }
       // undo works wherever you are, including inside a field
       if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z" || e.key === "y")) {
         e.preventDefault();
@@ -2786,6 +2967,12 @@
       }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
       if (e.code === "Space") { spaceDown = true; document.body.classList.add("can-pan"); return; }
+      if ((e.key === "Delete" || e.key === "Backspace") && state.selBlock >= 0) {
+        e.preventDefault();
+        removeBlock(state.selBlock);
+        render();
+        return;
+      }
       var map = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       var d = map[e.key];
       if (!d) return;
@@ -2800,6 +2987,151 @@
     window.addEventListener("keyup", function (e) {
       if (e.code === "Space") { spaceDown = false; document.body.classList.remove("can-pan"); }
     });
+  }
+
+  /* ------------------------------------------------ style guide sheets (PDF) */
+
+  function contrastRatio(a, b) {
+    var la = luminance(hexRgb(a)), lb = luminance(hexRgb(b));
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  function rgbLabel(hex) {
+    var c = hexRgb(hex);
+    return "rgb(" + Math.round(c.r) + " " + Math.round(c.g) + " " + Math.round(c.b) + ")";
+  }
+
+  function formatName() {
+    var f = formatById(state.stage.preset);
+    return (f ? f.name : "Custom") + " · " + fmt(state.stage.w) + " × " + fmt(state.stage.h) +
+      " · " + ratioLabel(state.stage.w, state.stage.h);
+  }
+
+  function sheetFoot(kind) {
+    return '<div class="foot"><span>' + esc(kind) + " — " + esc(familyLabel()) + "</span><span>" +
+      esc(formatName()) + "</span></div>";
+  }
+
+  // the type scale, its rules and a specimen of every role — a page of a brand manual
+  function typeSheet() {
+    var ty = state.type, sys = SCALES.filter(function (x) { return x.id === ty.system; })[0];
+    // the specimens are scaled to fill the space the sheet has for them, whatever
+    // size the type runs at on this format
+    var stack = ROLES.reduce(function (sum, r) { return sum + rolePx(r) * roleLh(r); }, 0);
+    var k = clamp(355 / Math.max(1, stack), 0.05, 2.5);
+    var rows = ROLES.map(function (r) {
+      var st = ty.roles[r], px = rolePx(r), lh = roleLh(r), steps = roleSteps(r);
+      var snapName = (SNAPS.filter(function (x) { return x.id === st.snap; })[0] || {}).name || st.snap;
+      return '<div class="spec">' +
+        '<div class="spec-head"><span class="spec-name">' + esc(ROLE_NAMES[r]) + "</span>" +
+        '<span class="spec-meta">&lt;' + esc(st.tag) + "&gt; · " + round(px, 2) + " px · " +
+        (r === "paragraph" ? "anchor" : round(st.mult, 3) + " × paragraph") +
+        " · line height " + round(lh, 4) + " (" + round(px * lh, 2) + " px" +
+        (steps ? ", " + steps + " × grid " + (st.snap === "half" ? "2" : "1") : "") + ")" +
+        " · " + st.weight + " · " + round(st.ls, 3) + "em" +
+        (st.transform !== "none" ? " · " + st.transform : "") + " · " + st.color.toUpperCase() +
+        " · " + esc(snapName) + "</span></div>" +
+        '<div class="spec-line" style="font-family:' + esc(familyStack()) + ";font-size:" + round(px * k, 2) +
+        "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight + ";letter-spacing:" +
+        round(st.ls, 3) + "em;text-transform:" + st.transform + ';color:#14171c">' +
+        esc(ROLE_SEEDS[r].split("\n")[0]) + "</div></div>";
+    }).join("");
+
+    return '<h1>Typography</h1><p class="lede">' + esc(familyLabel()) +
+      ". The scale is anchored on the paragraph size and every other role is a multiple of it, " +
+      "so the whole hierarchy travels between formats as one." +
+      (Math.abs(k - 1) > 0.02
+        ? " Specimens are shown at " + Math.round(k * 100) + "% of their size on this format."
+        : " Specimens are at size.") +
+      '</p><div class="alphabet" style="font-family:' + esc(familyStack()) +
+      ';font-size:34px;line-height:1.3;letter-spacing:-.01em;margin-top:22px;color:#14171c">' +
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 &amp; @ ? ! — “ ”" +
+      '</div><div class="rule"></div><div class="cols"><div><h2>The scale</h2>' + rows + "</div>" +
+      '<div><h2>How it is built</h2><dl>' +
+      "<dt>Paragraph</dt><dd>" + round(ty.paragraph, 3) + "% of " + esc(basisLabel()) + " = " +
+      round(paraPx(), 2) + " px</dd>" +
+      "<dt>Ratio</dt><dd>" + esc(sys ? sys.name : "Custom — set by hand") + "</dd>" +
+      "<dt>Multiples</dt><dd>" + ROLES.map(function (r) {
+        return r === "paragraph" ? "1" : round(ty.roles[r].mult, 3);
+      }).join(" / ") + "</dd>" +
+      "<dt>Grid 1</dt><dd>" + gridRows() + " rows of " + round(baseline(), 3) + " px, filling the " +
+      round(contentH(), 2) + " px between the top and bottom margins</dd>" +
+      "<dt>Grid 2</dt><dd>" + round(baseline() / 2, 3) + " px</dd>" +
+      "<dt>Leading</dt><dd>every role snaps to a whole number of rows, and every baseline sits on a line</dd>" +
+      "<dt>Family</dt><dd>" + esc(familyStack()) + "</dd>" +
+      "</dl></div></div>" + sheetFoot("Typography");
+  }
+
+  // every colour in the design with its values and how it holds up against the others
+  function colourSheet() {
+    var uses = [
+      { name: "Format background", hex: state.stage.bg },
+      { name: "Rectangle fill", hex: state.rect.fill },
+      { name: "Logo fill", hex: state.logo.fill },
+      { name: "Guides", hex: guideColour() }
+    ];
+    ROLES.forEach(function (r) {
+      uses.push({ name: ROLE_NAMES[r] + " text", hex: state.type.roles[r].color });
+    });
+
+    // one card per colour, listing everything it is used for
+    var order = [], byHex = {};
+    uses.forEach(function (u) {
+      var key = String(u.hex).toUpperCase();
+      if (!byHex[key]) { byHex[key] = []; order.push(key); }
+      byHex[key].push(u.name);
+    });
+    var cards = order.map(function (hex) {
+      return '<div class="sw"><div class="sw-chip" style="background:' + hex + '"></div>' +
+        '<div class="sw-body"><div class="sw-name">' + esc(byHex[hex].join(", ")) + "</div>" +
+        '<div class="sw-val">' + hex + "<br>" + rgbLabel(hex) + "</div></div></div>";
+    }).join("");
+
+    var grounds = [
+      { name: "the format background", hex: state.stage.bg },
+      { name: "the rectangle fill", hex: state.rect.fill }
+    ];
+    var rows = [];
+    ROLES.forEach(function (r) {
+      var fg = state.type.roles[r].color, px = rolePx(r);
+      var large = px >= 24 || (px >= 18.66 && state.type.roles[r].weight >= 700);
+      grounds.forEach(function (g) {
+        var ratio = contrastRatio(fg, g.hex), need = large ? 3 : 4.5;
+        rows.push("<tr><td>" + esc(ROLE_NAMES[r]) + " on " + esc(g.name) + "</td>" +
+          "<td>" + fg.toUpperCase() + " on " + g.hex.toUpperCase() + "</td>" +
+          "<td>" + round(px, 1) + " px" + (large ? " (large)" : "") + "</td>" +
+          "<td>" + round(ratio, 2) + ":1</td>" +
+          '<td class="' + (ratio >= need ? "pass" : "fail") + '">' +
+          (ratio >= need ? "passes AA" : "under AA (" + need + ":1)") + "</td></tr>");
+      });
+    });
+
+    return '<h1>Colour</h1><p class="lede">Every colour the design uses, with its values and how ' +
+      "each piece of type holds up against what sits behind it. Contrast is the WCAG 2 ratio; AA " +
+      "asks 4.5:1 for text and 3:1 for large text.</p>" +
+      '<div class="rule"></div><h2>Palette</h2><div class="swatches">' + cards + "</div>" +
+      '<h2 style="margin-top:34px">Contrast</h2><table><thead><tr><th>Pairing</th><th>Colours</th>' +
+      "<th>Size</th><th>Ratio</th><th>WCAG AA</th></tr></thead><tbody>" + rows.join("") +
+      "</tbody></table>" + sheetFoot("Colour");
+  }
+
+  function openSheet(kind) {
+    var el = $("#sheet");
+    el.innerHTML = kind === "colour" ? colourSheet() : typeSheet();
+    $("#sheet-title").textContent = (kind === "colour" ? "Colour" : "Typography") +
+      " sheet — 1920 × 1080 · 16:9";
+    $("#sheet-wrap").hidden = false;
+    fitSheet();
+  }
+
+  function fitSheet() {
+    var wrap = $("#sheet-wrap"), el = $("#sheet");
+    if (wrap.hidden) return;
+    var box = $(".sheet-scroll").getBoundingClientRect();
+    var s = Math.min(1, (box.width - 48) / 1920, (box.height - 48) / 1080);
+    el.style.transform = "scale(" + s + ")";
+    el.style.marginBottom = (1080 * s - 1080) + "px";
   }
 
   /* -------------------------------------------- logo artwork and font files */

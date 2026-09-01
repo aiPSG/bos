@@ -311,6 +311,20 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 .bhandle[data-bdir=w],.bhandle[data-bdir=e]{top:0;bottom:0;width:5px;margin-left:-2px;cursor:ew-resize;border-radius:3px}
 .bhandle[data-bdir=e]{margin-left:-3px}
 .bhandle.size{width:11px;height:11px;margin:-5px 0 0 -5px;border-radius:50%;cursor:ns-resize}
+.bhandle.kill{
+  width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  padding:0;font:inherit;font-size:9px;line-height:1;color:#fff;background:var(--err);
+  border:1px solid #fff;cursor:pointer;
+}
+.bhandle.kill:hover{background:#ff5c60}
+.block-n{font-size:11px;color:var(--text-dim);flex:0 0 auto}
+.block-head .x,.block-head button.x{
+  flex:0 0 auto;width:24px;height:24px;padding:0;border-radius:6px;
+  border:1px solid var(--line);background:var(--bg-input);color:var(--text-dim);
+  font:inherit;font-size:11px;cursor:pointer;
+}
+.block-head .x:hover{background:var(--err);border-color:var(--err);color:#fff}
 .tb.picked{outline:1px dashed rgba(255,255,255,.35)}
 .tb.editing{outline:1px solid var(--accent);cursor:text}
 .tb.editing:focus{outline:2px solid var(--accent)}
@@ -392,4 +406,62 @@ body.overlays-on #overlay-toggle{background:var(--accent-dim);border-color:var(-
   .panel{width:100%;flex:1 1 auto;border-right:0;border-top:1px solid var(--line)}
   .canvas{flex:0 0 50vh}
   .footnote{display:none}
+}
+
+
+/* ---------- style guide sheets ---------- */
+
+.sheet-wrap{
+  position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;
+  background:rgba(6,8,11,.88);backdrop-filter:blur(2px);
+}
+.sheet-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 16px;background:var(--bg-panel);border-bottom:1px solid var(--line);
+  font-size:12px;color:var(--text-dim);
+}
+.sheet-bar-right{display:flex;gap:8px}
+.sheet-scroll{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:24px}
+.sheet{
+  width:1920px;height:1080px;flex:0 0 auto;transform-origin:top center;
+  background:#fff;color:#14171c;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  font:16px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding:76px 96px;box-sizing:border-box;position:relative;
+}
+.sheet h1{margin:0;font-size:52px;line-height:1.1;font-weight:650;letter-spacing:-.02em}
+.sheet .lede{margin:10px 0 0;font-size:18px;color:#5b6472;max-width:1000px}
+.sheet .rule{height:2px;background:#14171c;margin:22px 0 20px}
+.sheet h2{margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#5b6472}
+.sheet .cols{display:grid;grid-template-columns:1fr 340px;gap:56px;align-items:start}
+.sheet dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.sheet dt{color:#5b6472}
+.sheet dd{margin:0;font-variant-numeric:tabular-nums}
+.sheet .spec{border-top:1px solid #dfe3ea;padding:18px 0}
+.sheet .spec:last-child{border-bottom:1px solid #dfe3ea}
+.sheet .spec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px}
+.sheet .spec-name{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.sheet .spec-meta{font-size:12px;color:#5b6472;font-variant-numeric:tabular-nums}
+.sheet .spec-line{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.sheet .swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+.sheet .sw{border:1px solid #dfe3ea;border-radius:8px;overflow:hidden}
+.sheet .sw-chip{height:96px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.sheet .sw-body{padding:8px 12px 10px}
+.sheet .sw-name{font-size:13px;font-weight:650}
+.sheet .sw-val{font-size:12px;color:#5b6472;font-variant-numeric:tabular-nums;margin-top:4px}
+.sheet table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.sheet th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#5b6472;padding:0 12px 8px 0;font-weight:600}
+.sheet td{padding:5px 12px 5px 0;border-top:1px solid #dfe3ea}
+.sheet .pass{color:#0a7a4b;font-weight:650}
+.sheet .fail{color:#b3261e;font-weight:650}
+.sheet .foot{position:absolute;left:96px;right:96px;bottom:34px;display:flex;justify-content:space-between;
+  font-size:11px;color:#8a93a1;border-top:1px solid #dfe3ea;padding-top:12px}
+
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{background:#fff}
+  .app{display:none !important}
+  .sheet-wrap{position:static;display:block;background:#fff;backdrop-filter:none}
+  .sheet-bar{display:none}
+  .sheet-scroll{overflow:visible;padding:0;display:block}
+  .sheet{transform:none !important;box-shadow:none;margin:0}
 }

@@ -24,11 +24,12 @@
         <label class="field"><span>Height</span><input type="number" id="stage-h" min="1" step="1"></label>
       </div>
       <div class="row">
-        <label class="field grow"><span>Preset</span>
+        <label class="field grow"><span>Template</span>
           <select id="stage-preset"></select>
         </label>
         <label class="field color"><span>Colour</span><input type="color" id="stage-bg"></label>
       </div>
+      <p class="hint" id="stage-ratio"></p>
       <label class="check"><input type="checkbox" id="round-values"><span>Round all values to whole numbers</span></label>
       <details class="sub">
         <summary><h3>Background image</h3></summary>
@@ -348,6 +349,17 @@
       <p class="hint">Markup</p>
       <pre id="markup-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-markup">Copy markup</button>
+
+      <details class="sub" open>
+        <summary><h3>Style guide sheets</h3></summary>
+        <div class="row">
+          <button type="button" class="ghost grow" id="sheet-type">Typography sheet</button>
+          <button type="button" class="ghost grow" id="sheet-colour">Colour sheet</button>
+        </div>
+        <p class="hint">One 16:9 page each, laid out the way a brand manual would — the type scale
+          with its rules and specimens, or every colour with its values and contrast. Opens a
+          preview; <b>Save as PDF</b> prints it at 1920 × 1080 with no margins.</p>
+      </details>
     </details>
   </aside>
 
@@ -391,6 +403,7 @@
             <span class="bhandle" data-bdir="w" title="Drag the left edge of the field"></span>
             <span class="bhandle" data-bdir="e" title="Drag the right edge of the field"></span>
             <span class="bhandle size" data-bdir="size" title="Drag to size this role"></span>
+            <button type="button" class="bhandle kill" data-bdir="kill" title="Take this block off the stage">✕</button>
           </div>
         </div>
       </div>
@@ -405,6 +418,16 @@
   </main>
 
 </div>
+  <div class="sheet-wrap" id="sheet-wrap" hidden>
+    <div class="sheet-bar">
+      <span id="sheet-title">Sheet</span>
+      <span class="sheet-bar-right">
+        <button type="button" class="primary" id="sheet-print">Save as PDF</button>
+        <button type="button" class="ghost" id="sheet-close">Close</button>
+      </span>
+    </div>
+    <div class="sheet-scroll"><div class="sheet" id="sheet"></div></div>
+  </div>
 <script src="js/app.js"></script>
 </body>
 </html>

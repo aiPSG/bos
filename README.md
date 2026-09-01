@@ -4,11 +4,12 @@ A small design app: one **format** (the stage) with a **margin box**, a **rectan
 **logo circle** on it. Every value can be set two ways — numerically in the side panel, or by
 dragging on the canvas.
 
-**The stage starts empty.** The rectangle and the four text blocks wait in a **tray** above the
+**The stage starts empty.** The rectangle and the four text roles wait in a **tray** above the
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
-as it goes. Let go outside the format and it stays in the tray; a plain click drops it at the place
-it last had. Take one off again with its checkbox in the panel, and it returns to the tray with its
-settings intact.
+as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
+last had. A **text role can be pulled out as often as you like** — each drag makes a block of its
+own, with its own copy, position and field — and the **✕** on a block, on the stage or in the panel,
+takes it off again (⌫ does the same for the selected one). Undo brings it back.
 
 **Live:** https://aipsg.github.io/bos/
 
@@ -51,8 +52,14 @@ numbers.
 
 ## What you can set
 
-**Format** — width and height, or a preset (square, 4:5, 9:16, 16:9, A5, A4); background colour;
-**round all values to whole numbers**, which applies to every number in the app, typed or dragged.
+**Format** — width and height, or a **template** for the job in hand, with its aspect ratio beside
+every name: social posts, stories and link cards; the IAB display banners (leaderboard, medium
+rectangle, skyscraper, half page, mobile); digital billboards from 16:9 to 32:9 and 4K; motion
+graphics cards (lower third, intro, outro, vertical cut-down); and book work — cover, and inside
+pages for text, for image, and for image and text. A template sets the format *and the scaffolding
+that suits it* — margins, columns and the number of baseline rows — and leaves the elements in the
+tray. Then: background colour, and **round all values to whole numbers**, which applies to every
+number in the app, typed or dragged.
 
 **Background image** — upload a file, paste a URL, or generate one (below). Fit as cover, contain,
 stretch or tile, with an opacity slider.
@@ -145,8 +152,10 @@ the first baseline — and moved so that baseline lands on the row it was given.
 font, including one you upload. Every following line comes along, because line boxes are whole grid
 rows.
 
-**Text blocks** — four blocks, each dragged out of the tray on its own and **positioned
-individually**. A block placed while the rectangle is still in the tray runs in the **margin box**
+**Text blocks** — as many as you drag out of the tray, each **positioned individually**. A block
+whose row carries it **above or below the rectangle** stops taking its horizontal place from the box
+and **lines up on the columns instead**: its edges land on column lines, so text that has left the
+box still belongs to the page. A block placed while the rectangle is still in the tray runs in the **margin box**
 instead, and keeps exactly where it sits when the rectangle arrives or leaves — the rows are
 renumbered against the new frame. A block sits on a **row of its
 own**, counted from the top *or the bottom* edge of the rectangle, on grid 1 or grid 2 — type the
@@ -228,6 +237,21 @@ python3 -m http.server 8000
 `.github/workflows/pages.yml` publishes the repository root to GitHub Pages on every push to
 `main`, and can be run by hand from the Actions tab. It needs **Settings → Pages → Source: GitHub
 Actions** selected once.
+
+## Style guide sheets
+
+**Typography sheet** and **Colour sheet**, in the CSS section, each lay the design's system out on
+one **16:9 page** the way a brand manual would, and print to PDF at 1920 × 1080 with no margins.
+
+The typography sheet carries the family and its alphabet, a specimen of every role — scaled to fill
+the page, with the size in pixels, the multiple it runs at, its line height and how many grid rows
+that is, weight, letter spacing, tag and colour — and a column explaining how the scale is built:
+the paragraph percentage and its basis, the ratio system, the multiples, both grids and the leading
+rule.
+
+The colour sheet carries every colour the design uses — one card per colour, listing everything it
+is used for, with HEX and RGB — and a contrast table: each role against the format background and
+against the rectangle fill, with the WCAG 2 ratio and whether it passes AA at that size.
 
 ## The panel
 
