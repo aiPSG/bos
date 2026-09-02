@@ -278,6 +278,12 @@
       <p class="hint" id="type-scale-hint"></p>
 
       <h3 class="sub-head">Baseline grid</h3>
+      <label class="field grow"><span>Grid 1 comes from</span>
+        <select id="type-grid-from">
+          <option value="fit">Whole rows that fill the content height</option>
+          <option value="leading">The paragraph line height</option>
+        </select>
+      </label>
       <div class="row">
         <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" step="1"></label>
         <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>

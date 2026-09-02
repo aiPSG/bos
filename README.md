@@ -131,13 +131,22 @@ stands.
 Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
 and colour, so the hierarchy is real markup, not just sizes.
 
-**Baseline grid** — there are two grids. **Grid 1 divides the format minus the top and bottom
-margins into whole rows, so it always fits exactly**, and that row height *is* the paragraph line
-height. **Grid 2** halves it. Change the format or the margins and the grid re-fits itself, taking
-the paragraph leading with it.
+**Baseline grid** — there are two grids, and you choose which way round they are built.
 
-Set the row count directly, or type a paragraph line height and the nearest whole row count that
-still fits is used — the panel reports both ("grid 1 divides the 1190 px between the top and bottom
+*Whole rows that fill the content height* (the default): **grid 1 divides the format minus the top
+and bottom margins into whole rows, so it always fits exactly**, and that row height *is* the
+paragraph line height. Change the format or the margins and the grid re-fits itself, taking the
+paragraph leading with it.
+
+*The paragraph line height*: the type leads the grid instead. **Grid 1 is the paragraph line box** —
+size × line height — so the row is whatever you set in Style, and as many whole rows fit the content
+height as happen to fit; the panel reports the count and what is left over at the foot. The margins
+then change how many rows there are, not how tall they are.
+
+Either way **grid 2 is half of grid 1**, and everything else snaps to them as before.
+
+In the fitting mode, set the row count directly, or type a paragraph line height and the nearest
+whole row count that still fits is used — the panel reports both ("grid 1 divides the 1190 px between the top and bottom
 margins into 39 rows of 30.51 px, so it fits exactly"). Paragraph can also be cut loose from the
 grid: set it to *Free* and the line height you type is used as it is, while grid 1 keeps its rows.
 Both grids draw on the canvas in the guide colour, down the margin box; show both, either, or

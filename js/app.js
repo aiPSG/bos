@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v17";
+  var STORAGE_KEY = "bos.design.v18";
 
   /* Templates for the jobs this gets used for. Each carries a format and the
      scaffolding that suits it — margins, columns and the number of baseline rows —
@@ -291,7 +291,7 @@
 
   function defaults() {
     return {
-      v: 17,
+      v: 18,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -327,6 +327,9 @@
         paragraph: 1.5,         // percent of that basis — the anchor of the whole scale
         system: "custom",       // which ratio filled the multipliers in, if any
         rows: 39,               // how many rows grid 1 divides the content height into
+        // where grid 1 comes from: "fit" divides the content height into whole rows,
+        // "leading" takes the paragraph line height and lets the rows fall where they may
+        gridFrom: "fit",
         grid: "both",           // baseline grid on the canvas: off | full | half | both
         // every role is a multiple of the paragraph size; line heights snap to the
         // baseline grid unless a role is set free
@@ -961,19 +964,41 @@
     return Math.max(1, state.stage.h - m.top - m.bottom);
   }
 
-  // grid 1 divides that height into whole rows, so it always fits exactly
-  function gridRows() {
+  function fromLeading() { return state.type.gridFrom === "leading"; }
+
+  // the paragraph line box, which is what grid 1 measures in the leading mode
+  function leadingPx() {
+    return Math.max(1, paraPx() * clamp(state.type.roles.paragraph.lh, 0.5, 6));
+  }
+
+  // how many rows grid 1 is divided into when it fits the content height
+  function fitRows() {
     return clamp(Math.round(state.type.rows), 1, 400);
   }
 
   // grid 1 is one row; grid 2 halves it
   function baseline() {
-    return contentH() / gridRows();
+    return fromLeading() ? leadingPx() : contentH() / fitRows();
   }
 
-  // by default the row height is the paragraph line height; set it free to type your own
+  // whole rows of grid 1 in the content box — every one of them in the fit mode, and
+  // as many as happen to fit when the leading sets the row
+  function gridRows() {
+    return fromLeading()
+      ? Math.max(1, Math.floor(contentH() / leadingPx() + 1e-6))
+      : fitRows();
+  }
+
+  // what is left over at the foot of the content box when the leading sets the grid
+  function gridRest() {
+    return fromLeading() ? contentH() - gridRows() * leadingPx() : 0;
+  }
+
+  // the row height is the paragraph line height by default; set it free to type your
+  // own, and in the leading mode the typed one is the row
   function paraLh() {
     var p = state.type.roles.paragraph;
+    if (fromLeading()) return p.lh;
     return p.snap === "free" ? p.lh : baseline() / paraPx();
   }
 
@@ -1641,8 +1666,11 @@
           "  /* baseline on row " + b.row + " of grid " + b.grid +
           ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " margin */");
       });
-      lines.push("/* grid 1: " + gridRows() + " rows of " + round(baseline(), 3) + "px filling the " +
-        round(contentH(), 2) + "px content height; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
+      lines.push("/* grid 1: " + round(baseline(), 3) + "px a row — " + (fromLeading()
+        ? "the paragraph line box, " + gridRows() + " whole rows in the " + round(contentH(), 2) +
+          "px content height with " + round(gridRest(), 2) + "px over"
+        : gridRows() + " rows filling the " + round(contentH(), 2) + "px content height") +
+        "; grid 2 halves it at " + round(baseline() / 2, 3) + "px */");
 
       var roles = [];
       used.forEach(function (b) { if (roles.indexOf(b.role) < 0) roles.push(b.role); });
@@ -2147,19 +2175,28 @@
       "pick a ratio above or type any multiple.";
 
     $("#type-grid").value = ty.grid;
+    $("#type-grid-from").value = ty.gridFrom || "fit";
     setValue($("#type-rows"), gridRows());
+    $("#type-rows").disabled = fromLeading();
     $("#type-rowpx").value = round(baseline(), 2) + " px";
-    $("#type-grid-hint").textContent = "Grid 1 divides the " + round(contentH(), 1) +
-      " px between the top and bottom margins into " + gridRows() + " rows of " + round(baseline(), 2) +
-      " px, so it fits exactly. That row is the paragraph line height — " + round(paraPx(), 1) + " px × " +
-      round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.";
+    $("#type-grid-hint").textContent = fromLeading()
+      ? "Grid 1 is the paragraph line box — " + round(paraPx(), 1) + " px × " + round(paraLh(), 3) +
+        " = " + round(baseline(), 2) + " px — set in Style below. " + gridRows() +
+        " whole rows fit the " + round(contentH(), 1) + " px between the top and bottom margins, with " +
+        round(gridRest(), 2) + " px left at the foot. Grid 2 halves it at " + round(baseline() / 2, 2) + " px."
+      : "Grid 1 divides the " + round(contentH(), 1) +
+        " px between the top and bottom margins into " + gridRows() + " rows of " + round(baseline(), 2) +
+        " px, so it fits exactly. That row is the paragraph line height — " + round(paraPx(), 1) + " px × " +
+        round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.";
 
     $("#type-level").value = ty.editing;
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
     setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
     $("#type-snap").innerHTML = (ty.editing === "paragraph"
-      ? [{ id: "fit", name: "Fit grid 1" }, { id: "free", name: "Free — as typed" }]
+      ? (fromLeading()
+        ? [{ id: "free", name: "Sets grid 1" }]
+        : [{ id: "fit", name: "Fit grid 1" }, { id: "free", name: "Free — as typed" }])
       : SNAPS).map(function (x) {
         return '<option value="' + x.id + '">' + esc(x.name) + "</option>";
       }).join("");
@@ -2171,7 +2208,11 @@
     var eff = roleLh(ty.editing), steps = roleSteps(ty.editing);
     $("#type-lh-px").textContent = "= " + round(rolePx(ty.editing) * eff, 1) + " px";
     $("#type-style-hint").textContent = ty.editing === "paragraph"
-      ? (st2.snap === "free"
+      ? (fromLeading()
+        ? "This line height sets grid 1: " + round(paraPx(), 1) + " px × " + round(st2.lh, 3) + " = " +
+          round(baseline(), 2) + " px a row, and grid 2 is half of that. " + gridRows() +
+          " rows fit the content height, leaving " + round(gridRest(), 2) + " px at the foot."
+        : st2.snap === "free"
         ? "Free: the paragraph line height is " + round(st2.lh, 3) + " as typed. Grid 1 keeps its " +
           gridRows() + " rows of " + round(baseline(), 2) + " px."
         : "Paragraph rides grid 1: " + gridRows() + " rows fill the content height exactly, so its line " +
@@ -2501,6 +2542,17 @@
       render();
     });
     onChange("#type-grid", function (el) { state.type.grid = el.value; });
+    onChange("#type-grid-from", function (el) {
+      var ty = state.type;
+      if (el.value === "leading" && !fromLeading()) {
+        ty.roles.paragraph.lh = round(baseline() / paraPx(), 4);   // start from the grid on screen
+        ty.roles.paragraph.snap = "free";
+      } else if (el.value === "fit" && fromLeading()) {
+        setRows(contentH() / leadingPx());                         // keep the row as close as it can be
+        ty.roles.paragraph.snap = "fit";
+      }
+      ty.gridFrom = el.value;
+    });
     numInput("#col-n", function (v) { state.cols.n = clamp(Math.round(v), 1, 48); }, 1);
     numInput("#col-gutter", function (v) { state.cols.gutter = Math.max(0, snap(v)); }, 0);
     onChange("#col-show", function (el) { state.cols.show = el.checked; });
@@ -2510,8 +2562,11 @@
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
     numInput("#type-lh", function (v) {
       var p = state.type.roles.paragraph;
-      if (state.type.editing === "paragraph" && p.snap !== "free") setRows(contentH() / (paraPx() * Math.max(0.5, v)));
-      else styleOf().lh = round(v, 3);
+      // in the fit mode a typed paragraph leading picks the row count that comes
+      // closest to it; in the leading mode it simply is the row
+      if (state.type.editing === "paragraph" && !fromLeading() && p.snap !== "free") {
+        setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      } else styleOf().lh = round(v, 3);
     }, .5);
     numInput("#type-ls", function (v) { styleOf().ls = round(v, 3); });
     onChange("#type-transform", function (el) { styleOf().transform = el.value; });
@@ -3087,8 +3142,11 @@
       "<dt>Multiples</dt><dd>" + ROLES.map(function (r) {
         return r === "paragraph" ? "1" : round(ty.roles[r].mult, 3);
       }).join(" / ") + "</dd>" +
-      "<dt>Grid 1</dt><dd>" + gridRows() + " rows of " + round(baseline(), 3) + " px, filling the " +
-      round(contentH(), 2) + " px between the top and bottom margins</dd>" +
+      "<dt>Grid 1</dt><dd>" + round(baseline(), 3) + " px a row — " + (fromLeading()
+        ? "the paragraph line box; " + gridRows() + " whole rows fit the " + round(contentH(), 2) +
+          " px between the top and bottom margins, leaving " + round(gridRest(), 2) + " px"
+        : gridRows() + " rows filling the " + round(contentH(), 2) +
+          " px between the top and bottom margins") + "</dd>" +
       "<dt>Grid 2</dt><dd>" + round(baseline() / 2, 3) + " px</dd>" +
       "<dt>Leading</dt><dd>every role snaps to a whole number of rows, and every baseline sits on a line</dd>" +
       "<dt>Family</dt><dd>" + esc(familyStack()) + "</dd>" +
