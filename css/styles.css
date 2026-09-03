@@ -192,6 +192,9 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 .block-head .check{margin:0;font-size:11px;color:var(--text-dim);white-space:nowrap}
 .block-head select{flex:0 1 auto;width:auto;min-width:0;padding-top:5px;padding-bottom:5px;font-size:12px}
 .block-row{display:grid;grid-template-columns:30px 1fr 74px 108px;gap:6px;align-items:center;margin:8px 0}
+.block-row.blind{grid-template-columns:30px 1fr 52px 62px}
+.block-row.blind input[type=range]{height:22px}
+.block-row.blind button{padding:4px 6px;font-size:11px}
 .block-row .px{font-size:11px;color:var(--text-dim);text-align:right;font-variant-numeric:tabular-nums}
 .block-row>span{font-size:11px;color:var(--text-dim)}
 .block-row input,.block-row select{padding:6px 7px;font-size:12px}
@@ -432,15 +435,16 @@ body.overlays-on #overlay-toggle{background:var(--accent-dim);border-color:var(-
 .sheet .lede{margin:10px 0 0;font-size:18px;color:#5b6472;max-width:1000px}
 .sheet .rule{height:2px;background:#14171c;margin:22px 0 20px}
 .sheet h2{margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#5b6472}
-.sheet .cols{display:grid;grid-template-columns:1fr 340px;gap:56px;align-items:start}
+.sheet .cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:56px;align-items:start}
+.sheet .cols>*{min-width:0}
 .sheet dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
 .sheet dt{color:#5b6472}
 .sheet dd{margin:0;font-variant-numeric:tabular-nums}
 .sheet .spec{border-top:1px solid #dfe3ea;padding:18px 0}
 .sheet .spec:last-child{border-bottom:1px solid #dfe3ea}
-.sheet .spec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px}
+.sheet .spec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px;min-width:0}
 .sheet .spec-name{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.sheet .spec-meta{font-size:12px;color:#5b6472;font-variant-numeric:tabular-nums}
+.sheet .spec-meta{flex:1;min-width:0;font-size:12px;color:#5b6472;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheet .spec-line{white-space:pre;overflow:hidden;text-overflow:ellipsis}
 .sheet .swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
 .sheet .sw{border:1px solid #dfe3ea;border-radius:8px;overflow:hidden}
@@ -465,3 +469,5 @@ body.overlays-on #overlay-toggle{background:var(--accent-dim);border-color:var(-
   .sheet-scroll{overflow:visible;padding:0;display:block}
   .sheet{transform:none !important;box-shadow:none;margin:0}
 }
+
+body.moving-bg .viewport{cursor:grabbing}

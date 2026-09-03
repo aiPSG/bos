@@ -62,7 +62,11 @@ tray. Then: background colour, and **round all values to whole numbers**, which 
 number in the app, typed or dragged.
 
 **Background image** — upload a file, paste a URL, or generate one (below). Fit as cover, contain,
-stretch or tile, with an opacity slider.
+stretch or tile, with an opacity slider. The fit is a starting point, not the last word: **scale the
+image from 10% to 500% of it and move it about**, by the sliders and number fields or by holding
+⌥/Alt and dragging it on the canvas. The panel reports the size and position it runs at on this
+format, *Reset* puts it back to the plain fit, and the CSS output carries the resulting
+`background-size` and `background-position` in pixels.
 
 **Rectangle** — pulled out of the tray like everything else, and *Draw its fill* switches the fill
 off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
@@ -188,7 +192,10 @@ shorter — headings riding the top, small print riding the bottom. The origin i
 block's own grid first, so a block on grid 1 always lands on a grid 1 line even when the rectangle
 sits on a half row. Switching a block between the grids keeps it where it is and
 renumbers the row. Each block also has its own text, its own role and its own alignment
-(left / centre / right); the side padding sets the column they all run in. In a box that **fills the
+(left / centre / right); the side padding sets the column they all run in. A block can also be
+filled with **blind text** — a slider from one word to a hundred and twenty sets how much, the count
+is shown beside it, and *Fill* puts it back after you have typed over it. Latin, broken into
+sentences, so the shapes of the words carry the type rather than the meaning. In a box that **fills the
 format**, side-aligned text can *hang on the format margins* instead of that padding — left-aligned
 text starts on the left margin, right-aligned text ends on the right one, centred text keeps the
 padding — so type stays on the margin even when the box bleeds to the format edge. **Lines break where you
@@ -213,7 +220,7 @@ settles into one step.
 panel follows every keystroke, and Escape leaves), drag its **side handles** to draw the field in
 from either edge, or its round grip to **size that role** on the spot. A field drawn in wraps its
 lines inside itself; one that fills the padding column keeps to the line breaks you typed. Both
-insets are numbers in the panel too, with the resulting field width beside them. Live CSS **and markup** output with copy buttons; the
+insets are numbers in the panel too, with the resulting field width beside them. The
 state is kept in `localStorage` and **Reset** restores the defaults.
 
 ## Generating a background with ComfyUI on RunPod
@@ -260,26 +267,32 @@ python3 -m http.server 8000
 `main`, and can be run by hand from the Actions tab. It needs **Settings → Pages → Source: GitHub
 Actions** selected once.
 
-## Style guide sheets
+## Export
 
-**Typography sheet** and **Colour sheet**, in the CSS section, each lay the design's system out on
-one **16:9 page** the way a brand manual would, and print to PDF at 1920 × 1080 with no margins.
+**Typography slide** and **Colour slide**, at the top of the Export section, each lay the design's
+system out on one **16:9 page** the way a brand manual would, and print to PDF at 1920 × 1080 with
+no margins.
 
-The typography sheet carries the family and its alphabet, a specimen of every role — scaled to fill
-the page, with the size in pixels, the multiple it runs at, its line height and how many grid rows
-that is, weight, letter spacing, tag and colour — and a column explaining how the scale is built:
-the paragraph percentage and its basis, the ratio system, the multiples, both grids and the leading
-rule.
+The typography slide carries the family and its alphabet and a specimen of every role in blind text
+— scaled to fill the page, and named with the family, the weight and case, the tag, the size in
+pixels and where it comes from (the paragraph percentage and its basis, or the multiple of paragraph
+it runs at), its line height and how many grid rows that is, its tracking, its colour and which grid
+it snaps to. Beside them, a column on how the scale is built: the paragraph size and basis, the
+ratio system, the multiples, both grids and the leading rule.
 
-The colour sheet carries every colour the design uses — one card per colour, listing everything it
-is used for, with HEX and RGB — and a contrast table: each role against the format background and
-against the rectangle fill, with the WCAG 2 ratio and whether it passes AA at that size.
+The colour slide carries every colour the design uses — one card per colour, listing everything it
+is used for, with **HEX, RGB, HSL and CMYK** — and a contrast table: each role against the format
+background and against the rectangle fill, with the WCAG 2 ratio and whether it passes AA at that
+size. The CMYK is a plain conversion with no colour profile behind it: a starting point for print,
+not the separation a printer will make.
+
+Below them, the live **CSS and markup** output with copy buttons.
 
 ## The panel
 
 Seven groups, in the order the design comes together: **Format** (with background image inside it),
 **Logo**, **Margins** (with the column grid), **Rectangle** (with corners), **Typography**,
-**Text blocks**, **CSS**.
+**Text blocks**, **Export** (the slides, then CSS).
 
 ## Layout
 

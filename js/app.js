@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v19";
+  var STORAGE_KEY = "bos.design.v21";
 
   /* Templates for the jobs this gets used for. Each carries a format and the
      scaffolding that suits it — margins, columns and the number of baseline rows —
@@ -109,6 +109,38 @@
 
   // the type scale is four roles; paragraph is the anchor and the rest are multiples of it
   var ROLES = ["display", "headline", "subline", "paragraph", "smallprint"];
+  /* Blind text, for filling a block or showing a specimen. Latin, so the shapes of
+     the words carry the type rather than the meaning. */
+  var LOREM = ("lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor " +
+    "incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud " +
+    "exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure " +
+    "dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur " +
+    "excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt " +
+    "mollit anim id est laborum sed ut perspiciatis unde omnis iste natus error sit " +
+    "voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo " +
+    "inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo nemo enim " +
+    "ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit sed quia consequuntur " +
+    "magni dolores eos qui ratione voluptatem sequi nesciunt neque porro quisquam est qui " +
+    "dolorem ipsum quia dolor sit amet consectetur adipisci velit").split(" ");
+
+  // n words of it, as sentences that start with a capital and end with a full stop
+  function blindText(n) {
+    var words = [], i, w;
+    for (i = 0; i < n; i++) words.push(LOREM[i % LOREM.length]);
+    var out = "", len = 0, sentence = [];
+    for (i = 0; i < words.length; i++) {
+      sentence.push(words[i]);
+      len++;
+      // sentences of eight to fifteen words, so the copy has a rhythm to it
+      if (len >= 8 + (i % 8) || i === words.length - 1) {
+        w = sentence.join(" ");
+        out += (out ? " " : "") + w.charAt(0).toUpperCase() + w.slice(1) + ".";
+        sentence = []; len = 0;
+      }
+    }
+    return out;
+  }
+
   var ROLE_SEEDS = {
     display: "A display line",
     headline: "Headline goes\nhere",
@@ -117,6 +149,8 @@
     smallprint: "Small print: terms and credits."
   };
   var ROLE_ROWS = { display: 2, headline: 2, subline: 5, paragraph: 8, smallprint: 1 };
+  // how much blind text a role asks for when it is filled
+  var ROLE_BLIND = { display: 3, headline: 6, subline: 12, paragraph: 40, smallprint: 14 };
   var ROLE_NAMES = {
     display: "Display", headline: "Headline", subline: "Subline",
     paragraph: "Paragraph", smallprint: "Small print"
@@ -291,9 +325,10 @@
 
   function defaults() {
     return {
-      v: 19,
+      v: 21,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
-      bg: { src: "", fit: "cover", opacity: 100 },
+      // the image can be pushed around and scaled on top of whichever fit it starts from
+      bg: { src: "", fit: "cover", opacity: 100, scale: 100, x: 0, y: 0 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -433,6 +468,40 @@
 
   function fh(k) { return k === "left" ? 0 : k === "center" ? .5 : 1; }
   function fv(k) { return k === "top" ? 0 : k === "middle" ? .5 : 1; }
+
+  /* --------------------------------------------------- the background image */
+
+  // the natural size of the image, read once; a repaint follows when it arrives
+  var imageSizes = {};
+  function imageSize(src) {
+    if (!src) return null;
+    if (Object.prototype.hasOwnProperty.call(imageSizes, src)) return imageSizes[src];
+    imageSizes[src] = null;
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function () {
+      imageSizes[src] = { w: img.naturalWidth || 1, h: img.naturalHeight || 1 };
+      render();
+    };
+    img.onerror = function () { imageSizes[src] = { w: 1, h: 1 }; };
+    img.src = src;
+    return null;
+  }
+
+  // where the image lands: the fit gives a size, the scale multiplies it, and the
+  // offsets push it around from the middle. All in format pixels.
+  function bgLayout(fw, fh) {
+    var bg = state.bg, nat = imageSize(bg.src), k = Math.max(1, bg.scale || 100) / 100;
+    var w, h;
+    if (bg.fit === "stretch") { w = fw * k; h = fh * k; }
+    else if (!nat) { w = fw * k; h = fh * k; }            // until the image has loaded
+    else if (bg.fit === "tile") { w = nat.w * k; h = nat.h * k; }
+    else {
+      var f = bg.fit === "contain" ? Math.min(fw / nat.w, fh / nat.h) : Math.max(fw / nat.w, fh / nat.h);
+      w = nat.w * f * k; h = nat.h * f * k;
+    }
+    return { w: w, h: h, x: (fw - w) / 2 + (bg.x || 0), y: (fh - h) / 2 + (bg.y || 0) };
+  }
 
   /* ------------------------------------------------- guide contrast colour */
 
@@ -1253,12 +1322,13 @@
       var image = child(host, "image", "div", "stage-image");
       var bg = state.bg;
       if (bg.src) {
+        var bl = bgLayout(fw, fh);
         Object.assign(image.style, {
           display: "block",
           backgroundImage: 'url("' + bg.src.replace(/"/g, '\\"') + '")',
-          backgroundSize: bg.fit === "stretch" ? "100% 100%" : bg.fit === "tile" ? "auto" : bg.fit,
+          backgroundSize: round(bl.w * s, 2) + "px " + round(bl.h * s, 2) + "px",
           backgroundRepeat: bg.fit === "tile" ? "repeat" : "no-repeat",
-          backgroundPosition: "center",
+          backgroundPosition: round(bl.x * s, 2) + "px " + round(bl.y * s, 2) + "px",
           opacity: bg.opacity / 100
         });
       } else { image.style.display = "none"; }
@@ -1600,8 +1670,9 @@
     lines.push("  background: " + st.bg + ";");
     if (bg.src) {
       lines.push("  background-image: url(\"" + (/^data:/.test(bg.src) ? "…generated image…" : bg.src) + "\");");
-      lines.push("  background-size: " + (bg.fit === "stretch" ? "100% 100%" : bg.fit === "tile" ? "auto" : bg.fit) + ";");
-      lines.push("  background-position: center;");
+      var bl = bgLayout(state.stage.w, state.stage.h);
+      lines.push("  background-size: " + round(bl.w, 2) + "px " + round(bl.h, 2) + "px;");
+      lines.push("  background-position: " + round(bl.x, 2) + "px " + round(bl.y, 2) + "px;");
       if (bg.fit !== "tile") lines.push("  background-repeat: no-repeat;");
     }
     lines.push("  overflow: hidden;");
@@ -1970,6 +2041,12 @@
           '<button type="button" class="x" data-block="remove" title="Take this block off the stage">✕</button>' +
         "</div>" +
         '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
+        '<div class="block-row blind">' +
+          "<span>Blind</span>" +
+          '<input type="range" min="1" max="120" step="1" data-block="blind" value="12">' +
+          '<button type="button" class="ghost" data-block="fill">Fill</button>' +
+          '<span class="px" data-blindn="' + i + '"></span>' +
+        "</div>" +
         '<div class="block-row">' +
           "<span>Field</span>" +
           '<input type="number" min="0" step="1" data-block="padL" title="Inset from the left">' +
@@ -2033,6 +2110,16 @@
     $("#bg-fit").value = state.bg.fit;
     setValue($("#bg-opacity"), state.bg.opacity);
     $("#bg-opacity-val").textContent = state.bg.opacity + "%";
+    setValue($("#bg-scale"), state.bg.scale);
+    $("#bg-scale-val").textContent = fmt(state.bg.scale) + "%";
+    setValue($("#bg-x"), fmt(state.bg.x));
+    setValue($("#bg-y"), fmt(state.bg.y));
+    var bl = bgLayout(state.stage.w, state.stage.h);
+    $("#bg-hint").textContent = state.bg.src
+      ? "The image runs " + round(bl.w, 1) + " × " + round(bl.h, 1) + " at " +
+        round(bl.x, 1) + " / " + round(bl.y, 1) + " on a " + fmt(state.stage.w) + " × " +
+        fmt(state.stage.h) + " format. Hold ⌥/Alt and drag on the canvas to move it."
+      : "Upload or generate an image, then scale and move it here — or hold ⌥/Alt and drag it on the canvas.";
 
     setValue($("#cf-endpoint"), state.comfy.endpoint);
     setValue($("#cf-key"), comfyKey);
@@ -2268,6 +2355,8 @@
       setValue(row.querySelector('[data-block="row"]'), b.row);
       row.querySelector('[data-block="grid"]').value = String(b.grid);
       row.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
+      setValue(row.querySelector('[data-block="blind"]'), b.blind || 12);
+      row.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
       setValue(row.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
       setValue(row.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
       var fw = textFrame().w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
@@ -2316,6 +2405,13 @@
 
     onInput("#bg-url", function (el) { state.bg.src = el.value.trim(); });
     onChange("#bg-fit", function (el) { state.bg.fit = el.value; });
+    onInput("#bg-scale", function (el) { state.bg.scale = clamp(num(el.value, 100), 10, 500); });
+    numInput("#bg-x", function (v) { state.bg.x = snap(v); });
+    numInput("#bg-y", function (v) { state.bg.y = snap(v); });
+    $("#bg-reset").addEventListener("click", function () {
+      state.bg.scale = 100; state.bg.x = 0; state.bg.y = 0;
+      render();
+    });
     onInput("#bg-opacity", function (el) { state.bg.opacity = num(el.value, 100); });
     $("#bg-clear").addEventListener("click", function () { state.bg.src = ""; render(); });
     $("#bg-upload-btn").addEventListener("click", function () { $("#bg-file").click(); });
@@ -2590,7 +2686,10 @@
       var row = e.target.closest(".block");
       if (!row) return;
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
-      if (what === "text") b.text = e.target.value;
+      if (what === "blind") {                       // the slider fills as it moves
+        b.blind = Math.max(1, Math.round(num(e.target.value, 12)));
+        b.text = blindText(b.blind);
+      } else if (what === "text") b.text = e.target.value;
       else if (what === "row" && e.target.value !== "") b.row = Math.round(num(e.target.value, b.row));
       else if ((what === "padL" || what === "padR") && e.target.value !== "") {
         b[what] = Math.max(0, snap(num(e.target.value, b[what] || 0)));
@@ -2614,6 +2713,13 @@
     $("#text-blocks").addEventListener("click", function (e) {
       var gone = e.target.closest('[data-block="remove"]');
       if (gone) { removeBlock(+gone.closest(".block").dataset.i); render(); return; }
+      var fill = e.target.closest('[data-block="fill"]');
+      if (fill) {
+        var fb = state.text.blocks[+fill.closest(".block").dataset.i];
+        if (fb) { fb.blind = fb.blind || 12; fb.text = blindText(fb.blind); }
+        render();
+        return;
+      }
       var btn = e.target.closest("[data-align]");
       if (!btn) return;
       state.text.blocks[+btn.closest(".block").dataset.i].align = btn.dataset.align;
@@ -2767,7 +2873,7 @@
     return {
       role: role, align: "left", row: grid === "both" ? rows * 2 : rows, grid: grid,
       from: role === "smallprint" ? "bottom" : "top",
-      padL: 0, padR: 0, text: ROLE_SEEDS[role] || ""
+      padL: 0, padR: 0, blind: ROLE_BLIND[role] || 12, text: ROLE_SEEDS[role] || ""
     };
   }
 
@@ -2866,6 +2972,17 @@
     return keys.map(function (k) {
       return { k: k, d: Math.abs(cPos + cLen * f(k) - size * f(anchor) + size / 2 - target) };
     }).sort(function (a, b) { return a.d - b.d; })[0].k;
+  }
+
+  // push the background image around under everything else
+  function startBgDrag(e) {
+    var start = toStage(e), x0 = state.bg.x || 0, y0 = state.bg.y || 0;
+    document.body.classList.add("moving-bg");
+    drag(e, function (ev) {
+      var p = toStage(ev);
+      state.bg.x = snap(x0 + p.x - start.x);
+      state.bg.y = snap(y0 + p.y - start.y);
+    }, function () { document.body.classList.remove("moving-bg"); });
   }
 
   // drag a text block up and down; it lands on whole rows of its own grid
@@ -3011,6 +3128,8 @@
     els.viewport.addEventListener("pointerdown", function (e) {
       if (e.button === 1 || spaceDown) return startPan(e);
       if (e.button !== 0) return;
+      // hold alt to push the background image around
+      if (e.altKey && state.bg.src) return startBgDrag(e);
       var t = e.target;
       if (t.classList.contains("guide")) return startGuide(e, t.dataset.side);
       if (t.classList.contains("handle")) {
@@ -3117,6 +3236,33 @@
     return "rgb(" + Math.round(c.r) + " " + Math.round(c.g) + " " + Math.round(c.b) + ")";
   }
 
+  // a plain conversion, with no colour profile behind it — a starting point for print,
+  // not a substitute for the separation a printer will make
+  function cmykLabel(hex) {
+    var c = hexRgb(hex), r = c.r / 255, g = c.g / 255, b = c.b / 255;
+    var k = 1 - Math.max(r, g, b);
+    var d = 1 - k;
+    var cy = d ? (d - r) / d : 0, m = d ? (d - g) / d : 0, y = d ? (d - b) / d : 0;
+    return [cy, m, y, k].map(function (v) { return Math.round(v * 100); }).join(" / ") + " %";
+  }
+
+  function hslLabel(hex) {
+    var c = hexRgb(hex), r = c.r / 255, g = c.g / 255, b = c.b / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    var l = (mx + mn) / 2, h = 0, sat = 0;
+    if (d) {
+      sat = d / (1 - Math.abs(2 * l - 1));
+      h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60;
+    }
+    return "hsl(" + Math.round(h) + " " + Math.round(sat * 100) + "% " + Math.round(l * 100) + "%)";
+  }
+
+  function weightName(w) {
+    return ({ 100: "Thin", 200: "Extra light", 300: "Light", 400: "Regular", 500: "Medium",
+      600: "Semibold", 700: "Bold", 800: "Extra bold", 900: "Black" })[w] || String(w);
+  }
+
   function formatName() {
     var f = formatById(state.stage.preset);
     return (f ? f.name : "Custom") + " · " + fmt(state.stage.w) + " × " + fmt(state.stage.h) +
@@ -3127,6 +3273,9 @@
     return '<div class="foot"><span>' + esc(kind) + " — " + esc(familyLabel()) + "</span><span>" +
       esc(formatName()) + "</span></div>";
   }
+
+  // how much blind text each role shows on the sheet
+  var SPECIMEN_WORDS = { display: 3, headline: 5, subline: 7, paragraph: 12, smallprint: 14 };
 
   // the type scale, its rules and a specimen of every role — a page of a brand manual
   function typeSheet() {
@@ -3140,17 +3289,20 @@
       var snapName = (SNAPS.filter(function (x) { return x.id === st.snap; })[0] || {}).name || st.snap;
       return '<div class="spec">' +
         '<div class="spec-head"><span class="spec-name">' + esc(ROLE_NAMES[r]) + "</span>" +
-        '<span class="spec-meta">&lt;' + esc(st.tag) + "&gt; · " + round(px, 2) + " px · " +
-        (r === "paragraph" ? "anchor" : round(st.mult, 3) + " × paragraph") +
+        '<span class="spec-meta">' + esc(familyLabel()) + " " + esc(weightName(st.weight)) +
+        (st.transform !== "none" ? ", " + esc(st.transform) : "") +
+        " · &lt;" + esc(st.tag) + "&gt; · " + round(px, 2) + " px = " +
+        (r === "paragraph"
+          ? round(state.type.paragraph, 3) + "% of " + esc(basisLabel())
+          : round(st.mult, 3) + " × paragraph") +
         " · line height " + round(lh, 4) + " (" + round(px * lh, 2) + " px" +
         (steps ? ", " + steps + " × grid " + (st.snap === "half" ? "2" : "1") : "") + ")" +
-        " · " + st.weight + " · " + round(st.ls, 3) + "em" +
-        (st.transform !== "none" ? " · " + st.transform : "") + " · " + st.color.toUpperCase() +
+        " · tracking " + round(st.ls, 3) + "em · " + st.color.toUpperCase() +
         " · " + esc(snapName) + "</span></div>" +
         '<div class="spec-line" style="font-family:' + esc(familyStack()) + ";font-size:" + round(px * k, 2) +
         "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight + ";letter-spacing:" +
         round(st.ls, 3) + "em;text-transform:" + st.transform + ';color:#14171c">' +
-        esc(ROLE_SEEDS[r].split("\n")[0]) + "</div></div>";
+        esc(blindText(SPECIMEN_WORDS[r] || 6)) + "</div></div>";
     }).join("");
 
     return '<h1>Typography</h1><p class="lede">' + esc(familyLabel()) +
@@ -3203,7 +3355,8 @@
     var cards = order.map(function (hex) {
       return '<div class="sw"><div class="sw-chip" style="background:' + hex + '"></div>' +
         '<div class="sw-body"><div class="sw-name">' + esc(byHex[hex].join(", ")) + "</div>" +
-        '<div class="sw-val">' + hex + "<br>" + rgbLabel(hex) + "</div></div></div>";
+        '<div class="sw-val">' + hex + "<br>" + rgbLabel(hex) + "<br>" + hslLabel(hex) +
+        "<br>CMYK " + cmykLabel(hex) + "</div></div></div>";
     }).join("");
 
     var grounds = [
@@ -3227,7 +3380,8 @@
 
     return '<h1>Colour</h1><p class="lede">Every colour the design uses, with its values and how ' +
       "each piece of type holds up against what sits behind it. Contrast is the WCAG 2 ratio; AA " +
-      "asks 4.5:1 for text and 3:1 for large text.</p>" +
+      "asks 4.5:1 for text and 3:1 for large text. CMYK is a plain conversion with no profile " +
+      "behind it — a starting point for print, not the separation a printer will make.</p>" +
       '<div class="rule"></div><h2>Palette</h2><div class="swatches">' + cards + "</div>" +
       '<h2 style="margin-top:34px">Contrast</h2><table><thead><tr><th>Pairing</th><th>Colours</th>' +
       "<th>Size</th><th>Ratio</th><th>WCAG AA</th></tr></thead><tbody>" + rows.join("") +
@@ -3238,7 +3392,7 @@
     var el = $("#sheet");
     el.innerHTML = kind === "colour" ? colourSheet() : typeSheet();
     $("#sheet-title").textContent = (kind === "colour" ? "Colour" : "Typography") +
-      " sheet — 1920 × 1080 · 16:9";
+      " slide — 1920 × 1080 · 16:9";
     $("#sheet-wrap").hidden = false;
     fitSheet();
   }

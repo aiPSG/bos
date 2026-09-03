@@ -54,6 +54,15 @@
             <input type="range" id="bg-opacity" min="0" max="100" step="1">
           </label>
         </div>
+        <label class="field grow"><span>Scale <b id="bg-scale-val">100%</b></span>
+          <input type="range" id="bg-scale" min="10" max="500" step="1">
+        </label>
+        <div class="row">
+          <label class="field"><span>Move across</span><input type="number" id="bg-x" step="1"></label>
+          <label class="field"><span>Move down</span><input type="number" id="bg-y" step="1"></label>
+          <button type="button" class="ghost" id="bg-reset">Reset</button>
+        </div>
+        <p class="hint" id="bg-hint"></p>
 
         <details class="sub">
           <summary><h3>Generate with ComfyUI on RunPod</h3></summary>
@@ -349,23 +358,22 @@
     </details>
 
     <details class="group">
-      <summary><h2>CSS</h2></summary>
+      <summary><h2>Export</h2></summary>
+      <div class="row">
+        <button type="button" class="primary grow" id="sheet-type">Typography slide</button>
+        <button type="button" class="primary grow" id="sheet-colour">Colour slide</button>
+      </div>
+      <p class="hint">One 16:9 page each, laid out the way a brand manual would — the type scale with
+        its rules and blind-text specimens, or every colour with its values and contrast. Opens a
+        preview; <b>Save as PDF</b> prints it at 1920 × 1080 with no margins.</p>
+
+      <h3 class="sub-head">CSS</h3>
       <pre id="css-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-css">Copy CSS</button>
       <p class="hint">Markup</p>
       <pre id="markup-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-markup">Copy markup</button>
 
-      <details class="sub" open>
-        <summary><h3>Style guide sheets</h3></summary>
-        <div class="row">
-          <button type="button" class="ghost grow" id="sheet-type">Typography sheet</button>
-          <button type="button" class="ghost grow" id="sheet-colour">Colour sheet</button>
-        </div>
-        <p class="hint">One 16:9 page each, laid out the way a brand manual would — the type scale
-          with its rules and specimens, or every colour with its values and contrast. Opens a
-          preview; <b>Save as PDF</b> prints it at 1920 × 1080 with no margins.</p>
-      </details>
     </details>
   </aside>
 
