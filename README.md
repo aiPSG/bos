@@ -172,9 +172,16 @@ the bottom-anchored ones the bottom edge. Anywhere else — above the box, below
 rectangle on the stage at all — a block **lines up on the columns**, its edges landing on column
 lines, and it stays exactly where it is whatever the rectangle does. Rows are counted from the top or
 the bottom margin, so the page is what a block is pinned to; the rectangle can come and go under it
-without anything jumping.  A block sits on a **row of its
-own**, counted from the top *or the bottom* edge of the rectangle, on grid 1 or grid 2 — type the
-row number or drag the block up and down on the canvas, where it lands on whole rows. Counting from
+without anything jumping.
+
+Such a block can also be **dragged sideways**: its left edge lands on a column line and the field
+keeps the width it had, giving way only at the right margin. Both insets stay typeable in the panel.
+
+Each block chooses **which lines it may sit on**: *grid 1* the full rows, *grid 2* the half lines
+between them, or *both grids* any line at all. Paragraph starts on grid 1 and every other role on
+both, and dragging a block steps in whichever of those it is set to.  A block sits on a **row of its
+own** — type the row number or drag the block on the canvas, where it lands on whole rows of its
+grid. Counting from
 the rectangle means **the text travels with it**: move the box and the blocks keep their rows, and
 each block **holds its distance to the edge it is anchored to** as the box is made taller or
 shorter — headings riding the top, small print riding the bottom. The origin is pulled onto the

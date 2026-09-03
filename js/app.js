@@ -9,7 +9,7 @@
   var H_KEYS = ["left", "center", "right"];
   var V_KEYS = ["top", "middle", "bottom"];
   var SIDES = ["top", "right", "bottom", "left"];
-  var STORAGE_KEY = "bos.design.v18";
+  var STORAGE_KEY = "bos.design.v19";
 
   /* Templates for the jobs this gets used for. Each carries a format and the
      scaffolding that suits it — margins, columns and the number of baseline rows —
@@ -291,7 +291,7 @@
 
   function defaults() {
     return {
-      v: 18,
+      v: 19,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       bg: { src: "", fit: "cover", opacity: 100 },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
@@ -403,6 +403,7 @@
       if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
       s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
       s.text.blocks.forEach(function (b) {
+        if (b.grid !== 1 && b.grid !== 2 && b.grid !== "both") b.grid = "both";
         if (b.from !== "bottom") b.from = "top";
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
@@ -597,32 +598,41 @@
     return state.rect.placed ? box("rect") : content();
   }
 
+  // which lines a block may sit on: grid 1 is the full rows, grid 2 the half lines
+  // between them, and "both" every line of either grid
+  function blockUnit(b) { return b.grid === "both" ? baseline() / 2 : baseline(); }
+  function blockShift(b) { return b.grid === 2 ? baseline() / 2 : 0; }
+  function gridLabel(g) { return g === "both" ? "both grids" : "grid " + g; }
+
   // rows are counted from the margin box, not from the rectangle, so a block only
   // moves when the page moves. What rides along with the rectangle is decided by
   // where a block sits (see carryBlocks), not by the coordinates it is stored in
-  function rowOrigin(which, from) {
-    var c = content();
-    return snapY(from === "bottom" ? c.y + c.h : c.y, which);
+  function rowOrigin(b) {
+    var c = content(), u = blockUnit(b), shift = blockShift(b);
+    var edge = b.from === "bottom" ? c.y + c.h : c.y;
+    return snapUnit(edge, u) + (b.from === "bottom" ? -shift : shift);
   }
 
-  // y of a row, counted from the top or the bottom edge of the rectangle, so the
-  // text travels with the box — and stays put against the edge it is anchored to
-  function rowY(row, which, from) {
-    var u = gridUnit(which);
-    return rowOrigin(which, from) + (from === "bottom" ? -row * u : row * u);
+  // y of a block's row, counted from the top or the bottom margin
+  function rowY(b) {
+    var u = blockUnit(b);
+    return rowOrigin(b) + (b.from === "bottom" ? -b.row * u : b.row * u);
   }
 
   // the row a y position falls on, the other way round
-  function rowAt(y, which, from) {
-    var u = gridUnit(which), d = y - rowOrigin(which, from);
-    return Math.round((from === "bottom" ? -d : d) / u);
+  function rowAt(y, b) {
+    var d = y - rowOrigin(b);
+    return Math.round((b.from === "bottom" ? -d : d) / blockUnit(b));
   }
 
-  // the nearest grid line to a y position
-  function snapY(y, which) {
-    var u = gridUnit(which), top = margins().top;
-    return top + Math.round((y - top) / u) * u;
+  // the nearest line of a grid of that step, measured from the top margin
+  function snapUnit(y, unit) {
+    var top = margins().top;
+    return top + Math.round((y - top) / unit) * unit;
   }
+
+  // the nearest grid line to a y position, for the rectangle's own grid
+  function snapY(y, which) { return snapUnit(y, gridUnit(which)); }
 
   function sizeOf(name) {
     if (name === "logo") return logoSize();
@@ -1090,7 +1100,7 @@
   // it, or with no rectangle at all — a block lines up on the columns
   function blockInside(b) {
     if (!state.rect.placed) return false;
-    var r = box("rect"), y = rowY(b.row, b.grid, b.from);
+    var r = box("rect"), y = rowY(b);
     return y >= r.y - 0.5 && y <= r.y + r.h + 0.5;
   }
 
@@ -1169,7 +1179,7 @@
       var b = blocks[i], st = state.type.roles[b.role], ins = blockInsets(b);
       el.dataset.i = t.blocks.indexOf(b);
       Object.assign(el.style, {
-        top: (rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin) * s + "px",
+        top: (rowY(b) - baselineInBox(b.role) - origin) * s + "px",
         marginLeft: ins.l * s + "px",
         marginRight: ins.r * s + "px",
         // a field drawn in by hand wraps inside itself; one that fills the column
@@ -1217,7 +1227,7 @@
         top: parseFloat(el.style.top) || 0,
         boxTop: r.top - stageTop,
         baseline: probe.getBoundingClientRect().bottom - stageTop,
-        target: rowY(blocks[i].row, blocks[i].grid, blocks[i].from) * s
+        target: rowY(blocks[i]) * s
       };
     });
     if (widest > 0 && Math.abs(widest - textW) > 0.5) {
@@ -1659,11 +1669,11 @@
       used.forEach(function (b, i) {
         var sp = blockInsets(b);
         lines.push(TX + " > :nth-child(" + (i + 1) + ") { top: " +
-          round(rowY(b.row, b.grid, b.from) - baselineInBox(b.role) - origin, 2) + "px;" +
+          round(rowY(b) - baselineInBox(b.role) - origin, 2) + "px;" +
           (round(sp.l, 2) ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
           (round(sp.r, 2) ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
           (blockOutside(b) ? "  /* on the columns, outside the box */" : "") +
-          "  /* baseline on row " + b.row + " of grid " + b.grid +
+          "  /* baseline on row " + b.row + " of " + gridLabel(b.grid) +
           ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " margin */");
       });
       lines.push("/* grid 1: " + round(baseline(), 3) + "px a row — " + (fromLeading()
@@ -1969,7 +1979,8 @@
         '<div class="block-row">' +
           "<span>Row</span>" +
           '<input type="number" step="1" data-block="row">' +
-          '<select data-block="grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>' +
+          '<select data-block="grid"><option value="1">Grid 1</option>' +
+            '<option value="2">Grid 2</option><option value="both">Both grids</option></select>' +
           '<select data-block="from"><option value="top">from the top</option>' +
             '<option value="bottom">from the bottom</option></select>' +
         "</div>" +
@@ -2236,10 +2247,11 @@
           "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
           "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Blocks start off the stage: drag one out of the tray above the " +
-      "canvas, as often as you like. Rows are counted from the top or the bottom margin, and a block " +
-      "lines up on the columns unless it sits inside the rectangle — inside, it takes the box padding " +
-      "and travels with the box when that is moved or resized. Grid 1 rows are " + round(baseline(), 2) +
-      " px, grid 2 rows " + round(baseline() / 2, 2) + " px.";
+      "canvas, as often as you like. Rows are counted from the top or the bottom margin. A block on " +
+      "grid 1 sits on the full rows (" + round(baseline(), 2) + " px), on grid 2 on the half lines " +
+      "between them, and on both grids on any line at all (" + round(baseline() / 2, 2) + " px apart). " +
+      "Outside the rectangle a block can be dragged sideways too and lands on the column lines; " +
+      "inside it takes the box padding and travels with the box.";
 
     setValue($("#col-n"), state.cols.n);
     setValue($("#col-gutter"), fmt(state.cols.gutter));
@@ -2592,9 +2604,10 @@
       var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
       if (what === "role") b.role = e.target.value;
       else if (what === "grid" || what === "from") {
-        var y = rowY(b.row, b.grid, b.from);               // keep it where it is
-        if (what === "grid") b.grid = +e.target.value; else b.from = e.target.value;
-        b.row = rowAt(y, b.grid, b.from);
+        var y = rowY(b);                                   // keep it where it is
+        if (what === "grid") b.grid = e.target.value === "both" ? "both" : +e.target.value;
+        else b.from = e.target.value;
+        b.row = rowAt(y, b);
       } else return;
       render();
     });
@@ -2748,9 +2761,12 @@
 
   // a fresh block of a role, seeded with that role's placeholder copy
   function newBlock(role) {
+    // paragraph keeps to the full rows; everything else may sit on any line
+    var grid = role === "paragraph" ? 1 : "both";
+    var rows = ROLE_ROWS[role] || 2;              // counted in full rows either way
     return {
-      role: role, align: "left", row: ROLE_ROWS[role] || 2,
-      grid: role === "smallprint" ? 2 : 1, from: role === "smallprint" ? "bottom" : "top",
+      role: role, align: "left", row: grid === "both" ? rows * 2 : rows, grid: grid,
+      from: role === "smallprint" ? "bottom" : "top",
       padL: 0, padR: 0, text: ROLE_SEEDS[role] || ""
     };
   }
@@ -2787,10 +2803,10 @@
       var dTop = now.top - lastBox.top, dBot = now.bot - lastBox.bot;
       if (dTop || dBot) {
         state.text.blocks.forEach(function (bl) {
-          var y = rowY(bl.row, bl.grid, bl.from) - c.y;
+          var y = rowY(bl) - c.y;
           if (y < lastBox.top - 0.5 || y > lastBox.bot + 0.5) return;   // it was not in the box
           var d = bl.from === "bottom" ? dBot : dTop;                   // it follows its own edge
-          if (d) bl.row = rowAt(rowY(bl.row, bl.grid, bl.from) + d, bl.grid, bl.from);
+          if (d) bl.row = rowAt(rowY(bl) + d, bl);
         });
       }
     }
@@ -2829,7 +2845,7 @@
           nearestKey(V_KEYS, fv, c.y, c.h, sz.h, state.rect.anchor.v, p.y));
         renderCells("rect");
       } else {
-        b.row = rowAt(p.y, b.grid, b.from);
+        b.row = rowAt(p.y, b);
       }
     };
     if (isRect) { els.cells.hidden = false; renderCells("rect"); }
@@ -2857,9 +2873,21 @@
     var b = state.text.blocks[index];
     if (!b) return;
     var start = toStage(e), row0 = b.row;
+    // a block that is not in the rectangle can be moved sideways as well, landing on
+    // the column lines; the field keeps the width it had
+    var free = !blockInside(b), cw = content().w;
+    var l0 = colLine(b.padL || 0), w0 = Math.max(colWidth(), colLine(cw - (b.padR || 0)) - l0);
     drag(e, function (ev) {
-      var dy = toStage(ev).y - start.y, steps = Math.round(dy / gridUnit(b.grid));
+      var p = toStage(ev);
+      var steps = Math.round((p.y - start.y) / blockUnit(b));
       b.row = row0 + (b.from === "bottom" ? -steps : steps);   // rows count upward from the bottom
+      if (!free) return;
+      // the left edge lands on a column line; the field keeps its width while there is
+      // room for it and gives way at the right margin
+      var l = clamp(colLine(l0 + p.x - start.x), 0, Math.max(0, cw - colWidth()));
+      var r = Math.max(l + colWidth(), Math.min(cw, l + w0));
+      b.padL = snap(l);
+      b.padR = snap(Math.max(0, cw - r));
     });
   }
 
