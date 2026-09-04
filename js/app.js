@@ -323,9 +323,34 @@
 
   /* ------------------------------------------------------------------ state */
 
+  /* The work runs in stages, and each is a segment of the interface: the design
+     system first, then the background it sits on, then the formats it is laid
+     into, then the dummies it is shown in. Only the first is built. */
+  var SEGMENTS = [
+    { id: "system", name: "Set design system", built: true,
+      note: "The format, the logo, the margins and the columns, the rectangle, the type scale " +
+        "and both baseline grids, and the text that sits on them." },
+    { id: "background", name: "Generate background",
+      note: "One ground for the system to sit on, made rather than found, from whichever source " +
+        "suits the job. Until this is built, a background can still be uploaded or generated " +
+        "under Format \u2192 Background image in the design system.",
+      steps: ["Generate image", "Generate pattern", "Generate gradient"] },
+    { id: "formats", name: "Design formats",
+      note: "The system and its background laid into every format the work runs in, each one " +
+        "adjusted where it has to be rather than scaled and hoped for." },
+    { id: "dummies", name: "Dummies",
+      note: "The finished formats shown in place \u2014 a phone, a poster site, a spread \u2014 " +
+        "so the work can be seen the way it will be met." }
+  ];
+
+  function segment() {
+    return SEGMENTS.filter(function (sg) { return sg.id === state.seg; })[0] || SEGMENTS[0];
+  }
+
   function defaults() {
     return {
       v: 21,
+      seg: "system",
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       // the image can be pushed around and scaled on top of whichever fit it starts from
       bg: { src: "", fit: "cover", opacity: 100, scale: 100, x: 0, y: 0 },
@@ -1383,6 +1408,8 @@
   }
 
   function renderStage() {
+    renderSegments();
+    if (!segment().built) return;   // nothing to measure while the canvas is away
     carryBlocks();
     document.body.classList.toggle("rail-open", !!state.showRail);
     var s = scale(), p = pan(), st = state.stage;
@@ -1406,6 +1433,7 @@
     placeBlocks(liveStack(), s);
     renderFrame(s);
     renderBlockFrame();
+    renderBlockInspector();
     renderRail();
     renderTray();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
@@ -1561,9 +1589,10 @@
     size.style.top = r.height + "px";
     els.blockFrame.querySelector('[data-bdir="w"]').style.left = "0px";
     els.blockFrame.querySelector('[data-bdir="e"]').style.left = r.width + "px";
+    // clear of the edge handles, which share that corner
     var kill = els.blockFrame.querySelector(".bhandle.kill");
     kill.style.left = r.width + "px";
-    kill.style.top = "0px";
+    kill.style.top = "-11px";
   }
 
   function renderCells(name) {
@@ -1575,6 +1604,31 @@
         var on = el.align.h === h && el.align.v === v;
         return '<span class="cell' + (on ? " on" : "") + '" style="left:' + x * s + "px;top:" + y * s + 'px"></span>';
       }).join("");
+    }).join("");
+  }
+
+  /* The tab bar, and what it shows: the design system is the interface itself,
+     the rest are stages still to come and stand behind a placeholder. */
+  function renderSegments() {
+    var cur = segment();
+    $("#segments").innerHTML = SEGMENTS.map(function (sg, i) {
+      return '<button type="button" data-seg="' + sg.id + '" aria-pressed="' +
+        (sg.id === cur.id ? "true" : "false") + '">' +
+        '<span class="seg-n">' + (i + 1) + "</span>" + esc(sg.name) +
+        (sg.built ? "" : '<span class="seg-soon">soon</span>') + "</button>";
+    }).join("");
+
+    var built = !!cur.built;
+    $("#panel").hidden = !built;
+    $("#canvas").hidden = !built;
+    $("#seg-stub").hidden = built;
+    document.body.classList.toggle("stub-on", !built);
+    if (built) return;
+
+    $("#stub-name").textContent = cur.name;
+    $("#stub-note").textContent = cur.note;
+    $("#stub-steps").innerHTML = (cur.steps || []).map(function (t) {
+      return '<span class="stub-step">' + esc(t) + "</span>";
     }).join("");
   }
 
@@ -1592,7 +1646,7 @@
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
     $("#tray-hint").textContent = "Drag one onto the stage — it snaps to the grid as it lands. " +
       "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
-      "the ✕ on a block takes it off again.";
+      "click one to open its settings beside it, and the ✕ takes it off again.";
   }
 
   function renderReadout() {
@@ -1874,7 +1928,7 @@
     state = JSON.parse(json);
     lastSnap = json;
     buildFamilySelect();
-    buildTextBlocks();
+    inspectorFor = -1;
     blOffset = {};
     frameFor = null;
     lastBox = null;              // an undone move must not drag the text along with it
@@ -2024,50 +2078,133 @@
     }).join("");
   }
 
-  function buildTextBlocks() {
-    if (!state.text.blocks.length) {
-      $("#text-blocks").innerHTML =
-        '<p class="hint">No text on the stage yet — drag a block out of the tray above the canvas. ' +
-        "Pull one out as often as you like; each is its own block.</p>";
-      return;
-    }
-    $("#text-blocks").innerHTML = state.text.blocks.map(function (b, i) {
-      return '<div class="block" data-i="' + i + '">' +
-        '<div class="block-head">' +
-          '<span class="block-n">Block ' + (i + 1) + "</span>" +
-          '<select data-block="role" class="level">' +
-            ROLES.map(function (r) { return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>"; }).join("") +
-          "</select>" +
-          '<button type="button" class="x" data-block="remove" title="Take this block off the stage">✕</button>' +
-        "</div>" +
-        '<textarea data-block="text" rows="2" spellcheck="false"></textarea>' +
-        '<div class="block-row blind">' +
-          "<span>Blind</span>" +
-          '<input type="range" min="1" max="120" step="1" data-block="blind" value="12">' +
-          '<button type="button" class="ghost" data-block="fill">Fill</button>' +
-          '<span class="px" data-blindn="' + i + '"></span>' +
-        "</div>" +
-        '<div class="block-row">' +
-          "<span>Field</span>" +
-          '<input type="number" min="0" step="1" data-block="padL" title="Inset from the left">' +
-          '<input type="number" min="0" step="1" data-block="padR" title="Inset from the right">' +
-          '<span class="px" data-fieldw="' + i + '"></span>' +
-        "</div>" +
-        '<div class="block-row">' +
-          "<span>Row</span>" +
-          '<input type="number" step="1" data-block="row">' +
-          '<select data-block="grid"><option value="1">Grid 1</option>' +
-            '<option value="2">Grid 2</option><option value="both">Both grids</option></select>' +
-          '<select data-block="from"><option value="top">from the top</option>' +
-            '<option value="bottom">from the bottom</option></select>' +
-        "</div>" +
-        '<div class="seg" data-block="align">' +
-          ["left", "center", "right"].map(function (a) {
-            return '<button type="button" data-align="' + a + '">' + a[0].toUpperCase() + a.slice(1) + "</button>";
-          }).join("") +
-        "</div>" +
-      "</div>";
-    }).join("");
+  /* Everything a block can be set to, set at the block itself: the inspector
+     opens beside the one that is selected and follows it about, so nothing
+     about a text block is edited from the far side of the window. */
+  var inspectorFor = -1, sharedOpen = false;
+
+  function buildInspector() {
+    $("#ins-body").innerHTML =
+      '<select data-block="role" class="ins-role" title="Which role in the type scale this block is">' +
+        ROLES.map(function (r) {
+          return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>";
+        }).join("") +
+      "</select>" +
+      '<textarea data-block="text" rows="2" spellcheck="false" ' +
+        'placeholder="Type here, or on the block itself"></textarea>' +
+      '<div class="block-row blind">' +
+        "<span>Blind</span>" +
+        '<input type="range" min="1" max="120" step="1" data-block="blind" value="12" ' +
+          'title="How much blind text to fill this block with">' +
+        '<button type="button" class="ghost" data-block="fill">Fill</button>' +
+        '<span class="px" data-blindn></span>' +
+      "</div>" +
+      '<div class="block-row field">' +
+        "<span>Field</span>" +
+        '<input type="number" min="0" step="1" data-block="padL" title="Inset from the left">' +
+        '<input type="number" min="0" step="1" data-block="padR" title="Inset from the right">' +
+        '<span class="px" data-fieldw></span>' +
+      "</div>" +
+      '<div class="block-row rowset">' +
+        "<span>Row</span>" +
+        '<input type="number" step="1" data-block="row">' +
+        '<select data-block="grid"><option value="1">Grid 1</option>' +
+          '<option value="2">Grid 2</option><option value="both">Both grids</option></select>' +
+        '<select data-block="from" title="Which margin the rows are counted from">' +
+          '<option value="top">from top</option>' +
+          '<option value="bottom">from bottom</option></select>' +
+      "</div>" +
+      '<div class="seg" data-block="align">' +
+        ["left", "center", "right"].map(function (a) {
+          return '<button type="button" data-align="' + a + '">' + a[0].toUpperCase() + a.slice(1) + "</button>";
+        }).join("") +
+      "</div>" +
+      '<p class="hint" id="text-rows-hint"></p>' +
+      '<details class="sub" id="ins-shared"' + (sharedOpen ? " open" : "") + "><summary><h3>Every block</h3></summary>" +
+        '<label class="field grow"><span>Side padding \u2014 the column the blocks run in</span>' +
+          '<input type="number" id="text-padding" min="0" step="1"></label>' +
+        '<label class="check"><input type="checkbox" id="text-margin-pad">' +
+          "<span>Hang side-aligned text on the format margins when the box fills the format</span></label>" +
+        '<p class="hint" id="text-pad-hint"></p>' +
+      "</details>";
+  }
+
+  function renderBlockInspector() {
+    var i = state.selBlock, b = state.text.blocks[i];
+    var el = b && els.stage.querySelector('.tb[data-i="' + i + '"]');
+    var ins = $("#block-inspector");
+    // selection UI goes with the guides, and the inspector is selection UI
+    if (!el || state.showGuides === false) { ins.hidden = true; inspectorFor = -1; return; }
+
+    ins.hidden = false;
+    if (inspectorFor !== i) { buildInspector(); inspectorFor = i; }
+    $("#ins-title").textContent = "Block " + (i + 1) + " \u2014 " + ROLE_NAMES[b.role];
+
+    var body = $("#ins-body");
+    body.querySelector('[data-block="role"]').value = b.role;
+    setValue(body.querySelector('[data-block="text"]'), b.text);
+    setValue(body.querySelector('[data-block="row"]'), b.row);
+    body.querySelector('[data-block="grid"]').value = String(b.grid);
+    body.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
+    setValue(body.querySelector('[data-block="blind"]'), b.blind || 12);
+    body.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
+    setValue(body.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
+    setValue(body.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
+    var fw = textFrame().w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
+    body.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
+    Array.prototype.forEach.call(body.querySelectorAll("[data-align]"), function (btn) {
+      btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
+    });
+    syncTextShared();
+    positionInspector(ins, el);
+  }
+
+  // the two settings every block shares, kept with the blocks rather than in the panel
+  function syncTextShared() {
+    var pad = $("#text-padding");
+    if (!pad) return;
+    setValue(pad, fmt(state.text.padding));
+    $("#text-margin-pad").checked = !!state.text.marginPad;
+    var mm = margins(), spL = sidePad("left");
+    $("#text-pad-hint").textContent = !state.text.marginPad
+      ? "Every block runs in a column " + fmt(state.text.padding) + " from both sides of the box."
+      : state.rect.wmode !== "format"
+        ? "It applies once the width is set to fill the format \u2014 the box is then wider than " +
+          "the margins, and side-aligned text would otherwise start inside them."
+        : "Left-aligned text starts on the left margin (" + fmt(mm.left) + ", " +
+          (spL.l >= 0 ? fmt(spL.l) + " past" : fmt(-spL.l) + " short of") + " the padding); " +
+          "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
+          "Centred text keeps the padding.";
+    $("#text-rows-hint").textContent = "Rows run from the top or the bottom margin: grid 1 is the " +
+      "full rows (" + round(baseline(), 2) + " px), grid 2 the half lines between them. Outside " +
+      "the rectangle a block lands on the column lines; inside it travels with the box.";
+  }
+
+  function repositionInspector() {
+    var ins = $("#block-inspector");
+    var el = els.stage.querySelector('.tb[data-i="' + state.selBlock + '"]');
+    if (!ins.hidden && el) positionInspector(ins, el);
+  }
+
+  // beside the block, on whichever side has the room, and never off the canvas
+  function positionInspector(ins, el) {
+    var r = el.getBoundingClientRect();
+    var host = ins.parentNode.getBoundingClientRect();
+    var vp = els.viewport.getBoundingClientRect();
+    var w = ins.offsetWidth, h = ins.offsetHeight, gap = 14;
+    var st = els.stage.getBoundingClientRect();
+    var lo = vp.left - host.left + 8, hi = vp.right - host.left - w - 8;
+    /* Outside the format when the canvas has the room for it there, so the
+       design is not covered; otherwise beside the block, on its roomier side. */
+    var left;
+    if (vp.right - st.right >= w + gap * 2) left = st.right - host.left + gap;
+    else if (st.left - vp.left >= w + gap * 2) left = st.left - host.left - w - gap;
+    else left = vp.right - r.right >= r.left - vp.left
+      ? r.right - host.left + gap
+      : r.left - host.left - w - gap;
+    ins.style.left = clamp(left, lo, Math.max(lo, hi)) + "px";
+    ins.style.top = clamp(r.top - host.top - 10, 8,
+      Math.max(8, vp.bottom - host.top - h - 8)) + "px";
   }
 
   function buildGrid(id, name, kind) {
@@ -2321,51 +2458,12 @@
           round(rolePx(ty.editing) * eff, 1) + " px."
         : "Free: the typed line height is used as it is, off both grids.";
 
-    setValue($("#text-padding"), fmt(state.text.padding));
-    $("#text-margin-pad").checked = !!state.text.marginPad;
-    var spL = sidePad("left"), spR = sidePad("right");
-    $("#text-pad-hint").textContent = !state.text.marginPad
-      ? "Every block runs in a column " + fmt(state.text.padding) + " from both sides of the box."
-      : state.rect.wmode !== "format"
-        ? "It applies once the width is set to fill the format — the box is then wider than the " +
-          "margins, and side-aligned text would otherwise start inside them."
-        : "Left-aligned text starts on the left margin (" + fmt(mm.left) + ", " +
-          (spL.l >= 0 ? fmt(spL.l) + " past" : fmt(-spL.l) + " short of") + " the padding); " +
-          "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
-          "Centred text keeps the padding.";
-    $("#text-rows-hint").textContent = "Blocks start off the stage: drag one out of the tray above the " +
-      "canvas, as often as you like. Rows are counted from the top or the bottom margin. A block on " +
-      "grid 1 sits on the full rows (" + round(baseline(), 2) + " px), on grid 2 on the half lines " +
-      "between them, and on both grids on any line at all (" + round(baseline() / 2, 2) + " px apart). " +
-      "Outside the rectangle a block can be dragged sideways too and lands on the column lines; " +
-      "inside it takes the box padding and travels with the box.";
-
     setValue($("#col-n"), state.cols.n);
     setValue($("#col-gutter"), fmt(state.cols.gutter));
     $("#col-show").checked = state.cols.show;
     $("#col-hint").textContent = state.cols.n + " columns of " + round(colWidth(), 2) +
       " px with a " + fmt(state.cols.gutter) + " px gutter fill the " + round(content().w, 2) +
       " px between the left and right margins.";
-    if ($("#text-blocks").querySelectorAll(".block").length !== state.text.blocks.length) buildTextBlocks();
-    Array.prototype.forEach.call($("#text-blocks").querySelectorAll(".block"), function (row, i) {
-      var b = state.text.blocks[i];
-
-      row.querySelector('[data-block="role"]').value = b.role;
-      setValue(row.querySelector('[data-block="text"]'), b.text);
-      setValue(row.querySelector('[data-block="row"]'), b.row);
-      row.querySelector('[data-block="grid"]').value = String(b.grid);
-      row.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
-      setValue(row.querySelector('[data-block="blind"]'), b.blind || 12);
-      row.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
-      setValue(row.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
-      setValue(row.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
-      var fw = textFrame().w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
-      row.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
-      Array.prototype.forEach.call(row.querySelectorAll("[data-align]"), function (btn) {
-        btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
-      });
-    });
-
     document.body.classList.toggle("guides-locked", !!state.margin.locked);
     var ov = state.showGuides !== false;
     document.body.classList.toggle("overlays-on", ov);
@@ -2530,7 +2628,6 @@
       state.rect.hmode = el.value;
     });
     onChange("#margin-locked", function (el) { state.margin.locked = el.checked; });
-    onChange("#text-margin-pad", function (el) { state.text.marginPad = el.checked; });
     onChange("#corner-preset", function (el) {
       var p = CORNER_PRESETS.filter(function (x) { return x.id === el.value; })[0];
       if (!p) return;
@@ -2680,13 +2777,19 @@
     onChange("#type-transform", function (el) { styleOf().transform = el.value; });
     onInput("#type-color", function (el) { styleOf().color = el.value; });
 
-    numInput("#text-padding", function (v) { state.text.padding = snap(v); }, 0);
     onChange("#rect-grid", function (el) { state.rect.grid = +el.value; });
-    $("#text-blocks").addEventListener("input", function (e) {
-      var row = e.target.closest(".block");
-      if (!row) return;
-      var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
-      if (what === "blind") {                       // the slider fills as it moves
+
+    /* The inspector is rebuilt whenever the selection moves, so its fields are
+       reached by delegation and always mean the block that is selected. */
+    function selBlock() { return state.text.blocks[state.selBlock]; }
+
+    $("#block-inspector").addEventListener("input", function (e) {
+      var b = selBlock(), what = e.target.dataset.block;
+      if (e.target.id === "text-padding") {
+        if (e.target.value === "") return;
+        state.text.padding = Math.max(0, snap(num(e.target.value, state.text.padding)));
+      } else if (!b) return;
+      else if (what === "blind") {                    // the slider fills as it moves
         b.blind = Math.max(1, Math.round(num(e.target.value, 12)));
         b.text = blindText(b.blind);
       } else if (what === "text") b.text = e.target.value;
@@ -2697,11 +2800,11 @@
       else return;
       render();
     });
-    $("#text-blocks").addEventListener("change", function (e) {
-      var row = e.target.closest(".block");
-      if (!row) return;
-      var b = state.text.blocks[+row.dataset.i], what = e.target.dataset.block;
-      if (what === "role") b.role = e.target.value;
+    $("#block-inspector").addEventListener("change", function (e) {
+      var b = selBlock(), what = e.target.dataset.block;
+      if (e.target.id === "text-margin-pad") state.text.marginPad = e.target.checked;
+      else if (!b) return;
+      else if (what === "role") b.role = e.target.value;
       else if (what === "grid" || what === "from") {
         var y = rowY(b);                                   // keep it where it is
         if (what === "grid") b.grid = e.target.value === "both" ? "both" : +e.target.value;
@@ -2710,19 +2813,37 @@
       } else return;
       render();
     });
-    $("#text-blocks").addEventListener("click", function (e) {
-      var gone = e.target.closest('[data-block="remove"]');
-      if (gone) { removeBlock(+gone.closest(".block").dataset.i); render(); return; }
-      var fill = e.target.closest('[data-block="fill"]');
-      if (fill) {
-        var fb = state.text.blocks[+fill.closest(".block").dataset.i];
-        if (fb) { fb.blind = fb.blind || 12; fb.text = blindText(fb.blind); }
+    $("#block-inspector").addEventListener("click", function (e) {
+      var b = selBlock();
+      if (e.target.closest('[data-block="remove"]')) { removeBlock(state.selBlock); render(); return; }
+      if (!b) return;
+      if (e.target.closest('[data-block="fill"]')) {
+        b.blind = b.blind || 12;
+        b.text = blindText(b.blind);
         render();
         return;
       }
       var btn = e.target.closest("[data-align]");
       if (!btn) return;
-      state.text.blocks[+btn.closest(".block").dataset.i].align = btn.dataset.align;
+      b.align = btn.dataset.align;
+      render();
+    });
+    // a click inside the inspector is not a click on empty canvas
+    $("#block-inspector").addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    // opening the shared settings makes it taller; keep it on the canvas
+    $("#block-inspector").addEventListener("toggle", function (e) {
+      if (e.target.id === "ins-shared") sharedOpen = e.target.open;
+      repositionInspector();
+    }, true);
+
+    $("#segments").addEventListener("click", function (e) {
+      var tab = e.target.closest("[data-seg]");
+      if (!tab) return;
+      state.seg = tab.dataset.seg;
+      render();
+    });
+    $("#stub-back").addEventListener("click", function () {
+      state.seg = "system";
       render();
     });
 
@@ -2884,7 +3005,7 @@
     else if (state.selBlock > i) state.selBlock--;
     if (editing === i) editing = -1;
     else if (editing > i) editing--;
-    buildTextBlocks();
+    inspectorFor = -1;
     var stack = liveStack();
     if (stack) stack.dataset.sig = "";
   }
@@ -2936,7 +3057,7 @@
       i = state.text.blocks.length - 1;
       state.sel = "rect";
       state.selBlock = i;
-      buildTextBlocks();
+      inspectorFor = -1;
     }
     var landed = false, moved = false;
     placing = true;
@@ -3685,7 +3806,6 @@
   buildPresetSelect();
   buildFormatSelect();
   buildTypeSelects();
-  buildTextBlocks();
   buildGrid("#rect-align", "rect", "align");
   buildGrid("#rect-anchor", "rect", "anchor");
   buildGrid("#logo-align", "logo", "align");

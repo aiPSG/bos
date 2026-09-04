@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 240" width="420" height="240" role="img"
+     aria-label="Under construction">
+  <defs>
+    <pattern id="hazard" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="34" height="34" fill="#e5a23d"/>
+      <rect width="17" height="34" fill="#1c2029"/>
+    </pattern>
+  </defs>
+
+  <!-- the plate the sign stands on -->
+  <rect x="8" y="8" width="404" height="224" rx="16" fill="#171b23" stroke="#2a2f3a"/>
+
+  <!-- barrier: two legs and a striped board -->
+  <g stroke="#3a4150" stroke-width="7" stroke-linecap="round">
+    <path d="M126 108v86M294 108v86"/>
+  </g>
+  <rect x="96" y="86" width="228" height="34" rx="6" fill="url(#hazard)" stroke="#2a2f3a"/>
+  <rect x="96" y="132" width="228" height="20" rx="5" fill="#232834" stroke="#2a2f3a"/>
+
+  <!-- a cone, off to one side -->
+  <path d="M348 196 372 128 396 196Z" fill="#e5a23d"/>
+  <path d="M357 170h30l4 12h-38Z" fill="#15181e" opacity=".55"/>
+  <rect x="338" y="194" width="68" height="10" rx="5" fill="#3a4150"/>
+
+  <text x="210" y="222" text-anchor="middle" fill="#8b93a3"
+        font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"
+        font-size="15" font-weight="600" letter-spacing="3.6">UNDER CONSTRUCTION</text>
+</svg>

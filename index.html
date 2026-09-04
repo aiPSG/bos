@@ -11,12 +11,15 @@
 <body>
 <div class="app">
 
-  <aside class="panel" id="panel">
-    <header class="panel-head">
-      <h1>bos</h1>
-      <button type="button" class="ghost" id="reset" title="Reset everything to defaults">Reset</button>
-    </header>
+  <header class="app-bar">
+    <h1>bos</h1>
+    <nav class="segments" id="segments" aria-label="Stages of the work"></nav>
+    <button type="button" class="ghost" id="reset" title="Reset everything to defaults">Reset</button>
+  </header>
 
+  <div class="app-body" id="app-body">
+
+  <aside class="panel" id="panel">
     <details class="group" open>
       <summary><h2>Format</h2></summary>
       <div class="row">
@@ -342,21 +345,6 @@
       <p class="hint" id="type-style-hint"></p>
     </details>
 
-    <details class="group" open>
-      <summary><h2>Text blocks</h2></summary>
-      <div class="row">
-        <label class="field grow"><span>Side padding — the column the blocks run in</span>
-          <input type="number" id="text-padding" min="0" step="1"></label>
-      </div>
-      <label class="check"><input type="checkbox" id="text-margin-pad"><span>Hang side-aligned text on the format margins when the box fills the format</span></label>
-      <p class="hint" id="text-pad-hint"></p>
-      <div id="text-blocks"></div>
-      <p class="hint" id="text-rows-hint"></p>
-      <p class="hint">Each block sits on a row of its own, counted from the top margin, and can be
-        dragged up and down on the canvas. Its baseline lands on that line exactly. The box stays
-        visible while any block has text, even with the rectangle itself switched off.</p>
-    </details>
-
     <details class="group">
       <summary><h2>Export</h2></summary>
       <div class="row">
@@ -422,15 +410,34 @@
         </div>
       </div>
 
+      <div class="inspector" id="block-inspector" hidden>
+        <div class="ins-head">
+          <span id="ins-title">Block</span>
+          <button type="button" class="x" data-block="remove" title="Take this block off the stage">✕</button>
+        </div>
+        <div class="ins-body" id="ins-body"></div>
+      </div>
+
       <aside class="rail" id="rail">
         <div class="rail-head">Formats</div>
         <div class="rail-list" id="rail-list"></div>
       </aside>
     </div>
 
-    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · click a text block to pick it up, double-click to type into it, drag its edges to resize the field or its round grip to size the type · click empty canvas to deselect · ⌘/Ctrl + Z undoes · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
+    <p class="footnote">Drag a shape to align it · square handles resize · round handles set the corner radius · click a text block to pick it up and its settings open beside it, double-click to type into it, drag its edges to resize the field or its round grip to size the type · click empty canvas to deselect · ⌘/Ctrl + Z undoes · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
   </main>
 
+  <section class="stub" id="seg-stub" hidden>
+    <div class="stub-card">
+      <img src="img/under-construction.svg" alt="Under construction" width="420" height="240">
+      <h2 id="stub-name">Under construction</h2>
+      <p class="stub-note" id="stub-note"></p>
+      <div class="stub-steps" id="stub-steps"></div>
+      <button type="button" class="primary" id="stub-back">Back to the design system</button>
+    </div>
+  </section>
+
+  </div>
 </div>
   <div class="sheet-wrap" id="sheet-wrap" hidden>
     <div class="sheet-bar">

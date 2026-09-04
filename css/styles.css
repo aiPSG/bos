@@ -27,22 +27,56 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
-.app{display:flex;height:100vh;height:100dvh;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+.app-body{display:flex;flex:1;min-height:0;overflow:hidden}
+
+/* ---------- the stages of the work ---------- */
+
+.app-bar{
+  display:flex;align-items:center;gap:16px;flex:0 0 auto;
+  padding:0 14px;background:var(--bg-panel);border-bottom:1px solid var(--line);
+}
+.app-bar h1{margin:0;font-size:15px;font-weight:650;letter-spacing:.14em;text-transform:uppercase}
+.segments{display:flex;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.segments::-webkit-scrollbar{display:none}
+.segments button{
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+  padding:14px 14px 12px;border:0;border-bottom:2px solid transparent;background:none;
+  color:var(--text-dim);font:inherit;font-size:12.5px;cursor:pointer;
+}
+.segments button:hover{color:var(--text);background:#1a1e26}
+.segments button[aria-pressed=true]{color:var(--text);border-bottom-color:var(--accent)}
+.seg-n{
+  display:grid;place-items:center;width:17px;height:17px;border-radius:50%;
+  background:var(--bg-input-hi);color:var(--text-dim);font-size:10px;font-variant-numeric:tabular-nums;
+}
+.segments button[aria-pressed=true] .seg-n{background:var(--accent);color:#fff}
+.seg-soon{
+  padding:1px 5px;border-radius:99px;background:var(--bg-input);
+  color:var(--text-dim);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+}
+
+/* ---------- a stage that is not built yet ---------- */
+
+.stub{flex:1;display:grid;place-items:center;padding:32px;overflow-y:auto}
+.stub-card{max-width:520px;text-align:center}
+.stub-card img{width:100%;max-width:420px;height:auto;opacity:.9}
+.stub-card h2{margin:18px 0 8px;font-size:19px;font-weight:650}
+.stub-note{margin:0 auto;max-width:44ch;color:var(--text-dim);line-height:1.6}
+.stub-steps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:18px 0 4px}
+.stub-step{
+  padding:7px 12px;border:1px dashed var(--line);border-radius:99px;
+  color:var(--text-dim);font-size:12px;
+}
+.stub-card button{margin-top:22px}
 
 /* ---------- panel ---------- */
 
 .panel{
   width:var(--panel-w);flex:0 0 var(--panel-w);
   background:var(--bg-panel);border-right:1px solid var(--line);
-  overflow-y:auto;overscroll-behavior:contain;
+  overflow-y:auto;overscroll-behavior:contain;padding-top:6px;
 }
-
-.panel-head{
-  position:sticky;top:0;z-index:3;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 16px;background:var(--bg-panel);border-bottom:1px solid var(--line);
-}
-.panel-head h1{margin:0;font-size:15px;font-weight:650;letter-spacing:.14em;text-transform:uppercase}
 
 .group{border-bottom:1px solid var(--line);padding:0 16px 16px}
 .group:not([open]){padding-bottom:0}
@@ -222,7 +256,30 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
 /* ---------- canvas ---------- */
 
 .canvas{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
-.canvas-body{flex:1;display:flex;min-height:0;min-width:0}
+.canvas-body{position:relative;flex:1;display:flex;min-height:0;min-width:0}
+
+/* ---------- the block inspector, beside the block it edits ---------- */
+
+.inspector{
+  position:absolute;z-index:6;width:262px;max-height:calc(100% - 16px);
+  display:flex;flex-direction:column;
+  background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:0 12px 34px rgba(0,0,0,.45);
+}
+.ins-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 8px 8px 11px;border-bottom:1px solid var(--line);
+  font-size:11px;color:var(--text-dim);letter-spacing:.04em;
+}
+.ins-body{padding:10px 11px 12px;overflow-y:auto;overscroll-behavior:contain}
+.ins-body .block-row{margin:8px 0;gap:5px;grid-template-columns:34px 1fr 1fr 54px}
+.ins-body .block-row.blind{grid-template-columns:34px 1fr 40px 50px}
+.ins-body .block-row.rowset{grid-template-columns:34px 50px 1fr 1fr}
+.ins-body .seg{margin-top:10px}
+.ins-body textarea{min-height:52px;margin-top:8px}
+.ins-body .sub{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.ins-body .hint{margin:8px 0 0}
+.ins-role{width:100%}
 
 .toolbar{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -405,7 +462,11 @@ body.overlays-on #overlay-toggle{background:var(--accent-dim);border-color:var(-
 
 @media (max-width:900px){
   body.rail-open .rail{display:none}
-  .app{flex-direction:column-reverse}
+  .app-body{flex-direction:column-reverse}
+  .app-bar{gap:10px;padding:0 10px}
+  .app-bar h1{display:none}
+  .segments button{padding:11px 10px 9px;font-size:12px}
+  .inspector{width:auto;left:8px !important;right:8px;max-height:52%}
   .panel{width:100%;flex:1 1 auto;border-right:0;border-top:1px solid var(--line)}
   .canvas{flex:0 0 50vh}
   .footnote{display:none}

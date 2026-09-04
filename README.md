@@ -8,10 +8,25 @@ dragging on the canvas.
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
 as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
 last had. A **text role can be pulled out as often as you like** — each drag makes a block of its
-own, with its own copy, position and field — and the **✕** on a block, on the stage or in the panel,
-takes it off again (⌫ does the same for the selected one). Undo brings it back.
+own, with its own copy, position and field — and the **✕** on a block takes it off again (⌫ does the
+same for the selected one). Undo brings it back.
 
 **Live:** https://aipsg.github.io/bos/
+
+## The four stages
+
+The work runs in stages, and the tabs across the top are those stages in order:
+
+| | Stage | What it is |
+| --- | --- | --- |
+| 1 | **Set design system** | The format, the logo, the margins and columns, the rectangle, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
+| 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. |
+| 3 | **Design formats** | The system and its background laid into every format the work runs in, each adjusted where it has to be. |
+| 4 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
+
+Only the first is built. The other three carry an **under construction** placeholder that names what
+will live there; a background can still be uploaded or generated meanwhile, under Format →
+Background image. The tab you were last on is remembered.
 
 ## The model
 
@@ -168,7 +183,13 @@ the first baseline — and moved so that baseline lands on the row it was given.
 font, including one you upload. Every following line comes along, because line boxes are whole grid
 rows.
 
-**Text blocks** — as many as you drag out of the tray, each **positioned individually**.
+**Text blocks** — as many as you drag out of the tray, each **positioned individually**. There is no
+text-block section in the left panel: **a block is set where it sits**. Click one on the canvas and
+an inspector opens beside it — outside the format when the canvas has room for it there, so the
+design is never covered — carrying that block's role, its copy, its blind text, its field, its row
+and grid, its alignment, and the ✕ that takes it off. The two settings every block shares (the side
+padding, and hanging side-aligned text on the format margins) fold out of *Every block* at the foot
+of it. Hiding the guides hides the inspector with the rest of the selection UI.
 
 *A block belongs to the rectangle only while it sits inside it.* Inside, it takes the box padding
 and **travels with the box** as that is moved or resized — the top-anchored ones follow the top edge,
@@ -290,16 +311,18 @@ Below them, the live **CSS and markup** output with copy buttons.
 
 ## The panel
 
-Seven groups, in the order the design comes together: **Format** (with background image inside it),
+Six groups, in the order the design comes together: **Format** (with background image inside it),
 **Logo**, **Margins** (with the column grid), **Rectangle** (with corners), **Typography**,
-**Text blocks**, **Export** (the slides, then CSS).
+**Export** (the slides, then CSS). Text blocks are not among them — they are set on the canvas,
+beside the block.
 
 ## Layout
 
 ```
-index.html      markup and the panel controls
-css/styles.css  UI and canvas styling
-js/app.js       state, geometry, corners, type, rendering, interactions, image generation
+index.html                markup and the panel controls
+css/styles.css            UI and canvas styling
+js/app.js                 state, geometry, corners, type, rendering, interactions, image generation
+img/under-construction.svg  the placeholder the unbuilt stages carry
 ```
 
 One routine, `paintInto(host, w, h, scale)`, draws the whole design into any element at any format.
