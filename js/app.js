@@ -362,8 +362,9 @@
         // format edge to edge, or (width only) fitting around the text
         // placed: dragged onto the stage from the tray. visible: drawn with its fill
         placed: false, visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
-        // a column grid of its own, across the box, that blocks can line up on
-        columns: { n: 3, gutter: 24, show: true },
+        // a column grid of its own, across the box — with margins of its own
+        // inside it — that blocks can line up on
+        columns: { n: 3, gutter: 24, show: true, m: { top: 0, right: 0, bottom: 0, left: 0 } },
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
@@ -470,6 +471,8 @@
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
       s.rect.columns = Object.assign(d.rect.columns, s.rect.columns);
+      if (!s.rect.columns.m || typeof s.rect.columns.m !== "object") s.rect.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
+      SIDES.forEach(function (side) { if (!isFinite(s.rect.columns.m[side])) s.rect.columns.m[side] = 0; });
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -1204,9 +1207,19 @@
   // the left margin
   /* There are two column grids a block can line up on: the format's, across the
      margin box, and the rectangle's own, across the box. Each is {x, w, n, gutter}. */
+  // the box the rectangle's columns divide: its box, less margins of its own
+  function rectColBox() {
+    var r = box("rect"), m = state.rect.columns.m;
+    return {
+      x: r.x + (m.left || 0), y: r.y + (m.top || 0),
+      w: Math.max(1, r.w - (m.left || 0) - (m.right || 0)),
+      h: Math.max(1, r.h - (m.top || 0) - (m.bottom || 0))
+    };
+  }
+
   function colGrid(which) {
     if (which === "rect" && state.rect.placed) {
-      var r = box("rect"), rc = state.rect.columns;
+      var r = rectColBox(), rc = state.rect.columns;
       return { x: r.x, w: r.w, n: Math.max(1, Math.round(rc.n)), gutter: Math.max(0, rc.gutter) };
     }
     var c = content();
@@ -1504,9 +1517,8 @@
       { x: m.left, y: m.top, h: contentH() });
     var rc = state.rect.columns;
     var on = state.rect.placed && rc.show && rc.n >= 1;
-    var r = state.rect.placed ? box("rect") : null;
-    drawColumns(els.rectColumns, colGrid("rect"), on, s,
-      r ? { x: r.x, y: r.y, h: r.h } : null);
+    var r = state.rect.placed ? rectColBox() : null;
+    drawColumns(els.rectColumns, colGrid("rect"), on, s, r);
   }
 
   // one grid of columns, tinted in the guide colour, over the box it belongs to
@@ -2542,13 +2554,17 @@
     var rc = state.rect.columns, rg = colGrid("rect");
     setValue($("#rcol-n"), rc.n);
     setValue($("#rcol-gutter"), fmt(rc.gutter));
+    SIDES.forEach(function (side) { setValue($("#rcol-" + side), fmt(rc.m[side] || 0)); });
     $("#rcol-show").checked = !!rc.show;
+    var inset = SIDES.some(function (side) { return rc.m[side]; });
     $("#rcol-hint").textContent = state.rect.placed
       ? Math.max(1, Math.round(rc.n)) + " columns of " + round(gridColW(rg), 2) + " px with a " +
-        fmt(rc.gutter) + " px gutter across the " + round(rg.w, 2) + " px of the box. A text " +
-        "block set to the box's columns lines up on these instead of the format's."
-      : "The box has a column grid of its own, across its width. Drag the rectangle onto the " +
-        "stage and it is drawn here; a text block can line up on it instead of the format's columns.";
+        fmt(rc.gutter) + " px gutter across the " + round(rg.w, 2) + " px" +
+        (inset ? " left inside the " + round(box("rect").w, 2) + " px box by its margins" : " of the box") +
+        ". A text block set to the box's columns lines up on these instead of the format's."
+      : "The box has a column grid of its own, with margins of its own inside it. Drag the " +
+        "rectangle onto the stage and it is drawn here; a text block can line up on it instead " +
+        "of the format's columns.";
 
     setValue($("#col-n"), state.cols.n);
     setValue($("#col-gutter"), fmt(state.cols.gutter));
@@ -2873,6 +2889,9 @@
     numInput("#rcol-n", function (v) { state.rect.columns.n = clamp(Math.round(v), 1, 48); }, 1);
     numInput("#rcol-gutter", function (v) { state.rect.columns.gutter = Math.max(0, snap(v)); }, 0);
     onChange("#rcol-show", function (el) { state.rect.columns.show = el.checked; });
+    SIDES.forEach(function (side) {
+      numInput("#rcol-" + side, function (v) { state.rect.columns.m[side] = snap(v); });
+    });
 
     /* The inspector is rebuilt whenever the selection moves, so its fields are
        reached by delegation and always mean the block that is selected. */

@@ -175,14 +175,58 @@
         <label class="field color"><span>Colour</span><input type="color" id="guide-color"></label>
       </div>
       <p class="hint" id="guide-hint"></p>
+    </details>
 
-      <h3 class="sub-head">Columns</h3>
+    <details class="group" open>
+      <summary><h2>Grids</h2></summary>
+
+      <h3 class="sub-head">Baseline grid</h3>
+      <label class="field grow"><span>Grid 1 comes from</span>
+        <select id="type-grid-from">
+          <option value="fit">Whole rows that fill the content height</option>
+          <option value="leading">The paragraph line height</option>
+        </select>
+      </label>
+      <div class="row">
+        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" step="1"></label>
+        <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>
+      </div>
+      <div class="row">
+        <label class="field grow"><span>Show on the canvas</span>
+          <select id="type-grid">
+            <option value="both">Both grids</option>
+            <option value="full">Grid 1 only</option>
+            <option value="half">Grid 2 only</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" id="type-grid-hint"></p>
+
+      <h3 class="sub-head">Format columns</h3>
       <div class="row">
         <label class="field"><span>Columns</span><input type="number" id="col-n" min="1" max="48" step="1"></label>
         <label class="field"><span>Gutter</span><input type="number" id="col-gutter" min="0" step="1"></label>
       </div>
       <label class="check"><input type="checkbox" id="col-show"><span>Show the column grid</span></label>
       <p class="hint" id="col-hint"></p>
+
+      <h3 class="sub-head">Rectangle columns</h3>
+      <div class="row">
+        <label class="field"><span>Columns</span><input type="number" id="rcol-n" min="1" max="48" step="1"></label>
+        <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" step="1"></label>
+      </div>
+      <p class="hint">Margins of its own, inside the box:</p>
+      <div class="row">
+        <label class="field"><span>Top</span><input type="number" id="rcol-top" step="1"></label>
+        <label class="field"><span>Right</span><input type="number" id="rcol-right" step="1"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Bottom</span><input type="number" id="rcol-bottom" step="1"></label>
+        <label class="field"><span>Left</span><input type="number" id="rcol-left" step="1"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="rcol-show"><span>Show them on the canvas</span></label>
+      <p class="hint" id="rcol-hint"></p>
     </details>
 
     <details class="group" open>
@@ -226,16 +270,6 @@
       <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
       <p class="hint" id="rect-grid-hint"></p>
       <p class="hint" id="rect-width-hint"></p>
-
-      <details class="sub">
-        <summary><h3>Columns of its own</h3></summary>
-        <div class="row">
-          <label class="field"><span>Columns</span><input type="number" id="rcol-n" min="1" max="48" step="1"></label>
-          <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" step="1"></label>
-        </div>
-        <label class="check"><input type="checkbox" id="rcol-show"><span>Show them on the canvas</span></label>
-        <p class="hint" id="rcol-hint"></p>
-      </details>
 
       <details class="sub" open>
         <summary><h3>Corners</h3></summary>
@@ -299,29 +333,6 @@
       <label class="field grow"><span>Size relations</span><select id="type-system"></select></label>
       <div id="type-scale"></div>
       <p class="hint" id="type-scale-hint"></p>
-
-      <h3 class="sub-head">Baseline grid</h3>
-      <label class="field grow"><span>Grid 1 comes from</span>
-        <select id="type-grid-from">
-          <option value="fit">Whole rows that fill the content height</option>
-          <option value="leading">The paragraph line height</option>
-        </select>
-      </label>
-      <div class="row">
-        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" step="1"></label>
-        <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>
-      </div>
-      <div class="row">
-        <label class="field grow"><span>Show on the canvas</span>
-          <select id="type-grid">
-            <option value="both">Both grids</option>
-            <option value="full">Grid 1 only</option>
-            <option value="half">Grid 2 only</option>
-            <option value="off">Off</option>
-          </select>
-        </label>
-      </div>
-      <p class="hint" id="type-grid-hint"></p>
 
       <h3 class="sub-head">Style</h3>
       <label class="field grow"><span>Role</span><select id="type-level"></select></label>

@@ -59,11 +59,20 @@ over it by its opacity — and takes whichever of black or white contrasts more.
 luminance where the two are equal, so the guides never wash out on a pale format or disappear on a
 dark one. **Guide colour** in the Margins section switches that to a colour you pick instead.
 
-**Columns** — the box between the left and right margins is divided into a number of columns with a
-gutter between them, drawn on the canvas in the guide colour. Set the column count and the gutter;
-the panel reports the column width that falls out of them ("12 columns of 62 px with a 16 px gutter
-fill the 920 px between the left and right margins"). The grid can be hidden without losing the
-numbers.
+**Grids** — all three live in one panel section, since they are the same kind of thing: the
+**baseline grid** (where grid 1 comes from, its row count and what is drawn), the **format columns**,
+and the **rectangle's columns**. Each can be hidden without losing its numbers, and **Guides** in
+the toolbar takes the lot off at once.
+
+The **format columns** divide the box between the left and right margins into a number of columns
+with a gutter between them, drawn in the guide colour. Set the count and the gutter; the panel
+reports the column width that falls out of them ("12 columns of 62 px with a 16 px gutter fill the
+920 px between the left and right margins").
+
+The **rectangle's columns** do the same across the box, on a count and gutter of their own, and they
+have **margins of their own inside the box** — top, right, bottom and left — so the grid can be held
+off the edges of the box the way the format columns are held off the edges of the page. They move
+and re-divide with the box, and they are what *the box's own columns* means for a text block.
 
 ## What you can set
 
@@ -102,11 +111,6 @@ resized by a handle, it lands on the grid.
 And whatever the mode, **the box is never narrower than its text**: the longest line plus the side
 padding on both sides is its floor, so the copy never spills out of it. When even the whole column
 grid is too narrow for a line, the text wins and the box grows past it.
-
-**The rectangle's own columns** — a column grid across the box, with its own count and gutter, drawn
-in the guide colour like the format's. It is what *the box's own columns* means for a text block, so
-copy can run on a grid the box sets rather than the page's — three columns inside a box that spans
-five of the format's, say. It moves and re-divides with the box.
 
 **Corners** — a **shape** dropdown in three families. *Rounded* is everything `border-radius` can
 make (sharp, rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave,
@@ -157,7 +161,8 @@ stands.
 Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
 and colour, so the hierarchy is real markup, not just sizes.
 
-**Baseline grid** — there are two grids, and you choose which way round they are built.
+**Baseline grid** (in the *Grids* section, with the two column grids) — there are two grids, and
+you choose which way round they are built.
 
 *Whole rows that fill the content height* (the default): **grid 1 divides the format minus the top
 and bottom margins into whole rows, so it always fits exactly**, and that row height *is* the
@@ -333,10 +338,10 @@ Below them, the live **CSS and markup** output with copy buttons.
 
 ## The panel
 
-Six groups, in the order the design comes together: **Format** (with background image inside it),
-**Logo**, **Margins** (with the column grid), **Rectangle** (with corners), **Typography**,
-**Export** (the slides, then CSS). Text blocks are not among them — they are set on the canvas,
-beside the block.
+Seven groups, in the order the design comes together: **Format** (with background image inside it),
+**Logo**, **Margins**, **Grids** (the baseline grid and both column grids), **Rectangle** (with
+corners), **Typography**, **Export** (the slides, then CSS). Text blocks are not among them — they
+are set on the canvas, beside the block.
 
 ## Layout
 
