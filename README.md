@@ -187,9 +187,14 @@ rows.
 text-block section in the left panel: **a block is set where it sits**. Click one on the canvas and
 an inspector opens beside it — outside the format when the canvas has room for it there, so the
 design is never covered — carrying that block's role, its copy, its blind text, its field, its row
-and grid, its alignment, and the ✕ that takes it off. The two settings every block shares (the side
-padding, and hanging side-aligned text on the format margins) fold out of *Every block* at the foot
-of it. Hiding the guides hides the inspector with the rest of the selection UI.
+and grid, and its alignment. The two settings every block shares (the side padding, and hanging
+side-aligned text on the format margins) fold out of *Every block* at the foot of it.
+
+**Drag the inspector by its title bar** to park it anywhere on the canvas; it stays where it is put,
+whichever block you pick next, and is held inside the canvas whatever the window does. Its **✕ only
+shuts the panel** — the block stays on the stage, and picking a block opens it again. The red ✕ on
+the block itself is the one that takes the block off. Hiding the guides hides the inspector with the
+rest of the selection UI.
 
 *A block belongs to the rectangle only while it sits inside it.* Inside, it takes the box padding
 and **travels with the box** as that is moved or resized — the top-anchored ones follow the top edge,

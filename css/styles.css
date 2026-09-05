@@ -270,7 +270,10 @@ body:not(.elliptical) .corner-row{grid-template-columns:68px 1fr 44px}
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   padding:8px 8px 8px 11px;border-bottom:1px solid var(--line);
   font-size:11px;color:var(--text-dim);letter-spacing:.04em;
+  cursor:grab;user-select:none;
 }
+body.moving-ins,body.moving-ins .ins-head{cursor:grabbing}
+body.moving-ins .inspector{box-shadow:0 18px 44px rgba(0,0,0,.6)}
 .ins-body{padding:10px 11px 12px;overflow-y:auto;overscroll-behavior:contain}
 .ins-body .block-row{margin:8px 0;gap:5px;grid-template-columns:34px 1fr 1fr 54px}
 .ins-body .block-row.blind{grid-template-columns:34px 1fr 40px 50px}
@@ -379,12 +382,14 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 }
 .bhandle.kill:hover{background:#ff5c60}
 .block-n{font-size:11px;color:var(--text-dim);flex:0 0 auto}
-.block-head .x,.block-head button.x{
+.block-head .x,.block-head button.x,.ins-head .x,.ins-head button.x{
   flex:0 0 auto;width:24px;height:24px;padding:0;border-radius:6px;
   border:1px solid var(--line);background:var(--bg-input);color:var(--text-dim);
   font:inherit;font-size:11px;cursor:pointer;
 }
 .block-head .x:hover{background:var(--err);border-color:var(--err);color:#fff}
+/* it only shuts the panel, so it does not go red like the one that deletes */
+.ins-head .x:hover{background:var(--bg-input-hi);border-color:var(--text-dim);color:var(--text)}
 .tb.picked{outline:1px dashed rgba(255,255,255,.35)}
 .tb.editing{outline:1px solid var(--accent);cursor:text}
 .tb.editing:focus{outline:2px solid var(--accent)}

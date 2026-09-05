@@ -2082,6 +2082,8 @@
      opens beside the one that is selected and follows it about, so nothing
      about a text block is edited from the far side of the window. */
   var inspectorFor = -1, sharedOpen = false;
+  var insClosed = false;      // shut by its ✕; picking a block opens it again
+  var insPos = null;          // where the user parked it, in canvas-body pixels
 
   function buildInspector() {
     $("#ins-body").innerHTML =
@@ -2134,7 +2136,7 @@
     var el = b && els.stage.querySelector('.tb[data-i="' + i + '"]');
     var ins = $("#block-inspector");
     // selection UI goes with the guides, and the inspector is selection UI
-    if (!el || state.showGuides === false) { ins.hidden = true; inspectorFor = -1; return; }
+    if (!el || state.showGuides === false || insClosed) { ins.hidden = true; return; }
 
     ins.hidden = false;
     if (inspectorFor !== i) { buildInspector(); inspectorFor = i; }
@@ -2186,8 +2188,36 @@
     if (!ins.hidden && el) positionInspector(ins, el);
   }
 
+  // where the user parked it, held inside the canvas whatever the window does
+  function parkInspector(ins) {
+    var host = ins.parentNode.getBoundingClientRect();
+    var w = ins.offsetWidth, h = ins.offsetHeight;
+    ins.style.left = clamp(insPos.x, 8, Math.max(8, host.width - w - 8)) + "px";
+    ins.style.top = clamp(insPos.y, 8, Math.max(8, host.height - h - 8)) + "px";
+  }
+
+  // drag it about by its head, and it stays where it is put
+  function startInspectorDrag(e) {
+    var ins = $("#block-inspector");
+    var x0 = ins.offsetLeft, y0 = ins.offsetTop, sx = e.clientX, sy = e.clientY;
+    document.body.classList.add("moving-ins");
+    function move(ev) {
+      insPos = { x: x0 + ev.clientX - sx, y: y0 + ev.clientY - sy };
+      parkInspector(ins);
+    }
+    function up() {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.body.classList.remove("moving-ins");
+    }
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    e.preventDefault();
+  }
+
   // beside the block, on whichever side has the room, and never off the canvas
   function positionInspector(ins, el) {
+    if (insPos) return parkInspector(ins);
     var r = el.getBoundingClientRect();
     var host = ins.parentNode.getBoundingClientRect();
     var vp = els.viewport.getBoundingClientRect();
@@ -2815,7 +2845,12 @@
     });
     $("#block-inspector").addEventListener("click", function (e) {
       var b = selBlock();
-      if (e.target.closest('[data-block="remove"]')) { removeBlock(state.selBlock); render(); return; }
+      // the ✕ here shuts the panel; the one on the block itself takes the block off
+      if (e.target.closest('[data-ins="close"]')) {
+        insClosed = true;
+        $("#block-inspector").hidden = true;
+        return;
+      }
       if (!b) return;
       if (e.target.closest('[data-block="fill"]')) {
         b.blind = b.blind || 12;
@@ -2829,7 +2864,11 @@
       render();
     });
     // a click inside the inspector is not a click on empty canvas
-    $("#block-inspector").addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    $("#block-inspector").addEventListener("pointerdown", function (e) {
+      e.stopPropagation();
+      if (e.button !== 0 || e.target.closest("button")) return;
+      if (e.target.closest(".ins-head")) startInspectorDrag(e);
+    });
     // opening the shared settings makes it taller; keep it on the canvas
     $("#block-inspector").addEventListener("toggle", function (e) {
       if (e.target.id === "ins-shared") sharedOpen = e.target.open;
@@ -3058,6 +3097,7 @@
       state.sel = "rect";
       state.selBlock = i;
       inspectorFor = -1;
+      insClosed = false;
     }
     var landed = false, moved = false;
     placing = true;
@@ -3277,6 +3317,7 @@
         if (editing >= 0) stopEditing();
         state.sel = "rect";
         state.selBlock = i;
+        insClosed = false;                         // picking a block brings it back
         els.frame.focus();
         render();
         return startTextDrag(e, i);
