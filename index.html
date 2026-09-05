@@ -226,6 +226,17 @@
       <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
       <p class="hint" id="rect-grid-hint"></p>
       <p class="hint" id="rect-width-hint"></p>
+
+      <details class="sub">
+        <summary><h3>Columns of its own</h3></summary>
+        <div class="row">
+          <label class="field"><span>Columns</span><input type="number" id="rcol-n" min="1" max="48" step="1"></label>
+          <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" step="1"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="rcol-show"><span>Show them on the canvas</span></label>
+        <p class="hint" id="rcol-hint"></p>
+      </details>
+
       <details class="sub" open>
         <summary><h3>Corners</h3></summary>
         <label class="field grow"><span>Shape</span>
@@ -398,6 +409,7 @@
             <span class="guide v" data-side="right"></span>
           </div>
           <div class="columns" id="columns" hidden></div>
+          <div class="columns rect-columns" id="rect-columns" hidden></div>
         <div class="baseline" id="baseline" hidden></div>
         <div class="cells" id="cells" hidden></div>
           <div class="frame" id="frame" tabindex="0" hidden></div>

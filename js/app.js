@@ -141,16 +141,12 @@
     return out;
   }
 
-  var ROLE_SEEDS = {
-    display: "A display line",
-    headline: "Headline goes\nhere",
-    subline: "A subline carrying\nthe second thought",
-    paragraph: "A supporting line of copy\nthat explains the headline.",
-    smallprint: "Small print: terms and credits."
-  };
   var ROLE_ROWS = { display: 2, headline: 2, subline: 5, paragraph: 8, smallprint: 1 };
-  // how much blind text a role asks for when it is filled
-  var ROLE_BLIND = { display: 3, headline: 6, subline: 12, paragraph: 40, smallprint: 14 };
+  /* How much blind text a role asks for — what Fill gives it, and what a block
+     arrives on the stage carrying, so nothing starts with a line break in it.
+     Nothing wraps on its own, and the box is never narrower than its longest line,
+     so these are the lengths that make a sensible line at each size. */
+  var ROLE_BLIND = { display: 3, headline: 5, subline: 7, paragraph: 12, smallprint: 10 };
   var ROLE_NAMES = {
     display: "Display", headline: "Headline", subline: "Subline",
     paragraph: "Paragraph", smallprint: "Small print"
@@ -366,6 +362,8 @@
         // format edge to edge, or (width only) fitting around the text
         // placed: dragged onto the stage from the tray. visible: drawn with its fill
         placed: false, visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
+        // a column grid of its own, across the box, that blocks can line up on
+        columns: { n: 3, gutter: 24, show: true },
         align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
         fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
@@ -464,12 +462,14 @@
       s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
       s.text.blocks.forEach(function (b) {
         if (b.grid !== 1 && b.grid !== 2 && b.grid !== "both") b.grid = "both";
+        if (["auto", "format", "rect"].indexOf(b.cols) < 0) b.cols = "auto";
         if (b.from !== "bottom") b.from = "top";
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
       });
       s.rect = Object.assign(d.rect, s.rect);
       s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
+      s.rect.columns = Object.assign(d.rect.columns, s.rect.columns);
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -926,7 +926,7 @@
     els.guides = $("#guides"); els.cells = $("#cells"); els.cssOut = $("#css-out");
     els.blockFrame = $("#block-frame");
     els.overlay = $("#overlay"); els.railList = $("#rail-list"); els.baseline = $("#baseline");
-    els.columns = $("#columns");
+    els.columns = $("#columns"); els.rectColumns = $("#rect-columns");
     els.readout = $("#readout"); els.zoomValue = $("#zoom-value"); els.shorthand = $("#radius-shorthand");
   }
 
@@ -1202,26 +1202,51 @@
 
   // the nearest column line — either edge of any column — to an offset measured from
   // the left margin
-  function colLine(off) {
-    var n = colCount(), step = colStep(), w = colWidth(), cw = content().w;
-    var best = 0, bd = Infinity, k, cands = [cw];
-    for (k = 0; k < n; k++) cands.push(k * step, k * step + w);
+  /* There are two column grids a block can line up on: the format's, across the
+     margin box, and the rectangle's own, across the box. Each is {x, w, n, gutter}. */
+  function colGrid(which) {
+    if (which === "rect" && state.rect.placed) {
+      var r = box("rect"), rc = state.rect.columns;
+      return { x: r.x, w: r.w, n: Math.max(1, Math.round(rc.n)), gutter: Math.max(0, rc.gutter) };
+    }
+    var c = content();
+    return { x: c.x, w: c.w, n: colCount(), gutter: Math.max(0, state.cols.gutter) };
+  }
+  function gridColW(g) { return Math.max(1, (g.w - (g.n - 1) * g.gutter) / g.n); }
+
+  // the nearest line of a grid — a column edge either side of a gutter
+  function gridLine(g, off) {
+    var w = gridColW(g), step = w + g.gutter;
+    var best = 0, bd = Infinity, k, cands = [g.w];
+    for (k = 0; k < g.n; k++) cands.push(k * step, k * step + w);
     cands.forEach(function (v) {
       var d = Math.abs(v - off);
       if (d < bd) { bd = d; best = v; }
     });
-    return clamp(best, 0, cw);
+    return clamp(best, 0, g.w);
   }
+
+  function colLine(off) { return gridLine(colGrid("format"), off); }
+
+  /* Which grid a block lines up on. "auto" keeps the old rule — the box padding
+     while it is inside the rectangle, the format columns anywhere else. */
+  function blockCols(b) {
+    var c = b.cols || "auto";
+    if (c === "rect" && !state.rect.placed) return "format";
+    if (c === "format" || c === "rect") return c;
+    return blockOutside(b) ? "format" : "box";
+  }
+  function blockGrid(b) { return colGrid(blockCols(b)); }
 
   // what a block insets from the sides of the stack it is painted in
   function blockInsets(b) {
     var t = state.text, sp = sidePad(b.align);
-    if (!blockOutside(b)) return { l: sp.l + (b.padL || 0), r: sp.r + (b.padR || 0) };
-    var c = content(), f = textFrame();
+    if (blockCols(b) === "box") return { l: sp.l + (b.padL || 0), r: sp.r + (b.padR || 0) };
+    var g = blockGrid(b), f = textFrame(), cw = gridColW(g);
     var stackL = f.x + t.padding, stackR = f.x + f.w - t.padding;
-    var left = c.x + colLine(b.padL || 0);
-    var right = c.x + colLine(c.w - (b.padR || 0));
-    if (right - left < colWidth()) right = Math.min(c.x + c.w, left + colWidth());
+    var left = g.x + gridLine(g, b.padL || 0);
+    var right = g.x + gridLine(g, g.w - (b.padR || 0));
+    if (right - left < cw) right = Math.min(g.x + g.w, left + cw);
     return { l: left - stackL, r: stackR - right };
   }
 
@@ -1361,9 +1386,13 @@
       var rectEl = child(host, "rect", "div", "shape rect");
       rectEl.dataset.el = "rect";
       rectEl.hidden = !state.rect.placed;
+      /* The fill is a layer of its own, because a cut shape clips whatever is
+         inside it — and type that runs past the edge of the box must not be cut. */
+      var fillEl = child(rectEl, "fill", "div", "rect-shape");
       if (state.rect.placed) {
         var shaped = state.rect.shape !== "radius";
-        Object.assign(rectEl.style, shapeStyle("rect", s), {
+        Object.assign(rectEl.style, shapeStyle("rect", s));
+        Object.assign(fillEl.style, {
           background: state.rect.visible ? state.rect.fill : "transparent",
           borderRadius: shaped ? "0" : radiusCSS(s),
           clipPath: shaped ? clipCSS(s) : "none"
@@ -1471,16 +1500,27 @@
   // the column grid, drawn across the content box
   function renderColumns(s) {
     var c = state.cols, m = margins();
-    els.columns.hidden = !c.show || c.n < 1 || state.showGuides === false;
-    if (els.columns.hidden) return;
-    var col = colWidth() * s, gut = c.gutter * s;
+    drawColumns(els.columns, colGrid("format"), c.show && c.n >= 1, s,
+      { x: m.left, y: m.top, h: contentH() });
+    var rc = state.rect.columns;
+    var on = state.rect.placed && rc.show && rc.n >= 1;
+    var r = state.rect.placed ? box("rect") : null;
+    drawColumns(els.rectColumns, colGrid("rect"), on, s,
+      r ? { x: r.x, y: r.y, h: r.h } : null);
+  }
+
+  // one grid of columns, tinted in the guide colour, over the box it belongs to
+  function drawColumns(el, g, on, s, at) {
+    el.hidden = !on || !at || state.showGuides === false;
+    if (el.hidden) return;
+    var col = gridColW(g) * s, gut = g.gutter * s;
     var rgb = hexRgb(guideColour());
     var tint = "rgba(" + Math.round(rgb.r) + "," + Math.round(rgb.g) + "," + Math.round(rgb.b) + ",0.09)";
-    Object.assign(els.columns.style, {
-      left: m.left * s + "px",
-      top: m.top * s + "px",
-      width: content().w * s + "px",
-      height: contentH() * s + "px",
+    Object.assign(el.style, {
+      left: at.x * s + "px",
+      top: at.y * s + "px",
+      width: g.w * s + "px",
+      height: at.h * s + "px",
       backgroundImage: col >= 1
         ? "repeating-linear-gradient(to right," + tint + " 0 " + col + "px,transparent " +
           col + "px " + (col + gut) + "px)"
@@ -1797,7 +1837,8 @@
           round(rowY(b) - baselineInBox(b.role) - origin, 2) + "px;" +
           (round(sp.l, 2) ? " margin-left: " + round(sp.l, 2) + "px;" : "") +
           (round(sp.r, 2) ? " margin-right: " + round(sp.r, 2) + "px;" : "") + " }" +
-          (blockOutside(b) ? "  /* on the columns, outside the box */" : "") +
+          (blockCols(b) === "box" ? "" :
+            "  /* on the " + (blockCols(b) === "rect" ? "box's own" : "format") + " columns */") +
           "  /* baseline on row " + b.row + " of " + gridLabel(b.grid) +
           ", counted from the " + (b.from === "bottom" ? "bottom" : "top") + " margin */");
       });
@@ -2116,6 +2157,14 @@
           '<option value="top">from top</option>' +
           '<option value="bottom">from bottom</option></select>' +
       "</div>" +
+      '<div class="block-row cols">' +
+        "<span>Cols</span>" +
+        '<select data-block="cols" title="Which column grid this block lines up on">' +
+          '<option value="auto">follow the box</option>' +
+          '<option value="format">the format columns</option>' +
+          '<option value="rect">the box\'s own columns</option>' +
+        "</select>" +
+      "</div>" +
       '<div class="seg" data-block="align">' +
         ["left", "center", "right"].map(function (a) {
           return '<button type="button" data-align="' + a + '">' + a[0].toUpperCase() + a.slice(1) + "</button>";
@@ -2148,6 +2197,7 @@
     setValue(body.querySelector('[data-block="row"]'), b.row);
     body.querySelector('[data-block="grid"]').value = String(b.grid);
     body.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
+    body.querySelector('[data-block="cols"]').value = b.cols || "auto";
     setValue(body.querySelector('[data-block="blind"]'), b.blind || 12);
     body.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
     setValue(body.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
@@ -2178,8 +2228,9 @@
           "right-aligned text ends on the right margin (" + fmt(mm.right) + "). " +
           "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Rows run from the top or the bottom margin: grid 1 is the " +
-      "full rows (" + round(baseline(), 2) + " px), grid 2 the half lines between them. Outside " +
-      "the rectangle a block lands on the column lines; inside it travels with the box.";
+      "full rows (" + round(baseline(), 2) + " px), grid 2 the half lines between them. " +
+      "Following the box means the box padding while the block is inside the rectangle and the " +
+      "format columns anywhere else; the other two hold whichever grid you name.";
   }
 
   function repositionInspector() {
@@ -2487,6 +2538,17 @@
           steps + " × grid " + (st2.snap === "half" ? "2" : "1") + " = " +
           round(rolePx(ty.editing) * eff, 1) + " px."
         : "Free: the typed line height is used as it is, off both grids.";
+
+    var rc = state.rect.columns, rg = colGrid("rect");
+    setValue($("#rcol-n"), rc.n);
+    setValue($("#rcol-gutter"), fmt(rc.gutter));
+    $("#rcol-show").checked = !!rc.show;
+    $("#rcol-hint").textContent = state.rect.placed
+      ? Math.max(1, Math.round(rc.n)) + " columns of " + round(gridColW(rg), 2) + " px with a " +
+        fmt(rc.gutter) + " px gutter across the " + round(rg.w, 2) + " px of the box. A text " +
+        "block set to the box's columns lines up on these instead of the format's."
+      : "The box has a column grid of its own, across its width. Drag the rectangle onto the " +
+        "stage and it is drawn here; a text block can line up on it instead of the format's columns.";
 
     setValue($("#col-n"), state.cols.n);
     setValue($("#col-gutter"), fmt(state.cols.gutter));
@@ -2808,6 +2870,9 @@
     onInput("#type-color", function (el) { styleOf().color = el.value; });
 
     onChange("#rect-grid", function (el) { state.rect.grid = +el.value; });
+    numInput("#rcol-n", function (v) { state.rect.columns.n = clamp(Math.round(v), 1, 48); }, 1);
+    numInput("#rcol-gutter", function (v) { state.rect.columns.gutter = Math.max(0, snap(v)); }, 0);
+    onChange("#rcol-show", function (el) { state.rect.columns.show = el.checked; });
 
     /* The inspector is rebuilt whenever the selection moves, so its fields are
        reached by delegation and always mean the block that is selected. */
@@ -2840,6 +2905,19 @@
         if (what === "grid") b.grid = e.target.value === "both" ? "both" : +e.target.value;
         else b.from = e.target.value;
         b.row = rowAt(y, b);
+      } else if (what === "cols") {
+        // carry the edges across, so the block lands on the new grid where it stood
+        var was = blockGrid(b), boxed = blockCols(b) === "box";
+        var l = was.x + gridLine(was, b.padL || 0);
+        var r = was.x + gridLine(was, was.w - (b.padR || 0));
+        b.cols = e.target.value;
+        var now = blockGrid(b);
+        if (blockCols(b) === "box") { b.padL = 0; b.padR = 0; }
+        else if (boxed) { b.padL = 0; b.padR = 0; }        // it had no edges of its own
+        else {
+          b.padL = snap(clamp(gridLine(now, l - now.x), 0, now.w));
+          b.padR = snap(clamp(now.w - gridLine(now, r - now.x), 0, now.w));
+        }
       } else return;
       render();
     });
@@ -3033,7 +3111,8 @@
     return {
       role: role, align: "left", row: grid === "both" ? rows * 2 : rows, grid: grid,
       from: role === "smallprint" ? "bottom" : "top",
-      padL: 0, padR: 0, blind: ROLE_BLIND[role] || 12, text: ROLE_SEEDS[role] || ""
+      padL: 0, padR: 0, cols: "auto",
+      blind: ROLE_BLIND[role] || 12, text: blindText(ROLE_BLIND[role] || 12)
     };
   }
 
@@ -3153,17 +3232,18 @@
     var start = toStage(e), row0 = b.row;
     // a block that is not in the rectangle can be moved sideways as well, landing on
     // the column lines; the field keeps the width it had
-    var free = !blockInside(b), cw = content().w;
-    var l0 = colLine(b.padL || 0), w0 = Math.max(colWidth(), colLine(cw - (b.padR || 0)) - l0);
+    var free = blockCols(b) !== "box", g = blockGrid(b), cw = g.w, colw = gridColW(g);
+    var l0 = gridLine(g, b.padL || 0);
+    var w0 = Math.max(colw, gridLine(g, cw - (b.padR || 0)) - l0);
     drag(e, function (ev) {
       var p = toStage(ev);
       var steps = Math.round((p.y - start.y) / blockUnit(b));
       b.row = row0 + (b.from === "bottom" ? -steps : steps);   // rows count upward from the bottom
       if (!free) return;
       // the left edge lands on a column line; the field keeps its width while there is
-      // room for it and gives way at the right margin
-      var l = clamp(colLine(l0 + p.x - start.x), 0, Math.max(0, cw - colWidth()));
-      var r = Math.max(l + colWidth(), Math.min(cw, l + w0));
+      // room for it and gives way at the last line of the grid
+      var l = clamp(gridLine(g, l0 + p.x - start.x), 0, Math.max(0, cw - colw));
+      var r = Math.max(l + colw, Math.min(cw, l + w0));
       b.padL = snap(l);
       b.padR = snap(Math.max(0, cw - r));
     });

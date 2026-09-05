@@ -4,7 +4,7 @@ A small design app: one **format** (the stage) with a **margin box**, a **rectan
 **logo circle** on it. Every value can be set two ways — numerically in the side panel, or by
 dragging on the canvas.
 
-**The stage starts empty.** The rectangle and the four text roles wait in a **tray** above the
+**The stage starts empty.** The rectangle and the five text roles wait in a **tray** above the
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
 as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
 last had. A **text role can be pulled out as often as you like** — each drag makes a block of its
@@ -103,6 +103,11 @@ And whatever the mode, **the box is never narrower than its text**: the longest 
 padding on both sides is its floor, so the copy never spills out of it. When even the whole column
 grid is too narrow for a line, the text wins and the box grows past it.
 
+**The rectangle's own columns** — a column grid across the box, with its own count and gutter, drawn
+in the guide colour like the format's. It is what *the box's own columns* means for a text block, so
+copy can run on a grid the box sets rather than the page's — three columns inside a box that spans
+five of the format's, say. It moves and re-divides with the box.
+
 **Corners** — a **shape** dropdown in three families. *Rounded* is everything `border-radius` can
 make (sharp, rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave,
 single/paired corners), with the full CSS surface editable underneath it: 1–4 values, `px` or `%`,
@@ -118,7 +123,9 @@ values, so each corner can be cut differently, and the round handles still drag 
 arrows left and right, chevron, notched banner, parallelogram, trapezoid either way up, cross,
 speech bubble, and a punched ticket. They take their one size from the top-left corner value. Cut
 and outline shapes are drawn with `clip-path` — polygons, or a path where the edge curves — and the
-CSS output carries whichever the shape uses.
+CSS output carries whichever the shape uses. The fill is a **layer of its own inside the box**, so
+the shape clips the fill and nothing else: type that runs past the edge of the box, or sits above or
+below it, is never cut off by the corner treatment.
 
 **Logo** — upload your own artwork (PNG, JPG, SVG, WebP) or keep the circle placeholder. **The
 height defines the logo and the width follows the artwork's own proportions**; an SVG with nothing
@@ -204,8 +211,16 @@ lines, and it stays exactly where it is whatever the rectangle does. Rows are co
 the bottom margin, so the page is what a block is pinned to; the rectangle can come and go under it
 without anything jumping.
 
-Such a block can also be **dragged sideways**: its left edge lands on a column line and the field
-keeps the width it had, giving way only at the right margin. Both insets stay typeable in the panel.
+**Which column grid** a block lines up on is its own to set, in *Cols*: *follow the box* is the rule
+just described — the box padding while it is inside the rectangle, the format columns everywhere
+else — while *the format columns* and *the box's own columns* hold whichever you name, wherever the
+block sits. A block on the box's columns follows the box as that is resized or moved, even from
+above or below it; one on the format columns never does. Switching between them carries the block's
+edges across, so it lands on the nearest lines of the new grid rather than jumping to the margin.
+
+Such a block can also be **dragged sideways**: its left edge lands on a column line of its own grid
+and the field keeps the width it had, giving way only at the last line. Both insets stay typeable in
+the panel.
 
 Each block chooses **which lines it may sit on**: *grid 1* the full rows, *grid 2* the half lines
 between them, or *both grids* any line at all. Paragraph starts on grid 1 and every other role on
@@ -221,7 +236,9 @@ renumbers the row. Each block also has its own text, its own role and its own al
 (left / centre / right); the side padding sets the column they all run in. A block can also be
 filled with **blind text** — a slider from one word to a hundred and twenty sets how much, the count
 is shown beside it, and *Fill* puts it back after you have typed over it. Latin, broken into
-sentences, so the shapes of the words carry the type rather than the meaning. In a box that **fills the
+sentences, so the shapes of the words carry the type rather than the meaning. It is also **what a
+block arrives carrying**: no hard line breaks in it, and as long a line as makes sense at that
+role's size, since nothing wraps on its own and the box is never narrower than its longest line. In a box that **fills the
 format**, side-aligned text can *hang on the format margins* instead of that padding — left-aligned
 text starts on the left margin, right-aligned text ends on the right one, centred text keeps the
 padding — so type stays on the margin even when the box bleeds to the format edge. **Lines break where you
