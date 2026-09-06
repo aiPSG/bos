@@ -8,8 +8,10 @@ dragging on the canvas.
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
 as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
 last had. A **text role can be pulled out as often as you like** — each drag makes a block of its
-own, with its own copy, position and field — and the **✕** on a block takes it off again (⌫ does the
-same for the selected one). Undo brings it back.
+own, with its own copy, position and field — and the **✕** on a block, or on the rectangle, takes it
+off again and puts it back in the tray (⌫ does the same for whatever is selected). Undo brings it
+back. The design is kept between sessions, so a reload picks up where you left off; **Reset** in the
+toolbar clears the stage back to empty.
 
 **Live:** https://aipsg.github.io/bos/
 
@@ -133,12 +135,14 @@ axis: a filled height is not snapped to the grid and a format-filling width is n
 columns, because both already end on an edge of their own. In any mode but *set by hand* the field
 shows the computed value.
 
-The box is snapped to the columns and to the baseline rows and held above the width of its text, so
-what it runs at is rarely the number that was asked for. **What the box runs at is what the fields
-say**: a resize by handle writes back the size it settled on, so the next drag starts from the edge
-that is actually on screen rather than from a size that is not. If a drag seems to do nothing, the
-box is being held — by the column it is on, by the row its height runs to, or by its text; the two
-hints under the fields say which.
+**A handle always resizes.** Dragging one is a direct instruction, so if that side is being computed
+— filling the margins, filling the format, fitting the text — the drag takes it over, switches that
+side to *set by hand* and carries on from the size that is on screen. The box is also snapped to the
+columns and to the baseline rows and held above the width of its text, so what it runs at is rarely
+the number that was asked for; **what the box runs at is what the fields say**, because a resize
+writes back the size it settled on and the next drag starts from the edge that is actually there. If
+a drag still seems to do nothing, the box is being held — by the column line it is on, by the row its
+height runs to, or by its text — and the two hints under the fields say which.
 
 It also **snaps to the columns**: the left edge sits on a column line, and the right edge on one
 too — either the right edge of a column, or a gutter further on at the left side of the next one, so
@@ -292,6 +296,9 @@ design — background, margins, rectangle, corners, logo, type — at that forma
 updates as you work, so you can watch a change land across all of them at once. Click one to make it
 the format in the main window. A format that matches no preset shows up as a *Custom* tile at the
 top. Toggle the rail with **Formats** in the toolbar.
+
+The rectangle leaves the stage the way a text block does: the red **✕** at its top right corner, or
+⌫ while it is selected, puts it back in the tray. The *On the stage* checkbox does the same.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift

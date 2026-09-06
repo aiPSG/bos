@@ -1935,6 +1935,8 @@
       html += CORNERS.map(function (c) {
         return '<span class="handle radius" data-corner="' + c + '" title="Drag to round this corner"></span>';
       }).join("");
+      html += '<button type="button" class="handle kill" ' +
+        'title="Take the rectangle off the stage — it goes back to the tray">✕</button>';
     }
     return html;
   }
@@ -1955,6 +1957,11 @@
     els.frame.classList.toggle("full-width", name === "rect" && state.rect.wmode !== "fixed");
     els.frame.classList.toggle("round", name === "logo" && !state.logo.src);
 
+    var kill = els.frame.querySelector(".handle.kill");
+    if (kill) {                                  // clear of the corner it shares
+      kill.style.left = b.w * s + "px";
+      kill.style.top = "-11px";
+    }
     var pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
     $$("#frame .handle.size").forEach(function (el) {
       var p = pos[el.dataset.dir];
@@ -2150,7 +2157,10 @@
         '" title="Drag onto the stage, or click to drop it in place">' + esc(it.name) + "</button>";
     }).join("");
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
-    $("#tray-hint").textContent = "Drag one onto the stage — it snaps to the grid as it lands. " +
+    $("#tray-hint").textContent = (state.rect.placed
+      ? "The rectangle is on the stage — the ✕ at its top right corner puts it back here. "
+      : "") +
+      "Drag one onto the stage — it snaps to the grid as it lands. " +
       "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
       "click one to open its settings beside it, and the ✕ takes it off again.";
   }
@@ -3146,8 +3156,7 @@
     });
 
     onChange("#rect-placed", function (el) {
-      state.rect.placed = el.checked;
-      if (el.checked) state.sel = "rect"; else if (state.sel === "rect") state.sel = "";
+      if (el.checked) { state.rect.placed = true; state.sel = "rect"; } else takeRectOff();
     });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
     onChange("#rect-wmode", function (el) {
@@ -3746,6 +3755,11 @@
     }, function () { document.body.classList.remove("moving-bg"); });
   }
 
+  function takeRectOff() {
+    state.rect.placed = false;
+    if (state.sel === "rect") state.sel = "";
+  }
+
   // drag a text block up and down; it lands on whole rows of its own grid
   function startTextDrag(e, index) {
     var b = state.text.blocks[index];
@@ -3807,6 +3821,13 @@
     var sx = dir.indexOf("w") > -1 ? -1 : dir.indexOf("e") > -1 ? 1 : 0;
     var sy = dir.indexOf("n") > -1 ? -1 : dir.indexOf("s") > -1 ? 1 : 0;
     var start = toStage(e), s0 = sizeOf(name), ratio = s0.w / s0.h;
+    /* Dragging a handle is a direct instruction. If that side is being computed —
+       filling the margins, filling the format, fitting the text — take it over and
+       carry on from the size that is on screen, rather than ignoring the drag. */
+    if (name === "rect") {
+      if (sx && state.rect.wmode !== "fixed") { state.rect.wmode = "fixed"; state.rect.w = snap(s0.w); }
+      if (sy && state.rect.hmode !== "fixed") { state.rect.hmode = "fixed"; state.rect.h = snap(s0.h); }
+    }
     // a centre-anchored shape grows in both directions, so it needs twice the delta to track the pointer
     var kx = el.anchor.h === "center" ? 2 : 1, ky = el.anchor.v === "middle" ? 2 : 1;
 
@@ -3904,6 +3925,12 @@
       var t = e.target;
       if (t.classList.contains("guide")) return startGuide(e, t.dataset.side);
       if (t.classList.contains("handle")) {
+        if (t.classList.contains("kill")) {              // back to the tray
+          e.preventDefault();
+          takeRectOff();
+          render();
+          return;
+        }
         els.frame.focus();
         return t.classList.contains("radius") ? startRadius(e, t.dataset.corner) : startResize(e, t.dataset.dir);
       }
@@ -3973,11 +4000,19 @@
       }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
       if (e.code === "Space") { spaceDown = true; document.body.classList.add("can-pan"); return; }
-      if ((e.key === "Delete" || e.key === "Backspace") && state.selBlock >= 0) {
-        e.preventDefault();
-        removeBlock(state.selBlock);
-        render();
-        return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (state.selBlock >= 0) {
+          e.preventDefault();
+          removeBlock(state.selBlock);
+          render();
+          return;
+        }
+        if (state.sel === "rect" && state.rect.placed) {
+          e.preventDefault();
+          takeRectOff();
+          render();
+          return;
+        }
       }
       var map = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       var d = map[e.key];
