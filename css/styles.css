@@ -56,6 +56,59 @@ body{
   color:var(--text-dim);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
 }
 
+/* ---------- backgrounds that are made ---------- */
+
+.bgseg{flex:1;display:flex;min-height:0;overflow:hidden}
+.bg-panel{padding:0 16px 20px;overflow-y:auto}
+.subtabs{
+  position:sticky;top:0;z-index:2;display:flex;gap:2px;margin:0 -16px 14px;padding:0 16px;
+  background:var(--bg-panel);border-bottom:1px solid var(--line);
+}
+.subtabs button{
+  display:flex;align-items:center;gap:7px;
+  padding:12px 12px 10px;border:0;border-bottom:2px solid transparent;background:none;
+  color:var(--text-dim);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap;
+}
+.subtabs button:hover{color:var(--text)}
+.subtabs button[aria-pressed=true]{color:var(--text);border-bottom-color:var(--accent)}
+
+.modules{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.modules button{
+  display:flex;flex-direction:column;align-items:flex-start;gap:7px;
+  padding:9px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--bg-input);color:var(--text-dim);font:inherit;font-size:12px;cursor:pointer;
+}
+.modules button:hover{background:var(--bg-input-hi);color:var(--text)}
+.modules button[aria-pressed=true]{border-color:var(--accent);color:var(--text);background:#1b2540}
+.mod-chip{
+  width:100%;height:44px;border-radius:5px;overflow:hidden;
+  background:#0e1014 center / cover no-repeat;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);
+}
+#bg-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:12px}
+#bg-fields .field{margin-bottom:0}
+#bg-fields .wide{grid-column:1 / -1;margin-bottom:0}
+
+.bg-view{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.bg-view-head{
+  padding:12px 16px;border-bottom:1px solid var(--line);
+  font-size:12px;color:var(--text-dim);
+}
+.bg-view-stage{
+  flex:1;min-height:0;display:grid;place-items:center;padding:28px;
+  background-image:
+    linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.bg-stage{position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 24px 60px rgba(0,0,0,.5)}
+.bg-panel .stub-card{margin:24px auto 0}
+
+@media (max-width:900px){
+  .bgseg{flex-direction:column}
+  .bg-panel{flex:1 1 auto;width:100%}
+  .bg-view{flex:0 0 40vh}
+}
+
 /* ---------- a stage that is not built yet ---------- */
 
 .stub{flex:1;display:grid;place-items:center;padding:32px;overflow-y:auto}

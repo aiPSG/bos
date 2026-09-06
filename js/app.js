@@ -326,11 +326,8 @@
     { id: "system", name: "Set design system", built: true,
       note: "The format, the logo, the margins and the columns, the rectangle, the type scale " +
         "and both baseline grids, and the text that sits on them." },
-    { id: "background", name: "Generate background",
-      note: "One ground for the system to sit on, made rather than found, from whichever source " +
-        "suits the job. Until this is built, a background can still be uploaded or generated " +
-        "under Format \u2192 Background image in the design system.",
-      steps: ["Generate image", "Generate pattern", "Generate gradient"] },
+    { id: "background", name: "Generate background", built: true,
+      note: "One ground for the system to sit on, made rather than found." },
     { id: "formats", name: "Design formats",
       note: "The system and its background laid into every format the work runs in, each one " +
         "adjusted where it has to be rather than scaled and hoped for." },
@@ -350,6 +347,8 @@
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       // the image can be pushed around and scaled on top of whichever fit it starts from
       bg: { src: "", fit: "cover", opacity: 100, scale: 100, x: 0, y: 0 },
+      // a made background: which kind is switched on, and the module each kind is set to
+      bgGen: { tab: "pattern", on: "", pattern: "grid", gradient: "linear", params: {} },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -454,7 +453,7 @@
       if (!raw) return null;
       var s = JSON.parse(raw), d = defaults();
       if (s.v !== d.v) return null;
-      ["stage", "bg", "comfy", "margin", "logo", "view", "text", "guides", "cols"].forEach(function (k) {
+      ["stage", "bg", "bgGen", "comfy", "margin", "logo", "view", "text", "guides", "cols"].forEach(function (k) {
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
@@ -497,6 +496,350 @@
   function fh(k) { return k === "left" ? 0 : k === "center" ? .5 : 1; }
   function fv(k) { return k === "top" ? 0 : k === "middle" ? .5 : 1; }
 
+  /* ----------------------------------------------- backgrounds that are made
+
+     A pattern or a gradient is a module: a name, a few fields, and a routine
+     that draws it as SVG at the size of the format. Adding another is adding an
+     entry to one of these lists — nothing else knows what the modules are. */
+
+  function svgEsc(v) { return String(v).replace(/"/g, "&quot;"); }
+
+  // a colour part way between two, for the stops a module works out for itself
+  function mixHex(a, b, t) {
+    var A = hexRgb(a), B = hexRgb(b), k = clamp(t, 0, 1);
+    var p = function (x, y) { return Math.round(x + (y - x) * k); };
+    return "rgb(" + p(A.r, B.r) + " " + p(A.g, B.g) + " " + p(A.b, B.b) + ")";
+  }
+  function alpha(v) { return clamp(num(v, 100), 0, 100) / 100; }
+
+  // x1,y1 -> x2,y2 across the unit square for an angle in degrees, 0 = upwards
+  function angleLine(deg) {
+    var a = (num(deg, 0) - 90) * Math.PI / 180, c = Math.cos(a) / 2, s2 = Math.sin(a) / 2;
+    return { x1: .5 - c, y1: .5 - s2, x2: .5 + c, y2: .5 + s2 };
+  }
+
+  function stopsOf(list) {
+    return list.map(function (st) {
+      return '<stop offset="' + round(st[0], 4) + '" stop-color="' + svgEsc(st[1]) + '"' +
+        (st[2] === undefined ? "" : ' stop-opacity="' + round(st[2], 3) + '"') + "/>";
+    }).join("");
+  }
+
+  // the lines of a grid the design already has, in format units
+  function rowLines(which) {
+    var c = content(), u = which === "grid2" ? baseline() / 2 : baseline(), out = [], k;
+    for (k = 0; c.y + k * u <= c.y + c.h + 0.01 && k < 4000; k++) out.push(c.y + k * u);
+    return out;
+  }
+  function colBands(which) {
+    if (which === "rect" && !state.rect.placed) return [];
+    var g = colGrid(which), w = gridColW(g), step = w + g.gutter, out = [], k;
+    for (k = 0; k < g.n; k++) out.push({ x: g.x + k * step, w: w });
+    return out;
+  }
+
+  var BG_MODULES = {
+    pattern: [
+      {
+        id: "grid", name: "Grid",
+        note: "Lines on the baseline rows and down the columns. Linked to the design's own " +
+          "grids, so it follows them as they change.",
+        defaults: { rows: "grid1", rowStep: 40, cols: "format", colStep: 80, band: false,
+          line: 1, color: "#ffffff", alpha: 20 },
+        fields: [
+          { k: "rows", label: "Rows from", type: "select", options: [
+            ["off", "Nothing"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"],
+            ["custom", "A spacing of my own"]] },
+          { k: "rowStep", label: "Row spacing", type: "number", min: 2, step: 1, when: function (p) { return p.rows === "custom"; } },
+          { k: "cols", label: "Columns from", type: "select", options: [
+            ["off", "Nothing"], ["format", "The format columns"], ["rect", "The rectangle's columns"],
+            ["custom", "A spacing of my own"]] },
+          { k: "colStep", label: "Column spacing", type: "number", min: 2, step: 1, when: function (p) { return p.cols === "custom"; } },
+          { k: "band", label: "Fill the columns instead of drawing their edges", type: "check" },
+          { k: "line", label: "Line width", type: "number", min: 0.1, step: 0.5 },
+          { k: "color", label: "Colour", type: "color" },
+          { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
+        ],
+        draw: function (p, w, h) {
+          var out = [], lw = Math.max(0.1, num(p.line, 1)), col = svgEsc(p.color), a = alpha(p.alpha), x, k;
+          function hline(y) {
+            out.push('<rect x="0" y="' + round(y - lw / 2, 3) + '" width="' + w + '" height="' + lw +
+              '" fill="' + col + '" fill-opacity="' + a + '"/>');
+          }
+          function vline(vx) {
+            out.push('<rect x="' + round(vx - lw / 2, 3) + '" y="0" width="' + lw + '" height="' + h +
+              '" fill="' + col + '" fill-opacity="' + a + '"/>');
+          }
+          if (p.rows === "custom") {
+            for (x = 0; x <= h + 0.01; x += Math.max(2, num(p.rowStep, 40))) hline(x);
+          } else if (p.rows !== "off") rowLines(p.rows).forEach(hline);
+
+          if (p.cols === "custom") {
+            for (x = 0; x <= w + 0.01; x += Math.max(2, num(p.colStep, 80))) vline(x);
+          } else if (p.cols !== "off") {
+            var bands = colBands(p.cols);
+            for (k = 0; k < bands.length; k++) {
+              if (p.band) {
+                out.push('<rect x="' + round(bands[k].x, 3) + '" y="0" width="' + round(bands[k].w, 3) +
+                  '" height="' + h + '" fill="' + col + '" fill-opacity="' + a + '"/>');
+              } else { vline(bands[k].x); vline(bands[k].x + bands[k].w); }
+            }
+          }
+          return out.join("");
+        }
+      },
+      {
+        id: "dots", name: "Dots",
+        note: "A lattice of dots. Its spacing can come from a baseline grid, so the dots sit on it.",
+        defaults: { link: "free", step: 48, r: 3, stagger: true, color: "#ffffff", alpha: 30 },
+        fields: [
+          { k: "link", label: "Spacing from", type: "select", options: [
+            ["free", "A spacing of my own"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"]] },
+          { k: "step", label: "Spacing", type: "number", min: 2, step: 1, when: function (p) { return p.link === "free"; } },
+          { k: "r", label: "Dot radius", type: "number", min: 0.2, step: 0.5 },
+          { k: "stagger", label: "Offset every other row", type: "check" },
+          { k: "color", label: "Colour", type: "color" },
+          { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
+        ],
+        draw: function (p, w, h) {
+          var step = p.link === "free" ? Math.max(2, num(p.step, 48))
+            : p.link === "grid2" ? baseline() / 2 : baseline();
+          var r = Math.max(0.2, num(p.r, 3)), out = [], row = 0, y, x;
+          for (y = 0; y <= h + step; y += step, row++) {
+            var off = p.stagger && row % 2 ? step / 2 : 0;
+            for (x = off; x <= w + step; x += step) {
+              out.push('<circle cx="' + round(x, 2) + '" cy="' + round(y, 2) + '" r="' + r + '"/>');
+            }
+          }
+          return '<g fill="' + svgEsc(p.color) + '" fill-opacity="' + alpha(p.alpha) + '">' +
+            out.join("") + "</g>";
+        }
+      },
+      {
+        id: "stripes", name: "Stripes",
+        note: "Bands at any angle, drawn as a repeating tile.",
+        defaults: { angle: 45, width: 24, gap: 24, color: "#ffffff", alpha: 18 },
+        fields: [
+          { k: "angle", label: "Angle", type: "number", min: -180, max: 180, step: 1 },
+          { k: "width", label: "Band width", type: "number", min: 1, step: 1 },
+          { k: "gap", label: "Gap", type: "number", min: 0, step: 1 },
+          { k: "color", label: "Colour", type: "color" },
+          { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
+        ],
+        draw: function (p, w, h) {
+          var bw = Math.max(1, num(p.width, 24)), gap = Math.max(0, num(p.gap, 24)), unit = bw + gap;
+          return '<defs><pattern id="st" width="' + round(unit, 3) + '" height="' + round(unit, 3) +
+            '" patternUnits="userSpaceOnUse" patternTransform="rotate(' + round(num(p.angle, 45), 2) + ')">' +
+            '<rect x="0" y="0" width="' + round(bw, 3) + '" height="' + round(unit, 3) + '" fill="' +
+            svgEsc(p.color) + '" fill-opacity="' + alpha(p.alpha) + '"/></pattern></defs>' +
+            '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="url(#st)"/>';
+        }
+      },
+      {
+        id: "checker", name: "Checker",
+        note: "A checkerboard of two colours; the cell can follow a baseline grid.",
+        defaults: { link: "free", cell: 64, a: "#ffffff", b: "#000000", alpha: 12 },
+        fields: [
+          { k: "link", label: "Cell from", type: "select", options: [
+            ["free", "A size of my own"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"]] },
+          { k: "cell", label: "Cell size", type: "number", min: 2, step: 1, when: function (p) { return p.link === "free"; } },
+          { k: "a", label: "Colour A", type: "color" },
+          { k: "b", label: "Colour B", type: "color" },
+          { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
+        ],
+        draw: function (p, w, h) {
+          var c = p.link === "free" ? Math.max(2, num(p.cell, 64))
+            : p.link === "grid2" ? baseline() / 2 : baseline();
+          var a = alpha(p.alpha);
+          return '<defs><pattern id="ck" width="' + round(c * 2, 3) + '" height="' + round(c * 2, 3) +
+            '" patternUnits="userSpaceOnUse">' +
+            '<rect x="0" y="0" width="' + round(c, 3) + '" height="' + round(c, 3) + '" fill="' + svgEsc(p.a) + '" fill-opacity="' + a + '"/>' +
+            '<rect x="' + round(c, 3) + '" y="' + round(c, 3) + '" width="' + round(c, 3) + '" height="' + round(c, 3) + '" fill="' + svgEsc(p.a) + '" fill-opacity="' + a + '"/>' +
+            '<rect x="' + round(c, 3) + '" y="0" width="' + round(c, 3) + '" height="' + round(c, 3) + '" fill="' + svgEsc(p.b) + '" fill-opacity="' + a + '"/>' +
+            '<rect x="0" y="' + round(c, 3) + '" width="' + round(c, 3) + '" height="' + round(c, 3) + '" fill="' + svgEsc(p.b) + '" fill-opacity="' + a + '"/>' +
+            '</pattern></defs><rect x="0" y="0" width="' + w + '" height="' + h + '" fill="url(#ck)"/>';
+        }
+      },
+      {
+        id: "rings", name: "Rings",
+        note: "Circles out from a point, evenly spaced.",
+        defaults: { cx: 50, cy: 50, step: 64, line: 1.5, color: "#ffffff", alpha: 26 },
+        fields: [
+          { k: "cx", label: "Centre across %", type: "number", min: -100, max: 200, step: 1 },
+          { k: "cy", label: "Centre down %", type: "number", min: -100, max: 200, step: 1 },
+          { k: "step", label: "Spacing", type: "number", min: 2, step: 1 },
+          { k: "line", label: "Line width", type: "number", min: 0.1, step: 0.5 },
+          { k: "color", label: "Colour", type: "color" },
+          { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
+        ],
+        draw: function (p, w, h) {
+          var cx = w * num(p.cx, 50) / 100, cy = h * num(p.cy, 50) / 100;
+          var far = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy),
+            Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy));
+          var step = Math.max(2, num(p.step, 64)), out = [], r;
+          for (r = step; r <= far + step && out.length < 2000; r += step) {
+            out.push('<circle cx="' + round(cx, 2) + '" cy="' + round(cy, 2) + '" r="' + round(r, 2) + '"/>');
+          }
+          return '<g fill="none" stroke="' + svgEsc(p.color) + '" stroke-opacity="' + alpha(p.alpha) +
+            '" stroke-width="' + Math.max(0.1, num(p.line, 1.5)) + '">' + out.join("") + "</g>";
+        }
+      }
+    ],
+
+    gradient: [
+      {
+        id: "linear", name: "Linear",
+        note: "One colour to another along an angle, with the midpoint where you want it.",
+        defaults: { angle: 160, from: "#4f7cff", to: "#111318", mid: 50 },
+        fields: [
+          { k: "angle", label: "Angle", type: "number", min: -180, max: 360, step: 1 },
+          { k: "from", label: "From", type: "color" },
+          { k: "to", label: "To", type: "color" },
+          { k: "mid", label: "Midpoint %", type: "range", min: 2, max: 98 }
+        ],
+        draw: function (p, w, h) {
+          var a = angleLine(p.angle), m = clamp(num(p.mid, 50), 2, 98) / 100;
+          return '<defs><linearGradient id="lg" x1="' + round(a.x1, 4) + '" y1="' + round(a.y1, 4) +
+            '" x2="' + round(a.x2, 4) + '" y2="' + round(a.y2, 4) + '">' +
+            stopsOf([[0, p.from], [m, mixHex(p.from, p.to, .5)], [1, p.to]]) +
+            '</linearGradient></defs><rect width="' + w + '" height="' + h + '" fill="url(#lg)"/>';
+        }
+      },
+      {
+        id: "radial", name: "Radial",
+        note: "A light from a point, falling off to the far colour.",
+        defaults: { cx: 50, cy: 35, r: 70, from: "#4f7cff", to: "#111318" },
+        fields: [
+          { k: "cx", label: "Centre across %", type: "number", min: -50, max: 150, step: 1 },
+          { k: "cy", label: "Centre down %", type: "number", min: -50, max: 150, step: 1 },
+          { k: "r", label: "Radius %", type: "range", min: 5, max: 200 },
+          { k: "from", label: "Centre", type: "color" },
+          { k: "to", label: "Edge", type: "color" }
+        ],
+        draw: function (p, w, h) {
+          return '<defs><radialGradient id="rg" cx="' + round(num(p.cx, 50) / 100, 4) + '" cy="' +
+            round(num(p.cy, 50) / 100, 4) + '" r="' + round(num(p.r, 70) / 100, 4) + '">' +
+            stopsOf([[0, p.from], [1, p.to]]) +
+            '</radialGradient></defs><rect width="' + w + '" height="' + h + '" fill="url(#rg)"/>';
+        }
+      },
+      {
+        id: "conic", name: "Angular sweep",
+        note: "A sweep around a point, drawn as a fan of sectors.",
+        defaults: { cx: 50, cy: 50, start: 0, from: "#4f7cff", to: "#111318", steps: 96 },
+        fields: [
+          { k: "cx", label: "Centre across %", type: "number", min: -50, max: 150, step: 1 },
+          { k: "cy", label: "Centre down %", type: "number", min: -50, max: 150, step: 1 },
+          { k: "start", label: "Start angle", type: "number", min: -180, max: 360, step: 1 },
+          { k: "from", label: "From", type: "color" },
+          { k: "to", label: "To", type: "color" },
+          { k: "steps", label: "Sectors", type: "range", min: 6, max: 180 }
+        ],
+        draw: function (p, w, h) {
+          var cx = w * num(p.cx, 50) / 100, cy = h * num(p.cy, 50) / 100;
+          var n = Math.max(6, Math.round(num(p.steps, 96)));
+          var far = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy),
+            Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy)) * 1.5;
+          var st = num(p.start, 0) * Math.PI / 180, out = [], i;
+          for (i = 0; i < n; i++) {
+            var a0 = st + i / n * Math.PI * 2, a1 = st + (i + 1.02) / n * Math.PI * 2;
+            var t = i / (n - 1), k = t <= .5 ? t * 2 : (1 - t) * 2;   // there and back, so it closes
+            out.push('<path d="M' + round(cx, 2) + " " + round(cy, 2) +
+              "L" + round(cx + far * Math.cos(a0), 2) + " " + round(cy + far * Math.sin(a0), 2) +
+              "L" + round(cx + far * Math.cos(a1), 2) + " " + round(cy + far * Math.sin(a1), 2) +
+              'Z" fill="' + mixHex(p.from, p.to, k) + '"/>');
+          }
+          return '<rect width="' + w + '" height="' + h + '" fill="' + svgEsc(p.to) + '"/>' + out.join("");
+        }
+      },
+      {
+        id: "mesh", name: "Mesh",
+        note: "Three soft lights over a ground, the way a mesh gradient reads.",
+        defaults: { base: "#111318", a: "#4f7cff", b: "#e5484d", c: "#3ecf8e", spread: 70 },
+        fields: [
+          { k: "base", label: "Ground", type: "color" },
+          { k: "a", label: "Light one", type: "color" },
+          { k: "b", label: "Light two", type: "color" },
+          { k: "c", label: "Light three", type: "color" },
+          { k: "spread", label: "Spread %", type: "range", min: 10, max: 160 }
+        ],
+        draw: function (p, w, h) {
+          var sp = num(p.spread, 70) / 100, r = Math.max(w, h) * sp * 0.7;
+          var lights = [[p.a, .18, .22], [p.b, .84, .3], [p.c, .5, .88]];
+          var defs = lights.map(function (l, i) {
+            return '<radialGradient id="m' + i + '"><stop offset="0" stop-color="' + svgEsc(l[0]) +
+              '" stop-opacity="0.95"/><stop offset="1" stop-color="' + svgEsc(l[0]) + '" stop-opacity="0"/></radialGradient>';
+          }).join("");
+          var blobs = lights.map(function (l, i) {
+            return '<circle cx="' + round(w * l[1], 2) + '" cy="' + round(h * l[2], 2) + '" r="' +
+              round(r, 2) + '" fill="url(#m' + i + ')"/>';
+          }).join("");
+          return "<defs>" + defs + '</defs><rect width="' + w + '" height="' + h + '" fill="' +
+            svgEsc(p.base) + '"/>' + blobs;
+        }
+      },
+      {
+        id: "bands", name: "Bands",
+        note: "The same fade, stepped — a posterised gradient with hard edges.",
+        defaults: { angle: 180, steps: 6, from: "#4f7cff", to: "#111318" },
+        fields: [
+          { k: "angle", label: "Angle", type: "number", min: -180, max: 360, step: 1 },
+          { k: "steps", label: "Steps", type: "range", min: 2, max: 24 },
+          { k: "from", label: "From", type: "color" },
+          { k: "to", label: "To", type: "color" }
+        ],
+        draw: function (p, w, h) {
+          var a = angleLine(p.angle), n = Math.max(2, Math.round(num(p.steps, 6))), st = [], i;
+          for (i = 0; i < n; i++) {
+            var col = mixHex(p.from, p.to, i / (n - 1));
+            st.push([i / n, col], [(i + 1) / n, col]);
+          }
+          return '<defs><linearGradient id="bd" x1="' + round(a.x1, 4) + '" y1="' + round(a.y1, 4) +
+            '" x2="' + round(a.x2, 4) + '" y2="' + round(a.y2, 4) + '">' + stopsOf(st) +
+            '</linearGradient></defs><rect width="' + w + '" height="' + h + '" fill="url(#bd)"/>';
+        }
+      }
+    ]
+  };
+
+  function bgModule(kind, id) {
+    var list = BG_MODULES[kind] || [];
+    return list.filter(function (m) { return m.id === id; })[0] || list[0];
+  }
+
+  // a module's settings: its defaults, with whatever has been changed on top
+  function bgParams(kind, id) {
+    var m = bgModule(kind, id), key = kind + ":" + m.id;
+    return Object.assign({}, m.defaults, state.bgGen.params[key] || {});
+  }
+  function bgSetParam(kind, id, k, v) {
+    var key = kind + ":" + bgModule(kind, id).id;
+    if (!state.bgGen.params[key]) state.bgGen.params[key] = {};
+    state.bgGen.params[key][k] = v;
+  }
+
+  // the made background, at the size of the format it is asked for
+  function bgSvg() {
+    var kind = state.bgGen.on;
+    if (kind !== "pattern" && kind !== "gradient") return "";
+    var m = bgModule(kind, state.bgGen[kind]);
+    var w = round(state.stage.w, 2), h = round(state.stage.h, 2);
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h +
+      '" viewBox="0 0 ' + w + " " + h + '">' + m.draw(bgParams(kind, m.id), w, h) + "</svg>";
+  }
+
+  // one slot per format, so painting the preview rail does not re-encode every tile
+  var bgCache = {};
+  function bgSrc() {
+    if (!state.bgGen.on) return state.bg.src;
+    var key = state.stage.w + "x" + state.stage.h, svg = bgSvg();
+    var hit = bgCache[key];
+    if (!hit || hit.svg !== svg) {
+      hit = bgCache[key] = { svg: svg, uri: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+    }
+    return hit.uri;
+  }
+
   /* --------------------------------------------------- the background image */
 
   // the natural size of the image, read once; a repaint follows when it arrives
@@ -519,7 +862,9 @@
   // where the image lands: the fit gives a size, the scale multiplies it, and the
   // offsets push it around from the middle. All in format pixels.
   function bgLayout(fw, fh) {
-    var bg = state.bg, nat = imageSize(bg.src), k = Math.max(1, bg.scale || 100) / 100;
+    var bg = state.bg, src = bgSrc(), k = Math.max(1, bg.scale || 100) / 100;
+    // a made background is drawn at the size of the format, so its size is known
+    var nat = state.bgGen.on ? { w: fw, h: fh } : imageSize(src);
     var w, h;
     if (bg.fit === "stretch") { w = fw * k; h = fh * k; }
     else if (!nat) { w = fw * k; h = fh * k; }            // until the image has loaded
@@ -580,9 +925,9 @@
 
   // what the guides actually sit on: the stage colour, with any image blended over it
   function backdropColour() {
-    var base = hexRgb(state.stage.bg), bg = state.bg;
-    if (!bg.src) return base;
-    var over = imageColour(bg.src) || { r: 128, g: 128, b: 128 };   // assume mid grey until it is read
+    var base = hexRgb(state.stage.bg), bg = state.bg, src = bgSrc();
+    if (!src) return base;
+    var over = imageColour(src) || { r: 128, g: 128, b: 128 };   // assume mid grey until it is read
     var a = clamp(bg.opacity / 100, 0, 1);
     return {
       r: base.r * (1 - a) + over.r * a,
@@ -1383,12 +1728,12 @@
       host.style.background = state.stage.bg;
 
       var image = child(host, "image", "div", "stage-image");
-      var bg = state.bg;
-      if (bg.src) {
+      var bg = state.bg, bgs = bgSrc();
+      if (bgs) {
         var bl = bgLayout(fw, fh);
         Object.assign(image.style, {
           display: "block",
-          backgroundImage: 'url("' + bg.src.replace(/"/g, '\\"') + '")',
+          backgroundImage: 'url("' + bgs.replace(/"/g, '\\"') + '")',
           backgroundSize: round(bl.w * s, 2) + "px " + round(bl.h * s, 2) + "px",
           backgroundRepeat: bg.fit === "tile" ? "repeat" : "no-repeat",
           backgroundPosition: round(bl.x * s, 2) + "px " + round(bl.y * s, 2) + "px",
@@ -1670,18 +2015,127 @@
         (sg.built ? "" : '<span class="seg-soon">soon</span>') + "</button>";
     }).join("");
 
-    var built = !!cur.built;
-    $("#panel").hidden = !built;
-    $("#canvas").hidden = !built;
-    $("#seg-stub").hidden = built;
-    document.body.classList.toggle("stub-on", !built);
-    if (built) return;
+    var system = cur.id === "system", bg = cur.id === "background";
+    $("#panel").hidden = !system;
+    $("#canvas").hidden = !system;
+    $("#seg-bg").hidden = !bg;
+    $("#seg-stub").hidden = !!cur.built;
+    document.body.classList.toggle("stub-on", !cur.built);
+    if (bg) return renderBgSeg();
+    if (cur.built) return;
 
     $("#stub-name").textContent = cur.name;
     $("#stub-note").textContent = cur.note;
     $("#stub-steps").innerHTML = (cur.steps || []).map(function (t) {
       return '<span class="stub-step">' + esc(t) + "</span>";
     }).join("");
+  }
+
+  var BG_TABS = [["image", "Image"], ["pattern", "Pattern"], ["gradient", "Gradient"]];
+
+  function renderBgSeg() {
+    var tab = state.bgGen.tab;
+    if (!BG_MODULES[tab] && tab !== "image") tab = state.bgGen.tab = "pattern";
+
+    $("#bg-tabs").innerHTML = BG_TABS.map(function (t) {
+      return '<button type="button" data-bgtab="' + t[0] + '" aria-pressed="' +
+        (t[0] === tab ? "true" : "false") + '">' + esc(t[1]) +
+        (t[0] === "image" ? '<span class="seg-soon">soon</span>' : "") + "</button>";
+    }).join("");
+    $("#bg-image").hidden = tab !== "image";
+    $("#bg-maker").hidden = tab === "image";
+
+    if (tab !== "image") {
+      var list = BG_MODULES[tab], cur = bgModule(tab, state.bgGen[tab]);
+      var host = $("#bg-mods"), sig = tab + ":" + list.map(function (m) { return m.id; }).join(",");
+      if (host.dataset.sig !== sig) {
+        host.dataset.sig = sig;
+        host.innerHTML = list.map(function (m) {
+          return '<button type="button" data-bgmod="' + m.id + '">' +
+            '<span class="mod-chip" data-chip="' + m.id + '"></span>' + esc(m.name) + "</button>";
+        }).join("");
+      }
+      Array.prototype.forEach.call(host.children, function (btn, i) {
+        var m = list[i];
+        btn.setAttribute("aria-pressed", m.id === cur.id ? "true" : "false");
+        // each card shows what its module makes, at the shape of the format
+        var chip = btn.querySelector(".mod-chip");
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+          withFormat(320, 180, function () { return m.draw(bgParams(tab, m.id), 320, 180); }) + "</svg>";
+        if (chip.dataset.svg !== svg) {
+          chip.dataset.svg = svg;
+          chip.style.backgroundColor = state.stage.bg;
+          chip.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' +
+            encodeURIComponent(svg).replace(/"/g, "%22") + '")';
+        }
+      });
+
+      $("#bg-mod-note").textContent = cur.note;
+      buildBgFields(tab, cur);
+      var live = state.bgGen.on === tab;
+      $("#bg-use").hidden = live;
+      $("#bg-clear-gen").hidden = !state.bgGen.on;
+      $("#bg-gen-hint").textContent = live
+        ? "This is the background. It is drawn at " + fmt(state.stage.w) + " × " + fmt(state.stage.h) +
+          " for this format and made again for every other one, so anything linked to the grids " +
+          "follows them. Fit, opacity, scale and position are in Format \u2192 Background image."
+        : state.bgGen.on
+          ? "The " + state.bgGen.on + " is the background at the moment. Use this one to swap it."
+          : "Nothing is made yet — the background is whatever is set in Format \u2192 Background image.";
+    }
+
+    var head = $("#bg-view-head");
+    head.textContent = formatName() + (state.bgGen.on
+      ? " \u2014 " + bgModule(state.bgGen.on, state.bgGen[state.bgGen.on]).name.toLowerCase() +
+        " " + state.bgGen.on
+      : " \u2014 no made background");
+
+    var view = $("#bg-view-stage"), r = view.getBoundingClientRect();
+    var s = Math.min((r.width - 56) / state.stage.w, (r.height - 56) / state.stage.h);
+    if (!(s > 0)) s = 0.2;
+    paintInto(child(view, "stage", "div", "bg-stage"), state.stage.w, state.stage.h, s);
+  }
+
+  // the fields of the module that is showing, built from its own list
+  function buildBgFields(kind, m) {
+    var host = $("#bg-fields"), p = bgParams(kind, m.id);
+    var show = m.fields.filter(function (f) { return !f.when || f.when(p); });
+    var sig = kind + ":" + m.id + ":" + show.map(function (f) { return f.k; }).join(",");
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.innerHTML = show.map(function (f) {
+        var lab = esc(f.label);
+        if (f.type === "check") {
+          return '<label class="check wide"><input type="checkbox" data-bgf="' + f.k + '"><span>' + lab + "</span></label>";
+        }
+        if (f.type === "color") {
+          return '<label class="field color"><span>' + lab + '</span><input type="color" data-bgf="' + f.k + '"></label>';
+        }
+        if (f.type === "range") {
+          return '<label class="field wide"><span>' + lab + ' <b data-bgv="' + f.k + '"></b></span>' +
+            '<input type="range" data-bgf="' + f.k + '" min="' + (f.min || 0) + '" max="' +
+            (f.max === undefined ? 100 : f.max) + '" step="1"></label>';
+        }
+        if (f.type === "select") {
+          return '<label class="field wide"><span>' + lab + '</span><select data-bgf="' + f.k + '">' +
+            f.options.map(function (o) {
+              return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
+            }).join("") + "</select></label>";
+        }
+        return '<label class="field"><span>' + lab + '</span><input type="number" data-bgf="' + f.k + '"' +
+          (f.min === undefined ? "" : ' min="' + f.min + '"') +
+          (f.max === undefined ? "" : ' max="' + f.max + '"') +
+          ' step="' + (f.step || 1) + '"></label>';
+      }).join("");
+    }
+    show.forEach(function (f) {
+      var el = host.querySelector('[data-bgf="' + f.k + '"]');
+      if (!el) return;
+      if (f.type === "check") el.checked = !!p[f.k];
+      else setValue(el, p[f.k]);
+      var out = host.querySelector('[data-bgv="' + f.k + '"]');
+      if (out) out.textContent = fmt(p[f.k]);
+    });
   }
 
   // everything that has not been pulled onto the stage yet
@@ -1774,8 +2228,12 @@
     lines.push("  width: " + fmt(st.w) + "px;");
     lines.push("  height: " + fmt(st.h) + "px;");
     lines.push("  background: " + st.bg + ";");
-    if (bg.src) {
-      lines.push("  background-image: url(\"" + (/^data:/.test(bg.src) ? "…generated image…" : bg.src) + "\");");
+    var bgs = bgSrc();
+    if (bgs) {
+      lines.push("  background-image: url(\"" + (/^data:/.test(bgs)
+        ? (state.bgGen.on ? "…" + bgModule(state.bgGen.on, state.bgGen[state.bgGen.on]).name.toLowerCase() +
+            " " + state.bgGen.on + ", as SVG…" : "…generated image…")
+        : bgs) + "\");");
       var bl = bgLayout(state.stage.w, state.stage.h);
       lines.push("  background-size: " + round(bl.w, 2) + "px " + round(bl.h, 2) + "px;");
       lines.push("  background-position: " + round(bl.x, 2) + "px " + round(bl.y, 2) + "px;");
@@ -2345,7 +2803,12 @@
     setValue($("#bg-x"), fmt(state.bg.x));
     setValue($("#bg-y"), fmt(state.bg.y));
     var bl = bgLayout(state.stage.w, state.stage.h);
-    $("#bg-hint").textContent = state.bg.src
+    $("#bg-hint").textContent = state.bgGen.on
+      ? "The background is being made: the " +
+        bgModule(state.bgGen.on, state.bgGen[state.bgGen.on]).name.toLowerCase() + " " +
+        state.bgGen.on + ", from the Generate background stage. Fit, opacity, scale and position " +
+        "below still apply to it; remove it there to go back to an image of your own."
+      : state.bg.src
       ? "The image runs " + round(bl.w, 1) + " × " + round(bl.h, 1) + " at " +
         round(bl.x, 1) + " / " + round(bl.y, 1) + " on a " + fmt(state.stage.w) + " × " +
         fmt(state.stage.h) + " format. Hold ⌥/Alt and drag on the canvas to move it."
@@ -2983,6 +3446,45 @@
       render();
     });
 
+    $("#bg-tabs").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-bgtab]");
+      if (!t) return;
+      state.bgGen.tab = t.dataset.bgtab;
+      render();
+    });
+    $("#bg-mods").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-bgmod]");
+      if (!t) return;
+      var tab = state.bgGen.tab;
+      state.bgGen[tab] = t.dataset.bgmod;
+      state.bgGen.on = tab;                      // picking one puts it on the format
+      render();
+    });
+    function bgField(e) {
+      var el = e.target.closest("[data-bgf]");
+      if (!el) return;
+      var tab = state.bgGen.tab, m = bgModule(tab, state.bgGen[tab]);
+      var f = m.fields.filter(function (x) { return x.k === el.dataset.bgf; })[0];
+      if (!f) return;
+      var v = f.type === "check" ? el.checked
+        : f.type === "color" || f.type === "select" ? el.value
+        : num(el.value, m.defaults[f.k]);
+      if (el.value === "" && f.type !== "check") return;
+      bgSetParam(tab, m.id, f.k, v);
+      state.bgGen.on = tab;
+      render();
+    }
+    $("#bg-fields").addEventListener("input", bgField);
+    $("#bg-fields").addEventListener("change", bgField);
+    $("#bg-use").addEventListener("click", function () {
+      state.bgGen.on = state.bgGen.tab;
+      render();
+    });
+    $("#bg-clear-gen").addEventListener("click", function () {
+      state.bgGen.on = "";
+      render();
+    });
+
     $("#tray-items").addEventListener("pointerdown", function (e) {
       var chip = e.target.closest("[data-place]");
       if (!chip || e.button !== 0) return;
@@ -3322,6 +3824,15 @@
       if (ev.shiftKey && sx && sy) h = w / ratio;
       if (sx && state.rect.wmode === "fixed") state.rect.w = snap(w);
       if (sy && state.rect.hmode === "fixed") state.rect.h = Math.max(MIN_SIZE, snap(h));
+    }, function () {
+      /* The box is snapped to the columns and the rows and held above the width of
+         its text, so what it runs at is rarely what the drag asked for. Keep the
+         number that was let go of, or the next drag starts from a size that is not
+         on screen and the box appears not to move at all. */
+      if (name !== "rect") return;
+      var eff = sizeOf("rect");
+      if (state.rect.wmode === "fixed") state.rect.w = snap(eff.w);
+      if (state.rect.hmode === "fixed") state.rect.h = snap(eff.h);
     });
   }
 

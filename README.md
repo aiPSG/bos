@@ -20,13 +20,41 @@ The work runs in stages, and the tabs across the top are those stages in order:
 | | Stage | What it is |
 | --- | --- | --- |
 | 1 | **Set design system** | The format, the logo, the margins and columns, the rectangle, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
-| 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. |
+| 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
 | 3 | **Design formats** | The system and its background laid into every format the work runs in, each adjusted where it has to be. |
 | 4 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-Only the first is built. The other three carry an **under construction** placeholder that names what
-will live there; a background can still be uploaded or generated meanwhile, under Format →
-Background image. The tab you were last on is remembered.
+The first two are built. *Design formats* and *Dummies* carry an **under construction** placeholder
+that names what will live there, as does the *Image* tab inside *Generate background*. The tab you
+were last on is remembered.
+
+## Generating a background
+
+**Generate background** has three tabs of its own — *Image*, *Pattern*, *Gradient* — with a live
+view of the format beside them, showing the design over whatever is being made.
+
+A pattern or a gradient is a **module**: a name, a few fields, and a routine that draws it as SVG at
+the size of the format. Each is shown as a card that draws its own preview, so the pickers are the
+patterns themselves. Five of each to start with, and adding another is adding an entry to a list —
+nothing else in the app needs to know what the modules are.
+
+| Patterns | | Gradients | |
+| --- | --- | --- | --- |
+| **Grid** | lines on the baseline rows and down the columns | **Linear** | one colour to another along an angle, with a movable midpoint |
+| **Dots** | a lattice, staggered or square | **Radial** | a light from a point, falling off to the far colour |
+| **Stripes** | bands at any angle | **Angular sweep** | a sweep around a point, drawn as a fan of sectors |
+| **Checker** | two colours, any cell size | **Mesh** | three soft lights over a ground |
+| **Rings** | circles out from a point | **Bands** | the same fade, stepped into hard edges |
+
+**The grid module is linked to the design's own grids.** Its rows come from baseline grid 1 or grid
+2, its columns from the format columns or the rectangle's — or from a spacing of your own — so
+changing the row count or the number of columns redraws the background with them. Dots and Checker
+can take their spacing from a baseline grid the same way.
+
+What is made **is** the background: it is drawn at the size of each format and made again for every
+one, so a linked pattern fits each of them rather than being scaled to fit. Fit, opacity, scale and
+position stay in Format → Background image and apply to it, and *Remove* gives the background back
+to whatever image was there before.
 
 ## The model
 
@@ -85,7 +113,8 @@ that suits it* — margins, columns and the number of baseline rows — and leav
 tray. Then: background colour, and **round all values to whole numbers**, which applies to every
 number in the app, typed or dragged.
 
-**Background image** — upload a file, paste a URL, or generate one (below). Fit as cover, contain,
+**Background image** — upload a file, paste a URL, generate one (below), or make a pattern or a
+gradient in the *Generate background* stage. Fit as cover, contain,
 stretch or tile, with an opacity slider. The fit is a starting point, not the last word: **scale the
 image from 10% to 500% of it and move it about**, by the sliders and number fields or by holding
 ⌥/Alt and dragging it on the canvas. The panel reports the size and position it runs at on this
@@ -103,6 +132,13 @@ as you type. The **height** has the first three of those. Filling wins over ever
 axis: a filled height is not snapped to the grid and a format-filling width is not snapped to the
 columns, because both already end on an edge of their own. In any mode but *set by hand* the field
 shows the computed value.
+
+The box is snapped to the columns and to the baseline rows and held above the width of its text, so
+what it runs at is rarely the number that was asked for. **What the box runs at is what the fields
+say**: a resize by handle writes back the size it settled on, so the next drag starts from the edge
+that is actually on screen rather than from a size that is not. If a drag seems to do nothing, the
+box is being held — by the column it is on, by the row its height runs to, or by its text; the two
+hints under the fields say which.
 
 It also **snaps to the columns**: the left edge sits on a column line, and the right edge on one
 too — either the right edge of a column, or a gutter further on at the left side of the next one, so
