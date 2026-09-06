@@ -53,8 +53,15 @@ nothing else in the app needs to know what the modules are.
 changing the row count or the number of columns redraws the background with them. Dots and Checker
 can take their spacing from a baseline grid the same way.
 
+A grid stops at the margins, which would leave a band of nothing round a background made from one,
+so the same rhythm is **carried out to the edges of the format** — at the grid's own phase, so the
+lines that fall inside the margin box are still exactly the design's. Untick *Carry the rhythm past
+the margins* to have it stop where the grid does.
+
 What is made **is** the background: it is drawn at the size of each format and made again for every
-one, so a linked pattern fits each of them rather than being scaled to fit. Fit, opacity, scale and
+one, so a linked pattern fits each of them rather than being scaled to fit, and it covers the format
+exactly. Switching one on clears any fit, scale or offset left over from an image that was there
+before, so it never arrives part-covered. Fit, opacity, scale and
 position stay in Format → Background image and apply to it, and *Remove* gives the background back
 to whatever image was there before.
 

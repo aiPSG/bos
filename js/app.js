@@ -525,16 +525,28 @@
     }).join("");
   }
 
-  // the lines of a grid the design already has, in format units
-  function rowLines(which) {
-    var c = content(), u = which === "grid2" ? baseline() / 2 : baseline(), out = [], k;
-    for (k = 0; c.y + k * u <= c.y + c.h + 0.01 && k < 4000; k++) out.push(c.y + k * u);
+  /* The lines of a grid the design already has, in format units. A grid stops at
+     the margins, which leaves a band of nothing round a background made from it,
+     so the same rhythm is carried out to the edges of the format unless it is
+     asked to stop. The phase is the grid's own either way. */
+  function rowLines(which, extend, h) {
+    var c = content(), u = which === "grid2" ? baseline() / 2 : baseline();
+    var from = extend ? c.y - Math.ceil(c.y / u) * u : c.y;
+    var to = extend ? h : c.y + c.h;
+    var out = [], y;
+    for (y = from; y <= to + 0.01 && out.length < 4000; y += u) out.push(y);
     return out;
   }
-  function colBands(which) {
+  function colBands(which, extend, w) {
     if (which === "rect" && !state.rect.placed) return [];
-    var g = colGrid(which), w = gridColW(g), step = w + g.gutter, out = [], k;
-    for (k = 0; k < g.n; k++) out.push({ x: g.x + k * step, w: w });
+    var g = colGrid(which), cw = gridColW(g), step = cw + g.gutter, out = [], k, x;
+    var k0 = extend ? Math.floor((0 - g.x) / step) - 1 : 0;
+    var k1 = extend ? Math.ceil((w - g.x) / step) + 1 : g.n - 1;
+    for (k = k0; k <= k1 && out.length < 400; k++) {
+      x = g.x + k * step;
+      if (x + cw < -step || x > w + step) continue;
+      out.push({ x: x, w: cw });
+    }
     return out;
   }
 
@@ -545,7 +557,7 @@
         note: "Lines on the baseline rows and down the columns. Linked to the design's own " +
           "grids, so it follows them as they change.",
         defaults: { rows: "grid1", rowStep: 40, cols: "format", colStep: 80, band: false,
-          line: 1, color: "#ffffff", alpha: 20 },
+          extend: true, line: 1, color: "#ffffff", alpha: 20 },
         fields: [
           { k: "rows", label: "Rows from", type: "select", options: [
             ["off", "Nothing"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"],
@@ -556,6 +568,7 @@
             ["custom", "A spacing of my own"]] },
           { k: "colStep", label: "Column spacing", type: "number", min: 2, step: 1, when: function (p) { return p.cols === "custom"; } },
           { k: "band", label: "Fill the columns instead of drawing their edges", type: "check" },
+          { k: "extend", label: "Carry the rhythm past the margins, to the edges of the format", type: "check" },
           { k: "line", label: "Line width", type: "number", min: 0.1, step: 0.5 },
           { k: "color", label: "Colour", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
@@ -572,12 +585,12 @@
           }
           if (p.rows === "custom") {
             for (x = 0; x <= h + 0.01; x += Math.max(2, num(p.rowStep, 40))) hline(x);
-          } else if (p.rows !== "off") rowLines(p.rows).forEach(hline);
+          } else if (p.rows !== "off") rowLines(p.rows, p.extend, h).forEach(hline);
 
           if (p.cols === "custom") {
             for (x = 0; x <= w + 0.01; x += Math.max(2, num(p.colStep, 80))) vline(x);
           } else if (p.cols !== "off") {
-            var bands = colBands(p.cols);
+            var bands = colBands(p.cols, p.extend, w);
             for (k = 0; k < bands.length; k++) {
               if (p.band) {
                 out.push('<rect x="' + round(bands[k].x, 3) + '" y="0" width="' + round(bands[k].w, 3) +
@@ -801,6 +814,19 @@
       }
     ]
   };
+
+  /* A made background is drawn at the size of the format, so it fills it as it is.
+     Turning one on clears any fit, scale or offset left over from an image that
+     was there before, or it would arrive part-covered for no visible reason. */
+  function bgTurnOn(kind) {
+    if (!state.bgGen.on) {
+      state.bg.fit = "cover";
+      state.bg.scale = 100;
+      state.bg.x = 0;
+      state.bg.y = 0;
+    }
+    state.bgGen.on = kind;
+  }
 
   function bgModule(kind, id) {
     var list = BG_MODULES[kind] || [];
@@ -3466,7 +3492,7 @@
       if (!t) return;
       var tab = state.bgGen.tab;
       state.bgGen[tab] = t.dataset.bgmod;
-      state.bgGen.on = tab;                      // picking one puts it on the format
+      bgTurnOn(tab);                             // picking one puts it on the format
       render();
     });
     function bgField(e) {
@@ -3480,13 +3506,13 @@
         : num(el.value, m.defaults[f.k]);
       if (el.value === "" && f.type !== "check") return;
       bgSetParam(tab, m.id, f.k, v);
-      state.bgGen.on = tab;
+      bgTurnOn(tab);
       render();
     }
     $("#bg-fields").addEventListener("input", bgField);
     $("#bg-fields").addEventListener("change", bgField);
     $("#bg-use").addEventListener("click", function () {
-      state.bgGen.on = state.bgGen.tab;
+      bgTurnOn(state.bgGen.tab);
       render();
     });
     $("#bg-clear-gen").addEventListener("click", function () {
