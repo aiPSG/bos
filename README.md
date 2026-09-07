@@ -181,9 +181,10 @@ It also **snaps to the columns**: the left edge sits on a column line, and the r
 too — either the right edge of a column, or a gutter further on at the left side of the next one, so
 a box can end flush with a column or with the gap before the following one. Typed, dragged or
 resized by a handle, it lands on the grid.
-And whatever the mode, **the box is never narrower than its text**: the longest line plus the side
-padding on both sides is its floor, so the copy never spills out of it. When even the whole column
-grid is too narrow for a line, the text wins and the box grows past it.
+Text wraps inside the box rather than pushing it wider, so **the box is free to be any width the
+columns allow** — narrow it and the copy simply takes more lines. *Fit the text* still measures the
+line as it would be if it did not wrap, so that mode gives the box the width its longest line asks
+for.
 
 **Corners** — a **shape** dropdown in three families. *Rounded* is everything `border-radius` can
 make (sharp, rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave,
@@ -219,8 +220,16 @@ logo gives margins that scale with the format too.
 print**. Display is the biggest of them, one ratio step past the headline (4.236 × paragraph out of
 the box, against the headline's 2.618).
 
-*Paragraph is the anchor*: its size is a percentage of the format (1.5% of the format height by
-default; the basis can be the height, the longest side or the width). Every other role is a
+*Paragraph is the anchor*, and it is arrived at one of four ways:
+
+| Measured as | What the number means |
+| --- | --- |
+| **× the longest side** (the default) | a factor from 0.01 to 1 — 0.015 of a 1350 px side is 20.25 px |
+| **× the format height** | the same factor, against the height |
+| **× the format width** | the same factor, against the width |
+| **px, set by hand** | a size in pixels, the same in every format |
+
+A factor scales the whole scale with the format; a hand-set size holds still. Every other role is a
 **multiple of the paragraph size** — 2.618, 1.618 and 0.5 out of the box — and the panel shows what
 each resolves to in pixels.
 
@@ -317,12 +326,15 @@ filled with **blind text** — a slider from one word to a hundred and twenty se
 is shown beside it, and *Fill* puts it back after you have typed over it. Latin, broken into
 sentences, so the shapes of the words carry the type rather than the meaning. It is also **what a
 block arrives carrying**: no hard line breaks in it, and as long a line as makes sense at that
-role's size, since nothing wraps on its own and the box is never narrower than its longest line. In a box that **fills the
+role's size. In a box that **fills the
 format**, side-aligned text can *hang on the format margins* instead of that padding — left-aligned
 text starts on the left margin, right-aligned text ends on the right one, centred text keeps the
-padding — so type stays on the margin even when the box bleeds to the format edge. **Lines break where you
-type a line break** — nothing wraps on its own, so a long line makes the box wider (in *fit the
-text*) rather than the box making the line break. The box stays visible while any block has text,
+padding — so type stays on the margin even when the box bleeds to the format edge.
+
+**Lines break where you type a line break, and again at the right edge of the area the block runs
+in**: the format width less the right margin when the block is not in a solid, and the solid's width
+less the side padding when it is. Draw the field in with the side handles and it breaks there
+instead. The box stays visible while any block has text,
 even with the solid itself switched off, so text can sit straight on the format.
 
 **Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*

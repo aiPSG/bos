@@ -167,11 +167,16 @@
     paragraph: "Paragraph", smallprint: "Small print"
   };
   var TAGS = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div"];
+  /* The paragraph size is the anchor of the scale. It is a factor of the format's
+     height or width — 0.01 to 1, so a hundredth of the side up to all of it — or a
+     value in pixels, set by hand and the same whatever the format. */
   var BASES = [
-    { id: "height", name: "format height" },
-    { id: "long", name: "longest side" },
-    { id: "width", name: "format width" }
+    { id: "long", name: "× the longest side" },
+    { id: "height", name: "× the format height" },
+    { id: "width", name: "× the format width" },
+    { id: "px", name: "px, set by hand" }
   ];
+  var PARA_MIN = 0.01, PARA_MAX = 1;
 
   // ratios designers reach for; picking one fills the multipliers in, and every one
   // of them can still be typed over by hand
@@ -523,8 +528,8 @@
       },
       type: {
         family: "sans",
-        basis: "height",        // what the paragraph percentage measures against
-        paragraph: 1.5,         // percent of that basis — the anchor of the whole scale
+        basis: "long",          // which side the paragraph factor measures against
+        paragraph: 0.015, paraFactor: true,   // a factor of that side — the anchor of the whole scale
         system: "custom",       // which ratio filled the multipliers in, if any
         rows: 39,               // how many rows grid 1 divides the content height into
         // where grid 1 comes from: "fit" divides the content height into whole rows,
@@ -636,6 +641,11 @@
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
+      // it was a percentage of a side before it was a factor of one
+      if (!s.type.paraFactor) {
+        s.type.paraFactor = true;
+        if (s.type.basis !== "px") s.type.paragraph = round(s.type.paragraph / 100, 5);
+      }
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
       if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
       s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
@@ -1295,8 +1305,7 @@
     var c = content(), u = gridUnit(state.rect.grid), r = state.rect, st = state.stage;
     var w = r.wmode === "format" ? st.w : r.wmode === "full" ? c.w
       : r.wmode === "fit" ? minRectW() : r.w;
-    // the text sets the floor: it is never narrower than its longest line and the padding
-    w = Math.max(MIN_SIZE, w, minRectW());
+    w = Math.max(MIN_SIZE, w);
     // a filled width already ends on an edge of its own, so only a set one is snapped
     if (r.cols && (r.wmode === "fixed" || r.wmode === "fit")) w = snapCols(w);
 
@@ -1357,8 +1366,9 @@
   }
 
   // the width the text needs: its longest line plus the padding on both sides
-  /* Measured on the last paint, per solid — working it out live would need to know
-     which blocks the solid owns, which needs the box, which needs this. */
+  /* The width the text in a solid would take without wrapping — what "fit the
+     text" fits. Measured on the last paint, per solid: working it out live would
+     need to know which blocks the solid owns, which needs the box, which needs this. */
   function minRectW() {
     var w = textWOf[state.solid] || 0;
     return w > 0 ? Math.max(MIN_SIZE, w + state.text.padding * 2) : MIN_SIZE;
@@ -1375,14 +1385,13 @@
     return out;
   }
 
-  // the nearest of those — never one too narrow for the text
+  // the nearest of those
   function snapCols(w) {
-    var min = minRectW();
-    var wide = colWidths().filter(function (v) { return v >= min - 0.01; });
-    if (!wide.length) return w;               // wider than the whole grid: the text wins
-    return wide.reduce(function (best, v) {
+    var all = colWidths();
+    if (!all.length) return w;
+    return all.reduce(function (best, v) {
       return Math.abs(v - w) < Math.abs(best - w) - 0.001 ? v : best;
-    }, wide[0]);
+    }, all[0]);
   }
 
   /* ---------------------------------------------------------- corner radius */
@@ -1617,10 +1626,12 @@
     var b = state.type.basis;
     return b === "long" ? longSide() : b === "width" ? state.stage.w : state.stage.h;
   }
+  function paraByHand() { return state.type.basis === "px"; }
 
   // the anchor: paragraph size in format pixels
   function paraPx() {
-    return Math.max(1, state.type.paragraph / 100 * typeBasis());
+    if (paraByHand()) return Math.max(1, state.type.paragraph);
+    return Math.max(1, clamp(state.type.paragraph, PARA_MIN, PARA_MAX) * typeBasis());
   }
 
   function rolePx(role) {
@@ -1896,9 +1907,10 @@
         top: (rowY(b) - baselineInBox(b.role) - origin) * s + "px",
         marginLeft: ins.l * s + "px",
         marginRight: ins.r * s + "px",
-        // a field drawn in by hand wraps inside itself; one that fills the column
-        // keeps to the line breaks that were typed
-        whiteSpace: (b.padL || b.padR) ? "pre-wrap" : "pre",
+        /* Lines break where they are typed and again at the right edge of the area
+           the block runs in: the page's right margin outside a solid, the solid's
+           right edge less the side padding inside one. */
+        whiteSpace: "pre-wrap",
         fontSize: rolePx(b.role) * s + "px",
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
@@ -1932,11 +1944,18 @@
       if (!probe) return null;
       var r = el.getBoundingClientRect();
       // a range around the text reports the widest line, whatever the box is doing
+      /* What "fit the text" fits: the width the block would take if it did not
+         wrap. Measured by letting it lay out that way for the length of a read —
+         nothing paints in between. */
       try {
-        var range = document.createRange();
-        range.selectNodeContents(el);
+        var ws = el.style.whiteSpace, wd = el.style.width, rt = el.style.right;
+        el.style.whiteSpace = "pre";
+        el.style.width = "max-content";
+        el.style.right = "auto";
+        var line = el.getBoundingClientRect().width / s;
+        el.style.whiteSpace = ws; el.style.width = wd; el.style.right = rt;
         var o = blockOwner(blocks[i]);
-        widest[o] = Math.max(widest[o] || 0, range.getBoundingClientRect().width / s);
+        widest[o] = Math.max(widest[o] || 0, line);
       } catch (e) {}
       return {
         top: parseFloat(el.style.top) || 0,
@@ -2220,9 +2239,9 @@
     els.frame.classList.toggle("round", name === "logo" && !state.logo.src);
 
     var kill = els.frame.querySelector(".handle.kill");
-    if (kill) {                                  // clear of the corner it shares
-      kill.style.left = b.w * s + "px";
-      kill.style.top = "-11px";
+    if (kill) {                                  // just inside the corner, clear of the handles
+      kill.style.left = Math.max(0, b.w * s - 11) + "px";
+      kill.style.top = Math.min(11, b.h * s / 2) + "px";
       kill.hidden = state.selBlock >= 0;         // the block's own ✕ has the corner
     }
     var pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
@@ -2256,10 +2275,10 @@
     size.style.top = r.height + "px";
     els.blockFrame.querySelector('[data-bdir="w"]').style.left = "0px";
     els.blockFrame.querySelector('[data-bdir="e"]').style.left = r.width + "px";
-    // clear of the edge handles, which share that corner
+    // just inside the corner, clear of the edge handles that share it
     var kill = els.blockFrame.querySelector(".bhandle.kill");
-    kill.style.left = r.width + "px";
-    kill.style.top = "-11px";
+    kill.style.left = Math.max(0, r.width - 11) + "px";
+    kill.style.top = Math.min(11, r.height / 2) + "px";
   }
 
   function renderCells(name) {
@@ -2503,13 +2522,9 @@
         '" title="Drag onto the stage, or click to drop it in place">' + esc(it.name) + "</button>";
     }).join("");
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
-    $("#tray-hint").textContent = (state.solids.length
-      ? state.solids.length + (state.solids.length === 1 ? " solid is" : " solids are") +
-        " on the stage — the ✕ at a solid's top right corner takes it off. "
-      : "") +
-      "Drag one onto the stage — it snaps to the grid as it lands. " +
-      "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
-      "click one to open its settings beside it, and the ✕ takes it off again.";
+    $("#tray-hint").textContent = "Drag one onto the stage — it snaps to the grid as it lands; " +
+      "let go outside the format to leave it here. Pull one out as often as you like. " +
+      "The ✕ on a block or a solid takes it off again.";
   }
 
   function renderReadout() {
@@ -2656,7 +2671,7 @@
       lines.push("  font-family: " + familyStack() + ";");
       lines.push("}");
       lines.push("");
-      lines.push(TX + " > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
+      lines.push(TX + " > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre-wrap; }");
       var origin = content().y;
       used.forEach(function (b, i) {
         var sp = blockInsets(b);
@@ -2683,7 +2698,7 @@
         lines.push(TX + " ." + r + " {");
         lines.push("  font-size: " + round(size, 2) + "px;" +
           (r === "paragraph"
-            ? "  /* " + round(state.type.paragraph, 3) + "% of the " + basisLabel() + " */"
+            ? "  /* " + esc(paraRule()) + " */"
             : "  /* " + round(st.mult, 3) + " × paragraph */"));
         lines.push("  line-height: " + round(lh, 4) + ";" +
           (r === "paragraph"
@@ -2710,7 +2725,14 @@
 
   function basisLabel() {
     var b = BASES.filter(function (x) { return x.id === state.type.basis; })[0];
-    return (b || BASES[0]).name + " (" + fmt(typeBasis()) + "px)";
+    return paraByHand() ? "set by hand" : (b || BASES[0]).name + " (" + fmt(typeBasis()) + "px)";
+  }
+
+  // how the paragraph size is arrived at, in words
+  function paraRule() {
+    return paraByHand()
+      ? fmt(round(state.type.paragraph, 2)) + " px, set by hand"
+      : round(state.type.paragraph, 5) + " " + basisLabel();
   }
 
   function renderMarkup(used) {
@@ -3248,11 +3270,11 @@
           : Math.abs(colSpan(spans) + state.cols.gutter - rw) < 0.02
             ? "Width " + round(rw, 2) + " — " + spans + " of the " + colCount() +
               " columns and a gutter, so the right edge sits on the left side of the next column. "
-            : "Width " + round(rw, 2) + ", wider than all " + colCount() +
-              " columns together, because the text needs it. ") +
+            : "Width " + round(rw, 2) + ". ") +
       ((textWOf[state.solid] || 0) > 0
-        ? "It never goes below " + round(floor, 2) + ": the longest line of the text in it (" +
-          round(textWOf[state.solid], 2) + ") plus the padding on both sides."
+        ? "Text in it wraps at " + round(rw - state.text.padding, 2) + " — the box less the side " +
+          "padding. Fitting the text would make it " + round(floor, 2) + " wide, the longest line " +
+          "unwrapped (" + round(textWOf[state.solid], 2) + ") plus the padding on both sides."
         : "");
     setValue($("#rect-h"), fmt(r.h));
     $("#rect-fill").value = r.fill;
@@ -3310,7 +3332,11 @@
     $("#type-family").value = ty.family;
     if ($("#type-family").selectedIndex < 0) $("#type-family").selectedIndex = 0;
 
-    setValue($("#type-para"), round(ty.paragraph, 3));
+    var byHand = paraByHand();
+    setValue($("#type-para"), round(ty.paragraph, byHand ? 2 : 5));
+    $("#type-para").min = byHand ? 1 : PARA_MIN;
+    $("#type-para").max = byHand ? 9999 : PARA_MAX;
+    $("#type-para").step = byHand ? 1 : 0.001;
     $("#type-basis").value = ty.basis;
     $("#type-para-px").textContent = "= " + Math.round(paraPx()) + " px";
     $("#type-system").value = ty.system;
@@ -3319,10 +3345,12 @@
       if (input) setValue(input, round(ty.roles[r].mult, 3));
       $('[data-px="' + r + '"]').textContent = Math.round(rolePx(r)) + " px";
     });
-    var basisName = BASES.filter(function (b) { return b.id === ty.basis; })[0].name;
-    $("#type-scale-hint").textContent = "Paragraph is " + round(ty.paragraph, 3) + "% of the " + basisName +
-      " (" + fmt(typeBasis()) + ") = " + Math.round(paraPx()) + " px. Every other role is a multiple of it — " +
-      "pick a ratio above or type any multiple.";
+    $("#type-scale-hint").textContent = "Paragraph is " + paraRule() +
+      (byHand ? "" : " = " + Math.round(paraPx()) + " px") +
+      ". Every other role is a multiple of it — pick a ratio above or type any multiple. " +
+      (byHand
+        ? "Set by hand it is the same in every format; a factor of a side scales with the format."
+        : "The factor runs from " + PARA_MIN + " to " + PARA_MAX + " — a hundredth of that side up to all of it.");
 
     $("#type-grid").value = ty.grid;
     $("#type-grid-from").value = ty.gridFrom || "fit";
@@ -3661,7 +3689,11 @@
     $("#gf-load").addEventListener("click", loadGoogleCatalogue);
     onChange("#type-level", function (el) { state.type.editing = el.value; });
     var styleOf = function () { return state.type.roles[state.type.editing]; };
-    numInput("#type-para", function (v) { state.type.paragraph = Math.max(0.05, round(v, 3)); });
+    numInput("#type-para", function (v) {
+      state.type.paragraph = paraByHand()
+        ? Math.max(1, round(v, 2))
+        : clamp(round(v, 5), PARA_MIN, PARA_MAX);
+    });
     onChange("#type-basis", function (el) { state.type.basis = el.value; });
     onChange("#type-system", function (el) {
       if (el.value === "custom") { state.type.system = "custom"; return; }
@@ -3979,7 +4011,9 @@
       var c = r.corners[n]; c.x = Math.round(c.x); c.y = Math.round(c.y);
     });
     state.text.padding = Math.round(state.text.padding);
-    state.type.paragraph = Math.max(0.05, round(state.type.paragraph, 3));
+    state.type.paragraph = paraByHand()
+      ? Math.max(1, round(state.type.paragraph, 2))
+      : clamp(round(state.type.paragraph, 5), PARA_MIN, PARA_MAX);
     ROLES.forEach(function (r) {
       var t = state.type.roles[r];
       t.mult = Math.max(0.01, round(t.mult, 3));
@@ -4225,7 +4259,11 @@
     drag(e, function (ev) {
       var dy = toStage(ev).y - start.y;
       var k = clamp(1 + dy / Math.max(40, px0 * 4), 0.05, 20);
-      if (role === "paragraph") ty.paragraph = clamp(round(from * k, 3), 0.05, 100);
+      if (role === "paragraph") {
+        ty.paragraph = paraByHand()
+          ? clamp(round(from * k, 2), 1, 9999)
+          : clamp(round(from * k, 5), PARA_MIN, PARA_MAX);
+      }
       else {
         ty.roles[role].mult = clamp(round(from * k, 3), 0.01, 50);
         ty.system = "custom";
@@ -4520,7 +4558,7 @@
         (st.transform !== "none" ? ", " + esc(st.transform) : "") +
         " · &lt;" + esc(st.tag) + "&gt; · " + round(px, 2) + " px = " +
         (r === "paragraph"
-          ? round(state.type.paragraph, 3) + "% of " + esc(basisLabel())
+          ? esc(paraRule())
           : round(st.mult, 3) + " × paragraph") +
         " · line height " + round(lh, 4) + " (" + round(px * lh, 2) + " px" +
         (steps ? ", " + steps + " × grid " + (st.snap === "half" ? "2" : "1") : "") + ")" +
@@ -4543,7 +4581,7 @@
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 &amp; @ ? ! — “ ”" +
       '</div><div class="rule"></div><div class="cols"><div><h2>The scale</h2>' + rows + "</div>" +
       '<div><h2>How it is built</h2><dl>' +
-      "<dt>Paragraph</dt><dd>" + round(ty.paragraph, 3) + "% of " + esc(basisLabel()) + " = " +
+      "<dt>Paragraph</dt><dd>" + esc(paraRule()) + " = " +
       round(paraPx(), 2) + " px</dd>" +
       "<dt>Ratio</dt><dd>" + esc(sys ? sys.name : "Custom — set by hand") + "</dd>" +
       "<dt>Multiples</dt><dd>" + ROLES.map(function (r) {
