@@ -1,14 +1,14 @@
 # bos
 
-A small design app: one **format** (the stage) with a **margin box**, a **rectangle** and a
+A small design app: one **format** (the stage) with a **margin box**, a **solid** and a
 **logo circle** on it. Every value can be set two ways — numerically in the side panel, or by
 dragging on the canvas.
 
-**The stage starts empty.** The rectangle and the five text roles wait in a **tray** above the
+**The stage starts empty.** The solid and the five text roles wait in a **tray** above the
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
 as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
 last had. A **text role can be pulled out as often as you like** — each drag makes a block of its
-own, with its own copy, position and field — and the **✕** on a block, or on the rectangle, takes it
+own, with its own copy, position and field — and the **✕** on a block, or on the solid, takes it
 off again and puts it back in the tray (⌫ does the same for whatever is selected). Undo brings it
 back. The design is kept between sessions, so a reload picks up where you left off; **Reset** in the
 toolbar clears the stage back to empty.
@@ -21,7 +21,7 @@ The work runs in stages, and the tabs across the top are those stages in order:
 
 | | Stage | What it is |
 | --- | --- | --- |
-| 1 | **Set design system** | The format, the logo, the margins and columns, the rectangle, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
+| 1 | **Set design system** | The format, the logo, the margins and columns, the solid, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
 | 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
 | 3 | **Design formats** | The system and its background laid into every format the work runs in, each adjusted where it has to be. |
 | 4 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
@@ -33,7 +33,8 @@ were last on is remembered.
 ## Generating a background
 
 **Generate background** has three tabs of its own — *Image*, *Pattern*, *Gradient* — with a live
-view of the format beside them, showing the design over whatever is being made.
+view of the format beside them, showing the design over whatever is being made — with its own
+zoom: −, +, 1:1, Fit, ⌘/Ctrl + wheel, and a plain wheel to scroll when it is bigger than the view.
 
 A pattern or a gradient is a **module**: a name, a few fields, and a routine that draws it as SVG at
 the size of the format. Each is shown as a card that draws its own preview, so the pickers are the
@@ -49,7 +50,7 @@ nothing else in the app needs to know what the modules are.
 | **Rings** | circles out from a point | **Bands** | the same fade, stepped into hard edges |
 
 **The grid module is linked to the design's own grids.** Its rows come from baseline grid 1 or grid
-2, its columns from the format columns or the rectangle's — or from a spacing of your own — so
+2, its columns from the format columns or the solid's — or from a spacing of your own — so
 changing the row count or the number of columns redraws the background with them. Dots and Checker
 can take their spacing from a baseline grid the same way.
 
@@ -96,9 +97,10 @@ over it by its opacity — and takes whichever of black or white contrasts more.
 luminance where the two are equal, so the guides never wash out on a pale format or disappear on a
 dark one. **Guide colour** in the Margins section switches that to a colour you pick instead.
 
-**Grids** — all three live in one panel section, since they are the same kind of thing: the
+**Page setup** — the margins and all three grids live in one panel section, since they are the same
+kind of thing: the margins, the
 **baseline grid** (where grid 1 comes from, its row count and what is drawn), the **format columns**,
-and the **rectangle's columns**. Each can be hidden without losing its numbers, and **Guides** in
+and the **solid's columns**. Each can be hidden without losing its numbers, and **Guides** in
 the toolbar takes the lot off at once.
 
 The **format columns** divide the box between the left and right margins into a number of columns
@@ -106,7 +108,7 @@ with a gutter between them, drawn in the guide colour. Set the count and the gut
 reports the column width that falls out of them ("12 columns of 62 px with a 16 px gutter fill the
 920 px between the left and right margins").
 
-The **rectangle's columns** do the same across the box, on a count and gutter of their own, and they
+The **solid's columns** do the same across the box, on a count and gutter of their own, and they
 have **margins of their own inside the box** — top, right, bottom and left — so the grid can be held
 off the edges of the box the way the format columns are held off the edges of the page. They move
 and re-divide with the box, and they are what *the box's own columns* means for a text block.
@@ -115,7 +117,7 @@ and re-divide with the box, and they are what *the box's own columns* means for 
 
 **Format** — width and height, or a **template** for the job in hand, with its aspect ratio beside
 every name: social posts, stories and link cards; the IAB display banners (leaderboard, medium
-rectangle, skyscraper, half page, mobile); digital billboards from 16:9 to 32:9 and 4K; motion
+solid, skyscraper, half page, mobile); digital billboards from 16:9 to 32:9 and 4K; motion
 graphics cards (lower third, intro, outro, vertical cut-down); and book work — cover, and inside
 pages for text, for image, and for image and text. A template sets the format *and the scaffolding
 that suits it* — margins, columns and the number of baseline rows — and leaves the elements in the
@@ -130,7 +132,7 @@ image from 10% to 500% of it and move it about**, by the sliders and number fiel
 format, *Reset* puts it back to the plain fit, and the CSS output carries the resulting
 `background-size` and `background-position` in pixels.
 
-**Rectangle** — pulled out of the tray like everything else, and *Draw its fill* switches the fill
+**Solid** — pulled out of the tray like everything else, and *Draw its fill* switches the fill
 off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
 the panel reports what it runs as. Then: position, anchor, height, and a **width** that works one of
@@ -208,7 +210,7 @@ stands.
 Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
 and colour, so the hierarchy is real markup, not just sizes.
 
-**Baseline grid** (in the *Grids* section, with the two column grids) — there are two grids, and
+**Baseline grid** (in *Page setup*, with the margins and the two column grids) — there are two grids, and
 you choose which way round they are built.
 
 *Whole rows that fill the content height* (the default): **grid 1 divides the format minus the top
@@ -255,16 +257,16 @@ shuts the panel** — the block stays on the stage, and picking a block opens it
 the block itself is the one that takes the block off. Hiding the guides hides the inspector with the
 rest of the selection UI.
 
-*A block belongs to the rectangle only while it sits inside it.* Inside, it takes the box padding
+*A block belongs to the solid only while it sits inside it.* Inside, it takes the box padding
 and **travels with the box** as that is moved or resized — the top-anchored ones follow the top edge,
 the bottom-anchored ones the bottom edge. Anywhere else — above the box, below it, or with no
-rectangle on the stage at all — a block **lines up on the columns**, its edges landing on column
-lines, and it stays exactly where it is whatever the rectangle does. Rows are counted from the top or
-the bottom margin, so the page is what a block is pinned to; the rectangle can come and go under it
+solid on the stage at all — a block **lines up on the columns**, its edges landing on column
+lines, and it stays exactly where it is whatever the solid does. Rows are counted from the top or
+the bottom margin, so the page is what a block is pinned to; the solid can come and go under it
 without anything jumping.
 
 **Which column grid** a block lines up on is its own to set, in *Cols*: *follow the box* is the rule
-just described — the box padding while it is inside the rectangle, the format columns everywhere
+just described — the box padding while it is inside the solid, the format columns everywhere
 else — while *the format columns* and *the box's own columns* hold whichever you name, wherever the
 block sits. A block on the box's columns follows the box as that is resized or moved, even from
 above or below it; one on the format columns never does. Switching between them carries the block's
@@ -279,10 +281,10 @@ between them, or *both grids* any line at all. Paragraph starts on grid 1 and ev
 both, and dragging a block steps in whichever of those it is set to.  A block sits on a **row of its
 own** — type the row number or drag the block on the canvas, where it lands on whole rows of its
 grid. Counting from
-the rectangle means **the text travels with it**: move the box and the blocks keep their rows, and
+the solid means **the text travels with it**: move the box and the blocks keep their rows, and
 each block **holds its distance to the edge it is anchored to** as the box is made taller or
 shorter — headings riding the top, small print riding the bottom. The origin is pulled onto the
-block's own grid first, so a block on grid 1 always lands on a grid 1 line even when the rectangle
+block's own grid first, so a block on grid 1 always lands on a grid 1 line even when the solid
 sits on a half row. Switching a block between the grids keeps it where it is and
 renumbers the row. Each block also has its own text, its own role and its own alignment
 (left / centre / right); the side padding sets the column they all run in. A block can also be
@@ -296,15 +298,15 @@ text starts on the left margin, right-aligned text ends on the right one, centre
 padding — so type stays on the margin even when the box bleeds to the format edge. **Lines break where you
 type a line break** — nothing wraps on its own, so a long line makes the box wider (in *fit the
 text*) rather than the box making the line break. The box stays visible while any block has text,
-even with the rectangle itself switched off, so text can sit straight on the format.
+even with the solid itself switched off, so text can sit straight on the format.
 
 **Format previews** — a rail of live thumbnails, one per format. Every one renders the *actual*
-design — background, margins, rectangle, corners, logo, type — at that format's dimensions, and
+design — background, margins, solid, corners, logo, type — at that format's dimensions, and
 updates as you work, so you can watch a change land across all of them at once. Click one to make it
 the format in the main window. A format that matches no preset shows up as a *Custom* tile at the
 top. Toggle the rail with **Formats** in the toolbar.
 
-The rectangle leaves the stage the way a text block does: the red **✕** at its top right corner, or
+The solid leaves the stage the way a text block does: the red **✕** at its top right corner, or
 ⌫ while it is selected, puts it back in the tray. The *On the stage* checkbox does the same.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
@@ -380,7 +382,7 @@ ratio system, the multiples, both grids and the leading rule.
 
 The colour slide carries every colour the design uses — one card per colour, listing everything it
 is used for, with **HEX, RGB, HSL and CMYK** — and a contrast table: each role against the format
-background and against the rectangle fill, with the WCAG 2 ratio and whether it passes AA at that
+background and against the solid fill, with the WCAG 2 ratio and whether it passes AA at that
 size. The CMYK is a plain conversion with no colour profile behind it: a starting point for print,
 not the separation a printer will make.
 
@@ -389,7 +391,7 @@ Below them, the live **CSS and markup** output with copy buttons.
 ## The panel
 
 Seven groups, in the order the design comes together: **Format** (with background image inside it),
-**Logo**, **Margins**, **Grids** (the baseline grid and both column grids), **Rectangle** (with
+**Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Solid** (with
 corners), **Typography**, **Export** (the slides, then CSS). Text blocks are not among them — they
 are set on the canvas, beside the block.
 

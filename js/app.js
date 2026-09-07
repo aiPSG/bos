@@ -1,5 +1,5 @@
 /* bos — a small design app.
-   A stage with a margin box, an alignable rectangle and a logo circle.
+   A stage with a margin box, an alignable solid and a logo circle.
    Every value can be set numerically in the panel or by dragging on the canvas. */
 (function () {
   "use strict";
@@ -324,7 +324,7 @@
      into, then the dummies it is shown in. Only the first is built. */
   var SEGMENTS = [
     { id: "system", name: "Set design system", built: true,
-      note: "The format, the logo, the margins and the columns, the rectangle, the type scale " +
+      note: "The format, the logo, the margins and the columns, the solid, the type scale " +
         "and both baseline grids, and the text that sits on them." },
     { id: "background", name: "Generate background", built: true,
       note: "One ground for the system to sit on, made rather than found." },
@@ -348,7 +348,7 @@
       // the image can be pushed around and scaled on top of whichever fit it starts from
       bg: { src: "", fit: "cover", opacity: 100, scale: 100, x: 0, y: 0 },
       // a made background: which kind is switched on, and the module each kind is set to
-      bgGen: { tab: "pattern", on: "", pattern: "grid", gradient: "linear", params: {} },
+      bgGen: { tab: "pattern", on: "", pattern: "grid", gradient: "linear", params: {}, zoom: null },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -409,7 +409,7 @@
         marginPad: true,
         // blocks are pulled out of the tray, one per drag and as many as you like.
         // each sits on a row of its own, counted from the top or the bottom edge of
-        // the rectangle, so the text travels with the box as it is resized
+        // the solid, so the text travels with the box as it is resized
         blocks: []
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -564,7 +564,7 @@
             ["custom", "A spacing of my own"]] },
           { k: "rowStep", label: "Row spacing", type: "number", min: 2, step: 1, when: function (p) { return p.rows === "custom"; } },
           { k: "cols", label: "Columns from", type: "select", options: [
-            ["off", "Nothing"], ["format", "The format columns"], ["rect", "The rectangle's columns"],
+            ["off", "Nothing"], ["format", "The format columns"], ["rect", "The solid's columns"],
             ["custom", "A spacing of my own"]] },
           { k: "colStep", label: "Column spacing", type: "number", min: 2, step: 1, when: function (p) { return p.cols === "custom"; } },
           { k: "band", label: "Fill the columns instead of drawing their edges", type: "check" },
@@ -1060,7 +1060,7 @@
     return which === 1 ? baseline() : baseline() / 2;
   }
 
-  // the box the text stack is painted into: the rectangle when there is one, the
+  // the box the text stack is painted into: the solid when there is one, the
   // margin box when there is not
   function textFrame() {
     return state.rect.placed ? box("rect") : content();
@@ -1072,8 +1072,8 @@
   function blockShift(b) { return b.grid === 2 ? baseline() / 2 : 0; }
   function gridLabel(g) { return g === "both" ? "both grids" : "grid " + g; }
 
-  // rows are counted from the margin box, not from the rectangle, so a block only
-  // moves when the page moves. What rides along with the rectangle is decided by
+  // rows are counted from the margin box, not from the solid, so a block only
+  // moves when the page moves. What rides along with the solid is decided by
   // where a block sits (see carryBlocks), not by the coordinates it is stored in
   function rowOrigin(b) {
     var c = content(), u = blockUnit(b), shift = blockShift(b);
@@ -1099,7 +1099,7 @@
     return top + Math.round((y - top) / unit) * unit;
   }
 
-  // the nearest grid line to a y position, for the rectangle's own grid
+  // the nearest grid line to a y position, for the solid's own grid
   function snapY(y, which) { return snapUnit(y, gridUnit(which)); }
 
   function sizeOf(name) {
@@ -1563,9 +1563,9 @@
     render();
   }
 
-  // a block belongs to the rectangle only while it sits inside it: that is what makes
+  // a block belongs to the solid only while it sits inside it: that is what makes
   // it travel with the box and take the box padding. Everywhere else — above it, below
-  // it, or with no rectangle at all — a block lines up on the columns
+  // it, or with no solid at all — a block lines up on the columns
   function blockInside(b) {
     if (!state.rect.placed) return false;
     var r = box("rect"), y = rowY(b);
@@ -1577,8 +1577,8 @@
   // the nearest column line — either edge of any column — to an offset measured from
   // the left margin
   /* There are two column grids a block can line up on: the format's, across the
-     margin box, and the rectangle's own, across the box. Each is {x, w, n, gutter}. */
-  // the box the rectangle's columns divide: its box, less margins of its own
+     margin box, and the solid's own, across the box. Each is {x, w, n, gutter}. */
+  // the box the solid's columns divide: its box, less margins of its own
   function rectColBox() {
     var r = box("rect"), m = state.rect.columns.m;
     return {
@@ -1613,7 +1613,7 @@
   function colLine(off) { return gridLine(colGrid("format"), off); }
 
   /* Which grid a block lines up on. "auto" keeps the old rule — the box padding
-     while it is inside the rectangle, the format columns anywhere else. */
+     while it is inside the solid, the format columns anywhere else. */
   function blockCols(b) {
     var c = b.cols || "auto";
     if (c === "rect" && !state.rect.placed) return "format";
@@ -1783,7 +1783,7 @@
         });
       }
 
-      // without a rectangle the text runs in the margin box instead, in a layer of its own
+      // without a solid the text runs in the margin box instead, in a layer of its own
       var free = child(host, "free", "div", "text-free");
       free.hidden = state.rect.placed || !textVisible();
       if (!free.hidden) {
@@ -1814,7 +1814,7 @@
     });
   }
 
-  // the text stack in play: inside the rectangle, or in the free layer
+  // the text stack in play: inside the solid, or in the free layer
   function liveStack() {
     var r = els.stage._rect, f = els.stage._free;
     return (r && r._text) || (f && f._text) || null;
@@ -1962,7 +1962,7 @@
         return '<span class="handle radius" data-corner="' + c + '" title="Drag to round this corner"></span>';
       }).join("");
       html += '<button type="button" class="handle kill" ' +
-        'title="Take the rectangle off the stage — it goes back to the tray">✕</button>';
+        'title="Take the solid off the stage — it goes back to the tray">✕</button>';
     }
     return html;
   }
@@ -2066,6 +2066,18 @@
 
   var BG_TABS = [["image", "Image"], ["pattern", "Pattern"], ["gradient", "Gradient"]];
 
+  // the made background has a zoom of its own; the view scrolls when it is bigger
+  function bgFitScale() {
+    var r = $("#bg-view-stage").getBoundingClientRect();
+    var s = Math.min((r.width - 56) / state.stage.w, (r.height - 56) / state.stage.h);
+    return s > 0 ? s : 0.2;
+  }
+  function bgScale() { return state.bgGen.zoom || bgFitScale(); }
+  function setBgZoom(z) {
+    state.bgGen.zoom = z ? clamp(z, .02, 16) : null;
+    render();
+  }
+
   function renderBgSeg() {
     var tab = state.bgGen.tab;
     if (!BG_MODULES[tab] && tab !== "image") tab = state.bgGen.tab = "pattern";
@@ -2117,16 +2129,14 @@
           : "Nothing is made yet — the background is whatever is set in Format \u2192 Background image.";
     }
 
-    var head = $("#bg-view-head");
-    head.textContent = formatName() + (state.bgGen.on
+    $("#bg-view-name").textContent = formatName() + (state.bgGen.on
       ? " \u2014 " + bgModule(state.bgGen.on, state.bgGen[state.bgGen.on]).name.toLowerCase() +
         " " + state.bgGen.on
       : " \u2014 no made background");
 
-    var view = $("#bg-view-stage"), r = view.getBoundingClientRect();
-    var s = Math.min((r.width - 56) / state.stage.w, (r.height - 56) / state.stage.h);
-    if (!(s > 0)) s = 0.2;
-    paintInto(child(view, "stage", "div", "bg-stage"), state.stage.w, state.stage.h, s);
+    var s = bgScale();
+    $("#bgz-value").textContent = Math.round(s * 100) + "%";
+    paintInto(child($("#bg-view-stage"), "stage", "div", "bg-stage"), state.stage.w, state.stage.h, s);
   }
 
   // the fields of the module that is showing, built from its own list
@@ -2174,7 +2184,7 @@
   // everything that has not been pulled onto the stage yet
   function renderTray() {
     var items = [];
-    if (!state.rect.placed) items.push({ id: "rect", kind: "shape", name: "Rectangle" });
+    if (!state.rect.placed) items.push({ id: "rect", kind: "shape", name: "Solid" });
     ROLES.forEach(function (r) {
       items.push({ id: "role:" + r, kind: "text", name: ROLE_NAMES[r] });   // as many as you like
     });
@@ -2184,7 +2194,7 @@
     }).join("");
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
     $("#tray-hint").textContent = (state.rect.placed
-      ? "The rectangle is on the stage — the ✕ at its top right corner puts it back here. "
+      ? "The solid is on the stage — the ✕ at its top right corner puts it back here. "
       : "") +
       "Drag one onto the stage — it snaps to the grid as it lands. " +
       "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
@@ -2200,7 +2210,7 @@
     ];
     if (state.rect.placed) {
       var b = box("rect");
-      parts.push("Rectangle " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
+      parts.push("Solid " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
     }
     var onStage = state.text.blocks.length;
     if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
@@ -2219,7 +2229,7 @@
     var el = state[name], b = box(name), m = margins(), out = [], tx = null, ty = null;
     var full = name === "rect" && state.rect.wmode === "full";
 
-    // the rectangle lands on the baseline grid and on a column line, so its edges are
+    // the solid lands on the baseline grid and on a column line, so its edges are
     // written out as they are measured rather than as margins that would round elsewhere
     if (name === "rect") {
       if (state.rect.wmode === "format") { out.push("left: 0"); out.push("right: 0"); }
@@ -2283,7 +2293,7 @@
     lines.push("}");
     if (state.rect.placed) {
       lines.push("");
-      lines.push(".rectangle {");
+      lines.push(".solid {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("rect", "  "));
       if (state.rect.shape === "radius") {
@@ -2324,10 +2334,10 @@
       } else if (state.type.family.indexOf("u:") === 0) {
         lines.push("/* @font-face for \"" + state.type.family.slice(2) + "\" — ship the uploaded file yourself */");
       }
-      var TX = state.rect.placed ? ".rectangle .text" : ".stage .text";
+      var TX = state.rect.placed ? ".solid .text" : ".stage .text";
       lines.push(TX + " {");
       lines.push("  position: absolute;");
-      // inside the rectangle the padding is the whole inset; on the stage the margins
+      // inside the solid the padding is the whole inset; on the stage the margins
       // carry it, since the text is running in the margin box
       lines.push("  inset: " + (state.rect.placed
         ? fmt(t.padding) + "px"
@@ -2406,7 +2416,7 @@
       text.push(pad + "</div>");
     }
     if (state.rect.placed) {
-      inner.push('  <div class="rectangle">');
+      inner.push('  <div class="solid">');
       inner = inner.concat(text);
       inner.push("  </div>");
     } else {
@@ -2735,7 +2745,7 @@
           "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Rows run from the top or the bottom margin: grid 1 is the " +
       "full rows (" + round(baseline(), 2) + " px), grid 2 the half lines between them. " +
-      "Following the box means the box padding while the block is inside the rectangle and the " +
+      "Following the box means the box padding while the block is inside the solid and the " +
       "format columns anywhere else; the other two hold whichever grid you name.";
   }
 
@@ -3062,7 +3072,7 @@
         (inset ? " left inside the " + round(box("rect").w, 2) + " px box by its margins" : " of the box") +
         ". A text block set to the box's columns lines up on these instead of the format's."
       : "The box has a column grid of its own, with margins of its own inside it. Drag the " +
-        "rectangle onto the stage and it is drawn here; a text block can line up on it instead " +
+        "solid onto the stage and it is drawn here; a text block can line up on it instead " +
         "of the format's columns.";
 
     setValue($("#col-n"), state.cols.n);
@@ -3519,6 +3529,16 @@
       state.bgGen.on = "";
       render();
     });
+    $("#bgz-in").addEventListener("click", function () { setBgZoom(bgScale() * 1.25); });
+    $("#bgz-out").addEventListener("click", function () { setBgZoom(bgScale() / 1.25); });
+    $("#bgz-100").addEventListener("click", function () { setBgZoom(1); });
+    $("#bgz-fit").addEventListener("click", function () { setBgZoom(null); });
+    $("#bgz-value").addEventListener("click", function () { setBgZoom(null); });
+    $("#bg-view-stage").addEventListener("wheel", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;         // plain wheel scrolls the view
+      e.preventDefault();
+      setBgZoom(bgScale() * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
+    }, { passive: false });
 
     $("#tray-items").addEventListener("pointerdown", function (e) {
       var chip = e.target.closest("[data-place]");
@@ -3684,10 +3704,10 @@
     if (stack) stack.dataset.sig = "";
   }
 
-  // where the rectangle sat last time round, as an offset inside the margin box
+  // where the solid sat last time round, as an offset inside the margin box
   var lastBox = null, placing = false;
 
-  // move the rectangle, or resize it, and the text inside it comes along; anything
+  // move the solid, or resize it, and the text inside it comes along; anything
   // outside stays where it is. Measured against the margin box, so changing the
   // format or the margins moves the page rather than the box within it
   function carryBlocks() {
@@ -3697,7 +3717,7 @@
       var b = box("rect");
       now = { top: b.y - c.y, bot: b.y + b.h - c.y };
     }
-    // a rectangle being pulled out of the tray sweeps across the format on its way in;
+    // a solid being pulled out of the tray sweeps across the format on its way in;
     // it should not collect the text it passes over
     if (placing) { lastBox = now; return; }
     if (lastBox && now) {
@@ -3791,7 +3811,7 @@
     var b = state.text.blocks[index];
     if (!b) return;
     var start = toStage(e), row0 = b.row;
-    // a block that is not in the rectangle can be moved sideways as well, landing on
+    // a block that is not in the solid can be moved sideways as well, landing on
     // the column lines; the field keeps the width it had
     var free = blockCols(b) !== "box", g = blockGrid(b), cw = g.w, colw = gridColW(g);
     var l0 = gridLine(g, b.padL || 0);
@@ -4170,7 +4190,7 @@
   function colourSheet() {
     var uses = [
       { name: "Format background", hex: state.stage.bg },
-      { name: "Rectangle fill", hex: state.rect.fill },
+      { name: "Solid fill", hex: state.rect.fill },
       { name: "Logo fill", hex: state.logo.fill },
       { name: "Guides", hex: guideColour() }
     ];
@@ -4194,7 +4214,7 @@
 
     var grounds = [
       { name: "the format background", hex: state.stage.bg },
-      { name: "the rectangle fill", hex: state.rect.fill }
+      { name: "the solid fill", hex: state.rect.fill }
     ];
     var rows = [];
     ROLES.forEach(function (r) {

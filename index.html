@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>bos — design app</title>
-<meta name="description" content="A minimal design tool: a stage with a margin system, an alignable rectangle and a logo circle — set numerically or by dragging.">
+<meta name="description" content="A minimal design tool: a stage with a margin system, an alignable solid and a logo circle — set numerically or by dragging.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='5' y='7' width='22' height='18' rx='5' fill='%234f7cff'/></svg>">
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -139,7 +139,9 @@
     </details>
 
     <details class="group" open>
-      <summary><h2>Margins</h2></summary>
+      <summary><h2>Page setup</h2></summary>
+
+      <h3 class="sub-head">Margins</h3>
       <div class="row">
         <label class="field"><span>Source</span>
           <select id="margin-mode">
@@ -175,10 +177,7 @@
         <label class="field color"><span>Colour</span><input type="color" id="guide-color"></label>
       </div>
       <p class="hint" id="guide-hint"></p>
-    </details>
 
-    <details class="group" open>
-      <summary><h2>Grids</h2></summary>
 
       <h3 class="sub-head">Baseline grid</h3>
       <label class="field grow"><span>Grid 1 comes from</span>
@@ -211,7 +210,7 @@
       <label class="check"><input type="checkbox" id="col-show"><span>Show the column grid</span></label>
       <p class="hint" id="col-hint"></p>
 
-      <h3 class="sub-head">Rectangle columns</h3>
+      <h3 class="sub-head">Solid columns</h3>
       <div class="row">
         <label class="field"><span>Columns</span><input type="number" id="rcol-n" min="1" max="48" step="1"></label>
         <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" step="1"></label>
@@ -230,7 +229,7 @@
     </details>
 
     <details class="group" open>
-      <summary><h2>Rectangle</h2></summary>
+      <summary><h2>Solid</h2></summary>
       <div class="row toggles">
         <label class="check"><input type="checkbox" id="rect-placed"><span>On the stage</span></label>
         <label class="check"><input type="checkbox" id="rect-visible"><span>Draw its fill</span></label>
@@ -477,7 +476,16 @@
     </aside>
 
     <div class="bg-view">
-      <div class="bg-view-head" id="bg-view-head"></div>
+      <div class="bg-view-head">
+        <span id="bg-view-name"></span>
+        <span class="zoom">
+          <button type="button" class="ghost" id="bgz-out" title="Zoom out">−</button>
+          <button type="button" class="ghost" id="bgz-value" title="Zoom to fit">100%</button>
+          <button type="button" class="ghost" id="bgz-in" title="Zoom in">+</button>
+          <button type="button" class="ghost" id="bgz-100" title="Zoom to 100%">1:1</button>
+          <button type="button" class="ghost" id="bgz-fit" title="Zoom to fit">Fit</button>
+        </span>
+      </div>
       <div class="bg-view-stage" id="bg-view-stage"></div>
     </div>
   </section>
