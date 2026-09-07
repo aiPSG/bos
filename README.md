@@ -132,8 +132,10 @@ image from 10% to 500% of it and move it about**, by the sliders and number fiel
 format, *Reset* puts it back to the plain fit, and the CSS output carries the resulting
 `background-size` and `background-position` in pixels.
 
-**Solid** — pulled out of the tray like everything else, and *Draw its fill* switches the fill
-off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
+**Solids** — **as many as you like on a page**: every drag out of the tray makes another, each with
+its own size, alignment, fill, corners and column grid. Click one on the canvas to work on it; the
+panel, the frame and its ✕ all follow whichever is picked, and a new one starts as a copy of the
+settings the last one had. *Draw its fill* switches the fill off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
 the panel reports what it runs as. Then: position, anchor, height, and a **width** that works one of
 four ways — *set by hand*, *fill between the margins*
@@ -257,9 +259,10 @@ shuts the panel** — the block stays on the stage, and picking a block opens it
 the block itself is the one that takes the block off. Hiding the guides hides the inspector with the
 rest of the selection UI.
 
-*A block belongs to the solid only while it sits inside it.* Inside, it takes the box padding
-and **travels with the box** as that is moved or resized — the top-anchored ones follow the top edge,
-the bottom-anchored ones the bottom edge. Anywhere else — above the box, below it, or with no
+*A block belongs to a solid only while it sits inside it* — whichever one that is, when there are
+several. Inside, it takes that box's padding
+and **travels with it** as that is moved or resized — the top-anchored ones follow the top edge,
+the bottom-anchored ones the bottom edge, and only the blocks in that one solid move. Anywhere else — above the box, below it, or with no
 solid on the stage at all — a block **lines up on the columns**, its edges landing on column
 lines, and it stays exactly where it is whatever the solid does. Rows are counted from the top or
 the bottom margin, so the page is what a block is pinned to; the solid can come and go under it
@@ -306,8 +309,8 @@ updates as you work, so you can watch a change land across all of them at once. 
 the format in the main window. A format that matches no preset shows up as a *Custom* tile at the
 top. Toggle the rail with **Formats** in the toolbar.
 
-The solid leaves the stage the way a text block does: the red **✕** at its top right corner, or
-⌫ while it is selected, puts it back in the tray. The *On the stage* checkbox does the same.
+A solid leaves the stage the way a text block does: the red **✕** at its top right corner, or ⌫
+while it is selected, takes that one off. Undo brings it back.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift

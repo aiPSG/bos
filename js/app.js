@@ -356,6 +356,8 @@
         top: 80, right: 80, bottom: 80, left: 80,
         buf: { top: 0, right: 0, bottom: 0, left: 0 } },
       round: true,
+      // the solids on the page; state.rect is a live alias of the selected one
+      solids: [], solid: 0,
       rect: {
         // wmode / hmode: a set size, filling between the margins, filling the whole
         // format edge to edge, or (width only) fitting around the text
@@ -428,9 +430,45 @@
 
   // uploads are data: URIs and can be large, so give up the heaviest parts first
   // rather than lose the whole design to a full quota
+  /* Every solid is the same shape of thing, and state.rect is a live alias of
+     whichever one is selected — so the panel, the frame and every geometry helper
+     go on reading state.rect and know nothing about there being several. */
+  function normaliseSolid(r, d) {
+    r = Object.assign({}, d.rect, r);
+    r.corners = Object.assign({}, d.rect.corners, r.corners);
+    r.columns = Object.assign({}, d.rect.columns, r.columns);
+    if (!r.columns.m || typeof r.columns.m !== "object") r.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
+    SIDES.forEach(function (side) { if (!isFinite(r.columns.m[side])) r.columns.m[side] = 0; });
+    return r;
+  }
+
+  function useSolid(i) {
+    var n = state.solids.length;
+    state.solid = n ? clamp(Math.round(i) || 0, 0, n - 1) : 0;
+    state.rect = n ? state.solids[state.solid] : normaliseSolid({ placed: false }, defaults());
+  }
+
+  // run fn with a given solid selected, and put the selection back afterwards
+  function withSolid(i, fn) {
+    var r = state.rect, k = state.solid;
+    if (state.solids[i]) { state.rect = state.solids[i]; state.solid = i; }
+    try { return fn(); } finally { state.rect = r; state.solid = k; }
+  }
+
+  function addSolid() {
+    var r = normaliseSolid(JSON.parse(JSON.stringify(state.rect)), defaults());
+    r.placed = true;
+    state.solids.push(r);
+    useSolid(state.solids.length - 1);
+    return r;
+  }
+
   function save() {
     var copy;
     try { copy = JSON.parse(JSON.stringify(state)); } catch (e) { return; }
+    /* state.rect is a live alias of the selected solid, so it is a duplicate of one
+       of copy.solids — kept because with no solids on the page it is the prototype
+       the next one is copied from. Loading rebuilds the alias either way. */
     if (/^data:/.test(copy.bg.src)) copy.bg.src = "";     // generated art is never worth the quota
     copy.view = { zoom: null, pan: { x: 0, y: 0 }, panned: false };
 
@@ -467,16 +505,19 @@
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
       });
-      s.rect = Object.assign(d.rect, s.rect);
-      s.rect.corners = Object.assign(d.rect.corners, s.rect.corners);
-      s.rect.columns = Object.assign(d.rect.columns, s.rect.columns);
-      if (!s.rect.columns.m || typeof s.rect.columns.m !== "object") s.rect.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
-      SIDES.forEach(function (side) { if (!isFinite(s.rect.columns.m[side])) s.rect.columns.m[side] = 0; });
+      if (!Array.isArray(s.solids)) s.solids = [];
+      // a design from before there could be more than one carries its solid across
+      if (!s.solids.length && s.rect && s.rect.placed) s.solids = [s.rect];
+      s.solids = s.solids.map(function (r) { return normaliseSolid(r, d); });
+      s.rect = normaliseSolid(s.rect, d);
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
       if (!isFinite(s.logo.aspect) || s.logo.aspect <= 0) s.logo.aspect = 1;
-      return Object.assign(d, s);
+      var out = Object.assign(d, s);
+      var keep = state;
+      state = out; useSolid(out.solid); out = state; state = keep;
+      return out;
     } catch (e) { return null; }
   }
 
@@ -538,7 +579,7 @@
     return out;
   }
   function colBands(which, extend, w) {
-    if (which === "rect" && !state.rect.placed) return [];
+    if (which === "rect" && !state.solids.length) return [];
     var g = colGrid(which), cw = gridColW(g), step = cw + g.gutter, out = [], k, x;
     var k0 = extend ? Math.floor((0 - g.x) / step) - 1 : 0;
     var k1 = extend ? Math.ceil((w - g.x) / step) + 1 : g.n - 1;
@@ -1063,7 +1104,13 @@
   // the box the text stack is painted into: the solid when there is one, the
   // margin box when there is not
   function textFrame() {
-    return state.rect.placed ? box("rect") : content();
+    return state.solids.length ? box("rect") : content();
+  }
+
+  // the box a given block runs in: the solid it is inside, or the margin box
+  function blockFrame(b) {
+    var o = blockOwner(b);
+    return o >= 0 ? solidBox(o) : content();
   }
 
   // which lines a block may sit on: grid 1 is the full rows, grid 2 the half lines
@@ -1121,7 +1168,7 @@
 
   // anchor point of the shape lands on the aligned point of the content box
   // the widest line of text, measured on the main stage and reused by every preview
-  var textW = 0;
+  var textWOf = {};        // the widest line each solid holds, by index (-1 = the page)
 
   function box(name) {
     var el = state[name], c = content(), s = sizeOf(name);
@@ -1169,8 +1216,11 @@
   }
 
   // the width the text needs: its longest line plus the padding on both sides
+  /* Measured on the last paint, per solid — working it out live would need to know
+     which blocks the solid owns, which needs the box, which needs this. */
   function minRectW() {
-    return textVisible() ? Math.max(MIN_SIZE, textW + state.text.padding * 2) : MIN_SIZE;
+    var w = textWOf[state.solid] || 0;
+    return w > 0 ? Math.max(MIN_SIZE, w + state.text.padding * 2) : MIN_SIZE;
   }
 
   // every width whose right edge lands on a column line: the right edge of a column,
@@ -1566,12 +1616,19 @@
   // a block belongs to the solid only while it sits inside it: that is what makes
   // it travel with the box and take the box padding. Everywhere else — above it, below
   // it, or with no solid at all — a block lines up on the columns
-  function blockInside(b) {
-    if (!state.rect.placed) return false;
-    var r = box("rect"), y = rowY(b);
-    return y >= r.y - 0.5 && y <= r.y + r.h + 0.5;
+  function solidBox(i) { return withSolid(i, function () { return box("rect"); }); }
+
+  // the first solid whose span the block's row falls in, or -1 for the page itself
+  function blockOwner(b) {
+    var y = rowY(b), found = -1;
+    for (var i = 0; i < state.solids.length; i++) {
+      var r = solidBox(i);
+      if (y >= r.y - 0.5 && y <= r.y + r.h + 0.5) { found = i; break; }
+    }
+    return found;
   }
 
+  function blockInside(b) { return blockOwner(b) >= 0; }
   function blockOutside(b) { return !blockInside(b); }
 
   // the nearest column line — either edge of any column — to an offset measured from
@@ -1589,7 +1646,7 @@
   }
 
   function colGrid(which) {
-    if (which === "rect" && state.rect.placed) {
+    if (which === "rect" && state.solids.length) {
       var r = rectColBox(), rc = state.rect.columns;
       return { x: r.x, w: r.w, n: Math.max(1, Math.round(rc.n)), gutter: Math.max(0, rc.gutter) };
     }
@@ -1616,22 +1673,35 @@
      while it is inside the solid, the format columns anywhere else. */
   function blockCols(b) {
     var c = b.cols || "auto";
-    if (c === "rect" && !state.rect.placed) return "format";
+    if (c === "rect" && !state.solids.length) return "format";
     if (c === "format" || c === "rect") return c;
-    return blockOutside(b) ? "format" : "box";
+    return blockOwner(b) >= 0 ? "box" : "format";
   }
-  function blockGrid(b) { return colGrid(blockCols(b)); }
+  // a block on "the solid's columns" means the one it is inside, not the selected one
+  function blockGrid(b) {
+    var mode = blockCols(b), o = blockOwner(b);
+    if (mode !== "rect" || o < 0) return colGrid(mode);
+    return withSolid(o, function () { return colGrid("rect"); });
+  }
 
   // what a block insets from the sides of the stack it is painted in
+  /* Insets from the margin box, which is the one layer every block is painted in
+     whatever it belongs to. */
   function blockInsets(b) {
-    var t = state.text, sp = sidePad(b.align);
-    if (blockCols(b) === "box") return { l: sp.l + (b.padL || 0), r: sp.r + (b.padR || 0) };
-    var g = blockGrid(b), f = textFrame(), cw = gridColW(g);
-    var stackL = f.x + t.padding, stackR = f.x + f.w - t.padding;
+    var t = state.text, c = content(), o = blockOwner(b);
+    if (blockCols(b) === "box") {
+      var f = o >= 0 ? solidBox(o) : c;
+      var sp = o >= 0 ? withSolid(o, function () { return sidePad(b.align); }) : { l: 0, r: 0 };
+      return {
+        l: (f.x + t.padding + sp.l + (b.padL || 0)) - c.x,
+        r: (c.x + c.w) - (f.x + f.w - t.padding - sp.r - (b.padR || 0))
+      };
+    }
+    var g = blockGrid(b), cw = gridColW(g);
     var left = g.x + gridLine(g, b.padL || 0);
     var right = g.x + gridLine(g, g.w - (b.padR || 0));
     if (right - left < cw) right = Math.min(g.x + g.w, left + cw);
-    return { l: left - stackL, r: stackR - right };
+    return { l: left - c.x, r: (c.x + c.w) - right };
   }
 
   // in a box that fills the format, text aligned to a side can hang on the format's own
@@ -1675,9 +1745,9 @@
         stack.appendChild(el);
       });
     }
-    Object.assign(stack.style, { inset: t.padding * s + "px", fontFamily: familyStack() });
+    Object.assign(stack.style, { inset: "0px", fontFamily: familyStack() });
 
-    var origin = textFrame().y + t.padding;                    // top of the stack, in format units
+    var origin = content().y;                                  // top of the layer, in format units
     Array.prototype.forEach.call(stack.children, function (el, i) {
       var b = blocks[i], st = state.type.roles[b.role], ins = blockInsets(b);
       el.dataset.i = t.blocks.indexOf(b);
@@ -1715,7 +1785,7 @@
     if (kids.length !== blocks.length) return;
 
     var stageTop = els.stage.getBoundingClientRect().top;
-    var widest = 0;
+    var widest = {};
     var reads = kids.map(function (el, i) {
       var probe = el._probe || el.querySelector(".bl-probe");
       if (!probe) return null;
@@ -1724,7 +1794,8 @@
       try {
         var range = document.createRange();
         range.selectNodeContents(el);
-        widest = Math.max(widest, range.getBoundingClientRect().width / s);
+        var o = blockOwner(blocks[i]);
+        widest[o] = Math.max(widest[o] || 0, range.getBoundingClientRect().width / s);
       } catch (e) {}
       return {
         top: parseFloat(el.style.top) || 0,
@@ -1733,12 +1804,18 @@
         target: rowY(blocks[i]) * s
       };
     });
-    if (widest > 0 && Math.abs(widest - textW) > 0.5) {
-      // the box is never narrower than its text, so a new measurement can resize it.
-      // nothing wraps, so the measurement does not depend on the box: this settles at once
-      textW = widest;
-      render();
-    } else if (widest > 0) textW = widest;
+    /* The box is never narrower than its text, so a new measurement can resize it.
+       Nothing wraps, so the measurement does not depend on the box: this settles at once. */
+    var moved = false;
+    state.solids.forEach(function (sd, i) {
+      var w = widest[i] || 0;
+      if (Math.abs(w - (textWOf[i] || 0)) > 0.5) moved = true;
+      textWOf[i] = w;
+    });
+    Object.keys(textWOf).forEach(function (k) {
+      if (+k >= state.solids.length) delete textWOf[k];
+    });
+    if (moved) render();
     reads.forEach(function (r, i) {
       if (!r) return;
       blOffset[blocks[i].role] = (r.baseline - r.boxTop) / s;
@@ -1767,36 +1844,45 @@
         });
       } else { image.style.display = "none"; }
 
-      var rectEl = child(host, "rect", "div", "shape rect");
-      rectEl.dataset.el = "rect";
-      rectEl.hidden = !state.rect.placed;
-      /* The fill is a layer of its own, because a cut shape clips whatever is
-         inside it — and type that runs past the edge of the box must not be cut. */
-      var fillEl = child(rectEl, "fill", "div", "rect-shape");
-      if (state.rect.placed) {
-        var shaped = state.rect.shape !== "radius";
-        Object.assign(rectEl.style, shapeStyle("rect", s));
-        Object.assign(fillEl.style, {
-          background: state.rect.visible ? state.rect.fill : "transparent",
-          borderRadius: shaped ? "0" : radiusCSS(s),
-          clipPath: shaped ? clipCSS(s) : "none"
-        });
+      /* One element per solid. The fill is a layer of its own inside each, because
+         a cut shape clips whatever is inside it — and type that runs past the edge
+         of a box must not be cut. */
+      var solids = child(host, "solids", "div", "solids");
+      while (solids.children.length > state.solids.length) solids.removeChild(solids.lastChild);
+      while (solids.children.length < state.solids.length) {
+        var sol = document.createElement("div");
+        sol.className = "shape rect";
+        sol.dataset.el = "rect";
+        var fl = document.createElement("div");
+        fl.className = "rect-shape";
+        sol.appendChild(fl);
+        solids.appendChild(sol);
       }
+      state.solids.forEach(function (sd, i) {
+        withSolid(i, function () {
+          var el = solids.children[i];
+          el.dataset.i = i;
+          var shaped = sd.shape !== "radius";
+          Object.assign(el.style, shapeStyle("rect", s));
+          Object.assign(el.firstChild.style, {
+            background: sd.visible ? sd.fill : "transparent",
+            borderRadius: shaped ? "0" : radiusCSS(s),
+            clipPath: shaped ? clipCSS(s) : "none"
+          });
+        });
+      });
 
-      // without a solid the text runs in the margin box instead, in a layer of its own
+      // the text runs in one layer over the margin box, whichever solid a block is in
       var free = child(host, "free", "div", "text-free");
-      free.hidden = state.rect.placed || !textVisible();
+      free.hidden = !textVisible();
       if (!free.hidden) {
         var c = content();
         Object.assign(free.style, {
           left: c.x * s + "px", top: c.y * s + "px",
           width: c.w * s + "px", height: c.h * s + "px"
         });
+        paintText(free, s);
       }
-      var textHost = state.rect.placed ? rectEl : free;
-      var idle = state.rect.placed ? free : rectEl;
-      if (idle._text) { idle.removeChild(idle._text); idle._text = null; }   // one stack at a time
-      if (!textHost.hidden) paintText(textHost, s);
 
       var logoEl = child(host, "logo", "div", "shape logo");
       logoEl.dataset.el = "logo";
@@ -1887,8 +1973,8 @@
     drawColumns(els.columns, colGrid("format"), c.show && c.n >= 1, s,
       { x: m.left, y: m.top, h: contentH() });
     var rc = state.rect.columns;
-    var on = state.rect.placed && rc.show && rc.n >= 1;
-    var r = state.rect.placed ? rectColBox() : null;
+    var on = !!state.solids.length && rc.show && rc.n >= 1;
+    var r = state.solids.length ? rectColBox() : null;
     drawColumns(els.rectColumns, colGrid("rect"), on, s, r);
   }
 
@@ -1971,7 +2057,7 @@
   function renderFrame(s) {
     var name = state.sel;
     // the handles are part of the furniture: hiding the guides hides them too
-    var on = name === "rect" ? state.rect.placed : name && state[name] && state[name].visible;
+    var on = name === "rect" ? !!state.solids.length : name && state[name] && state[name].visible;
     var shown = on && state.showGuides !== false;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
@@ -1987,6 +2073,7 @@
     if (kill) {                                  // clear of the corner it shares
       kill.style.left = b.w * s + "px";
       kill.style.top = "-11px";
+      kill.hidden = state.selBlock >= 0;         // the block's own ✕ has the corner
     }
     var pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
     $$("#frame .handle.size").forEach(function (el) {
@@ -2184,7 +2271,7 @@
   // everything that has not been pulled onto the stage yet
   function renderTray() {
     var items = [];
-    if (!state.rect.placed) items.push({ id: "rect", kind: "shape", name: "Solid" });
+    items.push({ id: "rect", kind: "shape", name: "Solid" });   // as many as you like
     ROLES.forEach(function (r) {
       items.push({ id: "role:" + r, kind: "text", name: ROLE_NAMES[r] });   // as many as you like
     });
@@ -2193,8 +2280,9 @@
         '" title="Drag onto the stage, or click to drop it in place">' + esc(it.name) + "</button>";
     }).join("");
     $("#tray-items").innerHTML = html || '<span class="tray-empty">Everything is on the stage.</span>';
-    $("#tray-hint").textContent = (state.rect.placed
-      ? "The solid is on the stage — the ✕ at its top right corner puts it back here. "
+    $("#tray-hint").textContent = (state.solids.length
+      ? state.solids.length + (state.solids.length === 1 ? " solid is" : " solids are") +
+        " on the stage — the ✕ at a solid's top right corner takes it off. "
       : "") +
       "Drag one onto the stage — it snaps to the grid as it lands. " +
       "Let go outside the format to leave it here. A text block can be pulled out as often as you like; " +
@@ -2208,9 +2296,10 @@
         (state.margin.mode !== "manual" ? " (logo " + (state.margin.mode === "logoH" ? "height" : "width") +
           " × " + state.margin.factor + ")" : "")
     ];
-    if (state.rect.placed) {
+    if (state.solids.length) {
       var b = box("rect");
-      parts.push("Solid " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
+      parts.push((state.solids.length > 1 ? state.solids.length + " solids · " : "") +
+        "Solid " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
     }
     var onStage = state.text.blocks.length;
     if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
@@ -2291,9 +2380,10 @@
         ? " — logo " + (state.margin.mode === "logoH" ? "height" : "width") + " × " + state.margin.factor
         : "") + " */");
     lines.push("}");
-    if (state.rect.placed) {
+    // every solid, in the order they were put down
+    state.solids.forEach(function (sd, si) { withSolid(si, function () {
       lines.push("");
-      lines.push(".solid {");
+      lines.push(".solid" + (state.solids.length > 1 ? "-" + (si + 1) : "") + " {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("rect", "  "));
       if (state.rect.shape === "radius") {
@@ -2304,7 +2394,7 @@
       }
       lines.push("  background: " + state.rect.fill + ";");
       lines.push("}");
-    }
+    }); });
     if (state.logo.visible) {
       lines.push("");
       lines.push(".logo {");
@@ -2334,19 +2424,17 @@
       } else if (state.type.family.indexOf("u:") === 0) {
         lines.push("/* @font-face for \"" + state.type.family.slice(2) + "\" — ship the uploaded file yourself */");
       }
-      var TX = state.rect.placed ? ".solid .text" : ".stage .text";
+      var TX = ".stage .text";
       lines.push(TX + " {");
       lines.push("  position: absolute;");
-      // inside the solid the padding is the whole inset; on the stage the margins
-      // carry it, since the text is running in the margin box
-      lines.push("  inset: " + (state.rect.placed
-        ? fmt(t.padding) + "px"
-        : SIDES.map(function (side) { return fmt(m[side] + t.padding); }).join("px ") + "px") + ";");
+      // the text runs in the margin box, whichever solid a block belongs to; the
+      // insets below carry it in to the solid it is in
+      lines.push("  inset: " + SIDES.map(function (side) { return fmt(m[side]); }).join("px ") + "px;");
       lines.push("  font-family: " + familyStack() + ";");
       lines.push("}");
       lines.push("");
       lines.push(TX + " > * { position: absolute; left: 0; right: 0; margin: 0; white-space: pre; }");
-      var origin = textFrame().y + t.padding;
+      var origin = content().y;
       used.forEach(function (b, i) {
         var sp = blockInsets(b);
         lines.push(TX + " > :nth-child(" + (i + 1) + ") { top: " +
@@ -2404,7 +2492,7 @@
 
   function renderMarkup(used) {
     var out = ['<div class="stage">'];
-    var inner = [], pad = state.rect.placed ? "    " : "  ";
+    var inner = [], pad = "  ";
     var text = [];
     if (used.length) {
       text.push(pad + '<div class="text">');
@@ -2415,10 +2503,11 @@
       });
       text.push(pad + "</div>");
     }
-    if (state.rect.placed) {
-      inner.push('  <div class="solid">');
+    if (state.solids.length) {
+      state.solids.forEach(function (sd, i) {
+        inner.push('  <div class="solid' + (state.solids.length > 1 ? "-" + (i + 1) : "") + '"></div>');
+      });
       inner = inner.concat(text);
-      inner.push("  </div>");
     } else {
       inner = inner.concat(text);       // text on its own runs in the margin box
     }
@@ -2483,6 +2572,7 @@
     restoring = true;
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     state = JSON.parse(json);
+    useSolid(state.solid);                  // the alias does not survive the round trip
     lastSnap = json;
     buildFamilySelect();
     inspectorFor = -1;
@@ -2718,7 +2808,7 @@
     body.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
     setValue(body.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
     setValue(body.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
-    var fw = textFrame().w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
+    var fw = blockFrame(b).w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
     body.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
     Array.prototype.forEach.call(body.querySelectorAll("[data-align]"), function (btn) {
       btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
@@ -2937,9 +3027,9 @@
               " columns and a gutter, so the right edge sits on the left side of the next column. "
             : "Width " + round(rw, 2) + ", wider than all " + colCount() +
               " columns together, because the text needs it. ") +
-      (textVisible()
-        ? "It never goes below " + round(floor, 2) + ": the longest line of text (" +
-          round(textW, 2) + ") plus the padding on both sides."
+      ((textWOf[state.solid] || 0) > 0
+        ? "It never goes below " + round(floor, 2) + ": the longest line of the text in it (" +
+          round(textWOf[state.solid], 2) + ") plus the padding on both sides."
         : "");
     setValue($("#rect-h"), fmt(r.h));
     $("#rect-fill").value = r.fill;
@@ -3066,7 +3156,7 @@
     SIDES.forEach(function (side) { setValue($("#rcol-" + side), fmt(rc.m[side] || 0)); });
     $("#rcol-show").checked = !!rc.show;
     var inset = SIDES.some(function (side) { return rc.m[side]; });
-    $("#rcol-hint").textContent = state.rect.placed
+    $("#rcol-hint").textContent = state.solids.length
       ? Math.max(1, Math.round(rc.n)) + " columns of " + round(gridColW(rg), 2) + " px with a " +
         fmt(rc.gutter) + " px gutter across the " + round(rg.w, 2) + " px" +
         (inset ? " left inside the " + round(box("rect").w, 2) + " px box by its margins" : " of the box") +
@@ -3192,7 +3282,8 @@
     });
 
     onChange("#rect-placed", function (el) {
-      if (el.checked) { state.rect.placed = true; state.sel = "rect"; } else takeRectOff();
+      if (el.checked) { if (!state.solids.length) addSolid(); state.sel = "rect"; }
+      else takeRectOff();
     });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
     onChange("#rect-wmode", function (el) {
@@ -3655,7 +3746,7 @@
   // dragging a shape picks the alignment cell nearest the pointer
   function startShapeDrag(e, name) {
     if (!name || !state[name]) return;
-    if (name === "rect" ? !state.rect.placed : !state[name].visible) return;
+    if (name === "rect" ? !state.solids.length : !state[name].visible) return;
     var el = state[name], b0 = box(name), start = toStage(e);
     var mh = el.anchor.h === el.align.h, mv = el.anchor.v === el.align.v;
     els.cells.hidden = false;
@@ -3712,24 +3803,28 @@
   // format or the margins moves the page rather than the box within it
   function carryBlocks() {
     var c = content();
-    var now = null;
-    if (state.rect.placed) {
-      var b = box("rect");
-      now = { top: b.y - c.y, bot: b.y + b.h - c.y };
-    }
+    var now = state.solids.map(function (sd, i) {
+      var b = solidBox(i);
+      return { top: b.y - c.y, bot: b.y + b.h - c.y };
+    });
     // a solid being pulled out of the tray sweeps across the format on its way in;
     // it should not collect the text it passes over
     if (placing) { lastBox = now; return; }
-    if (lastBox && now) {
-      var dTop = now.top - lastBox.top, dBot = now.bot - lastBox.bot;
-      if (dTop || dBot) {
-        state.text.blocks.forEach(function (bl) {
+    if (lastBox && lastBox.length === now.length) {
+      // a block travels with the solid it was in, and only that one
+      var moved = state.text.blocks.map(function () { return false; });
+      now.forEach(function (n, i) {
+        var was = lastBox[i];
+        var dTop = n.top - was.top, dBot = n.bot - was.bot;
+        if (!dTop && !dBot) return;
+        state.text.blocks.forEach(function (bl, k) {
+          if (moved[k]) return;
           var y = rowY(bl) - c.y;
-          if (y < lastBox.top - 0.5 || y > lastBox.bot + 0.5) return;   // it was not in the box
-          var d = bl.from === "bottom" ? dBot : dTop;                   // it follows its own edge
-          if (d) bl.row = rowAt(rowY(bl) + d, bl);
+          if (y < was.top - 0.5 || y > was.bot + 0.5) return;   // it was not in this box
+          var d = bl.from === "bottom" ? dBot : dTop;           // it follows its own edge
+          if (d) { bl.row = rowAt(rowY(bl) + d, bl); moved[k] = true; }
         });
-      }
+      });
     }
     lastBox = now;
   }
@@ -3740,10 +3835,9 @@
     var isRect = id === "rect", role = isRect ? null : id.split(":")[1];
     var b, i = -1;
     if (isRect) {
-      if (state.rect.placed) return;
-      b = state.rect;
-      b.placed = true;
+      b = addSolid();                      // another one, every time
       state.sel = "rect";
+      state.selBlock = -1;
     } else {
       if (ROLES.indexOf(role) < 0) return;
       b = newBlock(role);
@@ -3777,7 +3871,7 @@
       // a plain click drops it where it last sat; a drag that ends off the format
       // puts it back in the tray
       if (moved && !landed) {
-        if (isRect) b.placed = false;
+        if (isRect) takeRectOff();
         else removeBlock(i);
       }
     });
@@ -3802,8 +3896,11 @@
   }
 
   function takeRectOff() {
-    state.rect.placed = false;
-    if (state.sel === "rect") state.sel = "";
+    if (!state.solids.length) return;
+    state.solids.splice(state.solid, 1);
+    useSolid(state.solid - 1 >= 0 ? state.solid - 1 : 0);
+    if (!state.solids.length && state.sel === "rect") state.sel = "";
+    lastBox = null;                        // the ones left must not be dragged along
   }
 
   // drag a text block up and down; it lands on whole rows of its own grid
@@ -3835,7 +3932,7 @@
     var b = state.text.blocks[index];
     if (!b) return;
     var start = toStage(e), l0 = b.padL || 0, r0 = b.padR || 0;
-    var room = Math.max(MIN_SIZE, textFrame().w - state.text.padding * 2);
+    var room = Math.max(MIN_SIZE, blockFrame(b).w - state.text.padding * 2);
     drag(e, function (ev) {
       var dx = toStage(ev).x - start.x;
       if (dir === "w") b.padL = clamp(snap(l0 + dx), 0, room - (b.padR || 0) - MIN_SIZE);
@@ -4010,6 +4107,8 @@
       var shape = t.closest && t.closest(".shape");
       if (shape) {
         state.sel = shape.dataset.el;
+        // clicking a solid picks that one out of however many are on the page
+        if (state.sel === "rect" && shape.dataset.i !== undefined) useSolid(+shape.dataset.i);
         els.frame.focus();
         render();
         return startShapeDrag(e, state.sel);
@@ -4053,7 +4152,7 @@
           render();
           return;
         }
-        if (state.sel === "rect" && state.rect.placed) {
+        if (state.sel === "rect" && state.solids.length) {
           e.preventDefault();
           takeRectOff();
           render();

@@ -381,6 +381,7 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 .guide.h:hover::before{background:repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 10px);opacity:1}
 .guide.v:hover::before{background:repeating-linear-gradient(180deg,var(--accent) 0 5px,transparent 5px 10px);opacity:1}
 
+.solids{position:absolute;inset:0}
 .shape{position:absolute}
 .shape.logo:not(.has-image){border-radius:50%}
 .shape{user-select:none}
@@ -418,7 +419,7 @@ body.guides-locked .guide{pointer-events:none}   /* unlock them in the Margins p
 .chip[data-kind=text]::before{border:0;border-top:2px solid currentColor;border-bottom:2px solid currentColor;height:8px;width:14px}
 .tray-empty{font-size:11.5px;color:var(--text-dim);font-style:italic}
 
-.text-free{position:absolute}   /* text on the stage without a rectangle to sit in */
+.text-free{position:absolute;pointer-events:none}   /* the one layer every block is painted in */
 .rect-shape{position:absolute;inset:0}   /* the fill, so a cut shape cannot clip the type */
 .columns{position:absolute;pointer-events:none}
 
