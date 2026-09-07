@@ -15,48 +15,48 @@
      scaffolding that suits it — margins, columns and the number of baseline rows —
      so picking one sets up the page, not the contents. */
   var FORMATS = [
-    { id: "ig-square", group: "Social", name: "Instagram post", w: 1080, h: 1080,
+    { id: "ig-square", group: "Social media", name: "Instagram post", w: 1080, h: 1080,
       margin: 80, cols: 6, gutter: 24, rows: 30 },
-    { id: "ig-portrait", group: "Social", name: "Instagram portrait", w: 1080, h: 1350,
+    { id: "ig-portrait", group: "Social media", name: "Instagram portrait", w: 1080, h: 1350,
       margin: 80, cols: 6, gutter: 24, rows: 39 },
-    { id: "story", group: "Social", name: "Story / Reel", w: 1080, h: 1920,
+    { id: "story", group: "Social media", name: "Story / Reel", w: 1080, h: 1920,
       margin: 90, cols: 6, gutter: 24, rows: 48 },
-    { id: "link-card", group: "Social", name: "Link card", w: 1200, h: 628,
+    { id: "link-card", group: "Social media", name: "Link card", w: 1200, h: 628,
       margin: 56, cols: 6, gutter: 20, rows: 16 },
-    { id: "x-post", group: "Social", name: "X post", w: 1600, h: 900,
+    { id: "x-post", group: "Social media", name: "X post", w: 1600, h: 900,
       margin: 72, cols: 8, gutter: 24, rows: 22 },
-    { id: "yt-thumb", group: "Social", name: "YouTube thumbnail", w: 1280, h: 720,
+    { id: "yt-thumb", group: "Social media", name: "YouTube thumbnail", w: 1280, h: 720,
       margin: 56, cols: 6, gutter: 20, rows: 16 },
 
-    { id: "leaderboard", group: "Display banners", name: "Leaderboard", w: 728, h: 90,
+    { id: "leaderboard", group: "Web banners", name: "Leaderboard", w: 728, h: 90,
       margin: 10, cols: 6, gutter: 8, rows: 4 },
-    { id: "billboard-ad", group: "Display banners", name: "Billboard banner", w: 970, h: 250,
+    { id: "billboard-ad", group: "Web banners", name: "Billboard banner", w: 970, h: 250,
       margin: 20, cols: 6, gutter: 12, rows: 8 },
-    { id: "mrec", group: "Display banners", name: "Medium rectangle", w: 300, h: 250,
+    { id: "mrec", group: "Web banners", name: "Medium rectangle", w: 300, h: 250,
       margin: 16, cols: 4, gutter: 8, rows: 9 },
-    { id: "half-page", group: "Display banners", name: "Half page", w: 300, h: 600,
+    { id: "half-page", group: "Web banners", name: "Half page", w: 300, h: 600,
       margin: 16, cols: 4, gutter: 8, rows: 22 },
-    { id: "skyscraper", group: "Display banners", name: "Wide skyscraper", w: 160, h: 600,
+    { id: "skyscraper", group: "Web banners", name: "Wide skyscraper", w: 160, h: 600,
       margin: 12, cols: 2, gutter: 8, rows: 24 },
-    { id: "mobile-banner", group: "Display banners", name: "Mobile banner", w: 320, h: 50,
+    { id: "mobile-banner", group: "Web banners", name: "Mobile banner", w: 320, h: 50,
       margin: 8, cols: 4, gutter: 8, rows: 3 },
 
-    { id: "dooh-landscape", group: "Digital billboards", name: "Screen — landscape", w: 1920, h: 1080,
+    { id: "dooh-landscape", group: "Digital OOH", name: "Screen — landscape", w: 1920, h: 1080,
       margin: 96, cols: 8, gutter: 32, rows: 24 },
-    { id: "dooh-portrait", group: "Digital billboards", name: "Screen — portrait", w: 1080, h: 1920,
+    { id: "dooh-portrait", group: "Digital OOH", name: "Screen — portrait", w: 1080, h: 1920,
       margin: 80, cols: 6, gutter: 24, rows: 46 },
-    { id: "dooh-ultrawide", group: "Digital billboards", name: "Screen — ultra-wide", w: 2880, h: 810,
+    { id: "dooh-ultrawide", group: "Digital OOH", name: "Screen — ultra-wide", w: 2880, h: 810,
       margin: 80, cols: 12, gutter: 32, rows: 14 },
-    { id: "dooh-4k", group: "Digital billboards", name: "Screen — 4K", w: 3840, h: 2160,
+    { id: "dooh-4k", group: "Digital OOH", name: "Screen — 4K", w: 3840, h: 2160,
       margin: 180, cols: 12, gutter: 48, rows: 30 },
 
-    { id: "lower-third", group: "Motion graphics", name: "Lower third", w: 1920, h: 1080,
+    { id: "lower-third", group: "Motion", name: "Lower third", w: 1920, h: 1080,
       margin: 120, cols: 12, gutter: 24, rows: 18 },
-    { id: "intro", group: "Motion graphics", name: "Intro card", w: 1920, h: 1080,
+    { id: "intro", group: "Motion", name: "Intro card", w: 1920, h: 1080,
       margin: 160, cols: 6, gutter: 32, rows: 16 },
-    { id: "outro", group: "Motion graphics", name: "Outro card", w: 1920, h: 1080,
+    { id: "outro", group: "Motion", name: "Outro card", w: 1920, h: 1080,
       margin: 160, cols: 6, gutter: 32, rows: 20 },
-    { id: "motion-vertical", group: "Motion graphics", name: "Vertical cut-down", w: 1080, h: 1920,
+    { id: "motion-vertical", group: "Motion", name: "Vertical cut-down", w: 1080, h: 1920,
       margin: 96, cols: 6, gutter: 24, rows: 44 },
 
     { id: "book-cover", group: "Book", name: "Cover — A5", w: 1240, h: 1754,
@@ -67,10 +67,25 @@
       margin: 70, cols: 2, gutter: 24, rows: 34 },
     { id: "book-imagetext", group: "Book", name: "Inside page — image and text", w: 1240, h: 1754,
       margin: 120, cols: 2, gutter: 40, rows: 38 },
-    { id: "a4-print", group: "Book", name: "A4 · 300 dpi", w: 2480, h: 3508,
-      margin: 240, cols: 6, gutter: 48, rows: 46 },
     { id: "a5-print", group: "Book", name: "A5 · 150 dpi", w: 1240, h: 1754,
-      margin: 120, cols: 6, gutter: 24, rows: 39 }
+      margin: 120, cols: 6, gutter: 24, rows: 39 },
+
+    // print, at 300 dpi — the DIN A sizes and a business card
+    { id: "a4-print", group: "Print", name: "DIN A4 · 300 dpi", w: 2480, h: 3508,
+      margin: 240, cols: 6, gutter: 48, rows: 46 },
+    { id: "a3-print", group: "Print", name: "DIN A3 · 300 dpi", w: 3508, h: 4961,
+      margin: 340, cols: 6, gutter: 68, rows: 46 },
+    { id: "a2-print", group: "Print", name: "DIN A2 · 300 dpi", w: 4961, h: 7016,
+      margin: 480, cols: 6, gutter: 96, rows: 46 },
+    { id: "a1-print", group: "Print", name: "DIN A1 · 300 dpi", w: 7016, h: 9933,
+      margin: 680, cols: 6, gutter: 136, rows: 46 },
+    { id: "card-print", group: "Print", name: "Business card · 85 × 55 mm", w: 1004, h: 650,
+      margin: 60, cols: 4, gutter: 16, rows: 14 },
+
+    { id: "motion-4k", group: "Motion", name: "4K UHD", w: 3840, h: 2160,
+      margin: 240, cols: 12, gutter: 48, rows: 24 },
+    { id: "motion-2k", group: "Motion", name: "2K · Full HD", w: 1920, h: 1080,
+      margin: 120, cols: 12, gutter: 24, rows: 24 }
   ];
 
   // the aspect of a format, as a ratio when it is a tidy one and a decimal when it is not
@@ -328,13 +343,136 @@
         "and both baseline grids, and the text that sits on them." },
     { id: "background", name: "Generate background", built: true,
       note: "One ground for the system to sit on, made rather than found." },
-    { id: "formats", name: "Design formats",
+    { id: "formats", name: "Design formats", built: true,
       note: "The system and its background laid into every format the work runs in, each one " +
         "adjusted where it has to be rather than scaled and hoped for." },
     { id: "dummies", name: "Dummies",
       note: "The finished formats shown in place \u2014 a phone, a poster site, a spread \u2014 " +
         "so the work can be seen the way it will be met." }
   ];
+
+  /* ------------------------------------------------------ formats as pages
+
+     The work runs in several formats. One is the master, and every other one
+     says which parts of the design it takes from the master and which it keeps
+     for itself. A group is a name and a pair of routines that lift its values
+     out of the state and put them back. */
+  var LINK_GROUPS = [
+    { k: "font", name: "Font",
+      pick: function () { return { family: state.type.family, google: (state.type.google || []).slice() }; },
+      put: function (v) { state.type.family = v.family; state.type.google = v.google.slice(); } },
+    { k: "sizes", name: "Font sizes",
+      pick: function () {
+        var r = {};
+        ROLES.forEach(function (x) { r[x] = state.type.roles[x].mult; });
+        return { paragraph: state.type.paragraph, basis: state.type.basis, system: state.type.system, roles: r };
+      },
+      put: function (v) {
+        state.type.paragraph = v.paragraph; state.type.basis = v.basis; state.type.system = v.system;
+        ROLES.forEach(function (x) { if (isFinite(v.roles[x])) state.type.roles[x].mult = v.roles[x]; });
+      } },
+    { k: "baseline", name: "Baseline grid",
+      pick: function () { return { rows: state.type.rows, gridFrom: state.type.gridFrom, grid: state.type.grid }; },
+      put: function (v) { state.type.rows = v.rows; state.type.gridFrom = v.gridFrom; state.type.grid = v.grid; } },
+    { k: "margins", name: "Margins — the page's and every solid's",
+      pick: function () {
+        return { margin: clone(state.margin), cols: clone(state.cols),
+          solids: state.solids.map(function (r) { return clone(r.columns.m); }) };
+      },
+      put: function (v) {
+        state.margin = clone(v.margin);
+        state.cols = clone(v.cols);
+        state.solids.forEach(function (r, i) { if (v.solids[i]) r.columns.m = clone(v.solids[i]); });
+        useSolid(state.solid);
+      } },
+    { k: "logo", name: "Logo",
+      pick: function () { return clone(state.logo); },
+      put: function (v) { state.logo = clone(v); } }
+  ];
+
+  function clone(v) { return JSON.parse(JSON.stringify(v)); }
+  function groupOf(k) { return LINK_GROUPS.filter(function (g) { return g.k === k; })[0]; }
+  function masterIndex() {
+    var i = state.pages.findIndex(function (pg) { return pg.master; });
+    return i < 0 && state.pages.length ? 0 : i;
+  }
+
+  // the values a page runs a group at: its own when it keeps it, the master's when
+  // it is linked — live, if the master is the page being worked on
+  function pageValue(i, k) {
+    var pg = state.pages[i], m = masterIndex();
+    if (!pg) return null;
+    var own = pg.own[k];
+    if (pg.master || !pg.links[k]) return own || (m >= 0 && m !== i ? state.pages[m].own[k] : null);
+    if (m < 0) return own || null;
+    return m === state.page ? groupOf(k).pick() : (state.pages[m].own[k] || own || null);
+  }
+
+  // remember what the page that is open is set to, so the others can follow it
+  function storePage(i) {
+    var pg = state.pages[i], m = masterIndex();
+    if (!pg) return;
+    pg.w = state.stage.w; pg.h = state.stage.h;
+    // the format may have been changed from the Format panel while it was open
+    var f = formatById(state.stage.preset);
+    if (f && f.w === pg.w && f.h === pg.h) { pg.id = f.id; pg.name = f.name; }
+    else if (!f) { pg.id = ""; pg.name = "Custom " + fmt(pg.w) + " × " + fmt(pg.h); }
+    LINK_GROUPS.forEach(function (g) {
+      var v = g.pick();
+      pg.own[g.k] = v;
+      /* Linked means shared: what is set here while a group is linked is what the
+         master holds, so every other page on it follows. */
+      if (!pg.master && pg.links[g.k] && m >= 0 && state.pages[m]) state.pages[m].own[g.k] = v;
+    });
+  }
+
+  function applyPage(i) {
+    var pg = state.pages[i];
+    if (!pg) return;
+    state.page = i;
+    state.stage.w = pg.w; state.stage.h = pg.h;
+    state.stage.preset = pg.id;
+    LINK_GROUPS.forEach(function (g) {
+      var v = pageValue(i, g.k);
+      if (v) g.put(v);
+    });
+  }
+
+  function usePage(i) {
+    if (!state.pages[i] || i === state.page) { applyPage(i); return; }
+    storePage(state.page);
+    applyPage(i);
+  }
+
+  // paint another page without leaving the one that is open
+  function withPage(i, fn) {
+    var pg = state.pages[i];
+    if (!pg) return fn();
+    if (i === state.page) return withFormat(pg.w, pg.h, fn);
+    var before = {};
+    LINK_GROUPS.forEach(function (g) { before[g.k] = g.pick(); });
+    try {
+      LINK_GROUPS.forEach(function (g) {
+        var v = pageValue(i, g.k);
+        if (v) g.put(v);
+      });
+      return withFormat(pg.w, pg.h, fn);
+    } finally {
+      LINK_GROUPS.forEach(function (g) { g.put(before[g.k]); });
+    }
+  }
+
+  function addPage(id) {
+    var f = formatById(id) || FORMATS[0];
+    var links = {};
+    LINK_GROUPS.forEach(function (g) { links[g.k] = true; });
+    var pg = { key: "p" + (state.pageKey++), id: f.id, name: f.name, w: f.w, h: f.h,
+      master: !state.pages.length, links: links, own: {} };
+    // it starts from whatever is on screen, so a new format is not a blank one
+    LINK_GROUPS.forEach(function (g) { pg.own[g.k] = g.pick(); });
+    state.pages.push(pg);
+    return pg;
+  }
 
   function segment() {
     return SEGMENTS.filter(function (sg) { return sg.id === state.seg; })[0] || SEGMENTS[0];
@@ -344,6 +482,8 @@
     return {
       v: 21,
       seg: "system",
+      // the formats the work runs in; one of them is the master
+      pages: [], page: 0, pageKey: 1,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
       // the image can be pushed around and scaled on top of whichever fit it starts from
       bg: { src: "", fit: "cover", opacity: 100, scale: 100, x: 0, y: 0 },
@@ -464,6 +604,7 @@
   }
 
   function save() {
+    storePage(state.page);                  // the page that is open is the truth
     var copy;
     try { copy = JSON.parse(JSON.stringify(state)); } catch (e) { return; }
     /* state.rect is a live alias of the selected solid, so it is a duplicate of one
@@ -2003,6 +2144,12 @@
 
   // templates share formats, so the rail shows each size once
   function railFormats() {
+    // the project's own formats once it has any; the catalogue until then
+    if (state.pages.length) {
+      return state.pages.map(function (pg, i) {
+        return { id: "p" + i, name: pg.name + (pg.master ? " · master" : ""), w: pg.w, h: pg.h, page: i };
+      });
+    }
     var seen = {}, list = [];
     FORMATS.forEach(function (f) {
       var key = f.w + "x" + f.h;
@@ -2024,7 +2171,8 @@
     if (host.dataset.sig !== sig) {
       host.dataset.sig = sig;
       host.innerHTML = list.map(function (f) {
-        return '<button type="button" class="tile" data-w="' + f.w + '" data-h="' + f.h + '">' +
+        return '<button type="button" class="tile" data-w="' + f.w + '" data-h="' + f.h + '"' +
+          (f.page === undefined ? "" : ' data-page="' + f.page + '"') + ">" +
           '<span class="tile-box"><span class="tile-stage"></span></span>' +
           '<span class="tile-name">' + esc(f.name) + "</span>" +
           '<span class="tile-size">' + fmt(f.w) + " × " + fmt(f.h) + "</span></button>";
@@ -2033,9 +2181,11 @@
     var active = fmt(state.stage.w) + "x" + fmt(state.stage.h);
     Array.prototype.forEach.call(host.children, function (btn, i) {
       var f = list[i];
-      btn.setAttribute("aria-pressed", f.id === active ? "true" : "false");
+      btn.setAttribute("aria-pressed",
+        (f.page === undefined ? f.id === active : f.page === state.page) ? "true" : "false");
       var s = Math.min(TILE.w / f.w, TILE.h / f.h);
-      paintInto(btn.querySelector(".tile-stage"), f.w, f.h, s);
+      if (f.page === undefined) paintInto(btn.querySelector(".tile-stage"), f.w, f.h, s);
+      else withPage(f.page, function () { paintInto(btn.querySelector(".tile-stage"), f.w, f.h, s); });
     });
   }
 
@@ -2135,13 +2285,15 @@
         (sg.built ? "" : '<span class="seg-soon">soon</span>') + "</button>";
     }).join("");
 
-    var system = cur.id === "system", bg = cur.id === "background";
+    var system = cur.id === "system", bg = cur.id === "background", fmt = cur.id === "formats";
     $("#panel").hidden = !system;
     $("#canvas").hidden = !system;
     $("#seg-bg").hidden = !bg;
+    $("#seg-fmt").hidden = !fmt;
     $("#seg-stub").hidden = !!cur.built;
     document.body.classList.toggle("stub-on", !cur.built);
     if (bg) return renderBgSeg();
+    if (fmt) return renderFmtSeg();
     if (cur.built) return;
 
     $("#stub-name").textContent = cur.name;
@@ -2149,6 +2301,77 @@
     $("#stub-steps").innerHTML = (cur.steps || []).map(function (t) {
       return '<span class="stub-step">' + esc(t) + "</span>";
     }).join("");
+  }
+
+  var fmtZoom = 1;
+
+  function renderFmtSeg() {
+    var m = masterIndex();
+    if (!$("#fmt-pick").options.length) {
+      var groups = [];
+      FORMATS.forEach(function (f) { if (groups.indexOf(f.group) < 0) groups.push(f.group); });
+      $("#fmt-pick").innerHTML = groups.map(function (g) {
+        return '<optgroup label="' + esc(g) + '">' +
+          FORMATS.filter(function (f) { return f.group === g; }).map(function (f) {
+            return '<option value="' + f.id + '">' + esc(f.name) + " — " + f.w + " × " + f.h +
+              " · " + ratioLabel(f.w, f.h) + "</option>";
+          }).join("") + "</optgroup>";
+      }).join("");
+    }
+
+    $("#fmt-list").innerHTML = state.pages.map(function (pg, i) {
+      var links = LINK_GROUPS.map(function (g) {
+        return '<label class="check"><input type="checkbox" data-link="' + g.k + '" data-i="' + i + '"' +
+          (pg.links[g.k] ? " checked" : "") + "><span>" + esc(g.name) + "</span></label>";
+      }).join("");
+      return '<div class="fmt-row' + (i === state.page ? " on" : "") + '" data-page="' + i + '">' +
+        '<div class="fmt-row-head">' +
+          "<b>" + esc(pg.name) + "</b>" +
+          '<span class="px">' + fmt(pg.w) + " × " + fmt(pg.h) + "</span>" +
+          '<button type="button" class="x" data-drop="' + i + '" title="Take this format out of the project">✕</button>' +
+        "</div>" +
+        '<label class="check"><input type="radio" name="fmt-master" data-master="' + i + '"' +
+          (pg.master ? " checked" : "") + "><span>Master</span></label>" +
+        (pg.master
+          ? '<p class="master-note">Every other format takes what it is linked to from this one.</p>'
+          : '<div class="links">' + links + "</div>")
+      + "</div>";
+    }).join("") || '<p class="hint">No formats yet — add one below. The first is the master.</p>';
+
+    $("#fmt-hint").textContent = state.pages.length
+      ? "Tick what a format takes from the master; untick it to keep that part for this format " +
+        "alone. Click a tile to work on that format in the design system."
+      : "";
+
+    // one tile per format, each painted at its own values
+    var host = $("#fmt-grid");
+    var sig = state.pages.map(function (pg) { return pg.key; }).join(",") + "|" + fmtZoom;
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.innerHTML = state.pages.map(function (pg, i) {
+        return '<button type="button" class="fmt-tile" data-page="' + i + '">' +
+          '<span class="tile-box"><span class="tile-stage"></span></span>' +
+          "<b>" + esc(pg.name) + (pg.master ? ' <span class="flag">master</span>' : "") + "</b>" +
+          "<span>" + fmt(pg.w) + " × " + fmt(pg.h) + " · " + esc(ratioLabel(pg.w, pg.h)) + "</span></button>";
+      }).join("");
+    }
+    var side = 260 * fmtZoom;
+    Array.prototype.forEach.call(host.children, function (btn, i) {
+      var pg = state.pages[i];
+      if (!pg) return;
+      btn.setAttribute("aria-pressed", i === state.page ? "true" : "false");
+      btn.querySelector("b").innerHTML = esc(pg.name) + (pg.master ? ' <span class="flag">master</span>' : "");
+      var sc = Math.min(side / pg.w, side / pg.h);
+      var boxEl = btn.querySelector(".tile-box");     // one square each, so the labels line up
+      boxEl.style.width = side + "px";
+      boxEl.style.height = side + "px";
+      withPage(i, function () { paintInto(btn.querySelector(".tile-stage"), pg.w, pg.h, sc); });
+    });
+    $("#fmt-view-name").textContent = state.pages.length
+      ? state.pages.length + (state.pages.length === 1 ? " format" : " formats") +
+        (m >= 0 ? " \u2014 master: " + state.pages[m].name : "")
+      : "Nothing in the project yet";
+    $("#fmtz-value").textContent = Math.round(fmtZoom * 100) + "%";
   }
 
   var BG_TABS = [["image", "Image"], ["pattern", "Pattern"], ["gradient", "Gradient"]];
@@ -3620,6 +3843,55 @@
       state.bgGen.on = "";
       render();
     });
+    $("#fmt-add").addEventListener("click", function () {
+      storePage(state.page);
+      addPage($("#fmt-pick").value);
+      usePage(state.pages.length - 1);
+      render();
+    });
+    $("#fmt-list").addEventListener("click", function (e) {
+      var drop = e.target.closest("[data-drop]");
+      if (drop) {
+        var i = +drop.dataset.drop;
+        state.pages.splice(i, 1);
+        if (state.pages.length && !state.pages.some(function (pg) { return pg.master; })) {
+          state.pages[0].master = true;
+        }
+        state.page = clamp(state.page > i ? state.page - 1 : state.page, 0, Math.max(0, state.pages.length - 1));
+        render();
+        return;
+      }
+      var row = e.target.closest("[data-page]");
+      if (row && !e.target.closest("input")) { usePage(+row.dataset.page); render(); }
+    });
+    $("#fmt-list").addEventListener("change", function (e) {
+      var m = e.target.closest("[data-master]");
+      if (m) {
+        storePage(state.page);           // the master is the source, so keep what it holds
+        state.pages.forEach(function (pg, i) { pg.master = i === +m.dataset.master; });
+        render();
+        return;
+      }
+      var l = e.target.closest("[data-link]");
+      if (!l) return;
+      var pg = state.pages[+l.dataset.i];
+      if (!pg) return;
+      storePage(state.page);
+      pg.links[l.dataset.link] = e.target.checked;
+      if (+l.dataset.i === state.page) applyPage(state.page);
+      render();
+    });
+    $("#fmt-grid").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-page]");
+      if (!t) return;
+      usePage(+t.dataset.page);
+      state.seg = "system";              // straight to designing it
+      render();
+    });
+    $("#fmtz-in").addEventListener("click", function () { fmtZoom = clamp(fmtZoom * 1.25, .3, 4); render(); });
+    $("#fmtz-out").addEventListener("click", function () { fmtZoom = clamp(fmtZoom / 1.25, .3, 4); render(); });
+    $("#fmtz-value").addEventListener("click", function () { fmtZoom = 1; render(); });
+
     $("#bgz-in").addEventListener("click", function () { setBgZoom(bgScale() * 1.25); });
     $("#bgz-out").addEventListener("click", function () { setBgZoom(bgScale() / 1.25); });
     $("#bgz-100").addEventListener("click", function () { setBgZoom(1); });
@@ -3656,8 +3928,11 @@
     $("#rail-list").addEventListener("click", function (e) {
       var tile = e.target.closest(".tile");
       if (!tile) return;
-      state.stage.w = +tile.dataset.w;
-      state.stage.h = +tile.dataset.h;
+      if (tile.dataset.page !== undefined) usePage(+tile.dataset.page);
+      else {
+        state.stage.w = +tile.dataset.w;
+        state.stage.h = +tile.dataset.h;
+      }
       render();
     });
 

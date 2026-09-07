@@ -23,12 +23,12 @@ The work runs in stages, and the tabs across the top are those stages in order:
 | --- | --- | --- |
 | 1 | **Set design system** | The format, the logo, the margins and columns, the solid, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
 | 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
-| 3 | **Design formats** | The system and its background laid into every format the work runs in, each adjusted where it has to be. |
+| 3 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
 | 4 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-The first two are built. *Design formats* and *Dummies* carry an **under construction** placeholder
-that names what will live there, as does the *Image* tab inside *Generate background*. The tab you
-were last on is remembered.
+The first three are built. *Dummies* carries an **under construction** placeholder that names what
+will live there, as does the *Image* tab inside *Generate background*. The tab you were last on is
+remembered.
 
 ## Generating a background
 
@@ -65,6 +65,28 @@ exactly. Switching one on clears any fit, scale or offset left over from an imag
 before, so it never arrives part-covered. Fit, opacity, scale and
 position stay in Format → Background image and apply to it, and *Remove* gives the background back
 to whatever image was there before.
+
+## The formats, and the master
+
+**Design formats** is the list of formats the work runs in. Add them from a catalogue grouped the
+way the work is: **Print** (DIN A4, A3, A2 and A1 at 300 dpi, and a business card), **Social media**,
+**Web banners**, **Digital OOH**, **Motion** (4K UHD and 2K / Full HD, alongside the lower third,
+intro and outro cards) and **Book**. Each is a tile painted at its own values; clicking one takes
+you to the design system with that format open.
+
+**One format is the master.** Every other one says, with a tick each, what it takes from it:
+
+| Typography | Page setup |
+| --- | --- |
+| **Font** | **Baseline grid** |
+| **Font sizes** — the paragraph size, its basis, the ratio system and every multiple | **Margins** — the page's, the columns, and every solid's own |
+| | **Logo** |
+
+A ticked group is **shared**: set it on any format that links it and the master takes the change, so
+every other format on that link follows. An unticked group is that format's alone — untick *Margins*
+on a banner and it keeps its own while its type still comes from the master. The tile grid and the
+preview rail both paint each format at its own resolved values, so the differences are visible
+without switching between them.
 
 ## The model
 

@@ -490,6 +490,32 @@
     </div>
   </section>
 
+  <section class="bgseg" id="seg-fmt" hidden>
+    <aside class="panel bg-panel">
+      <h3 class="sub-head">Formats in this project</h3>
+      <div id="fmt-list"></div>
+      <p class="hint" id="fmt-hint"></p>
+
+      <h3 class="sub-head">Add a format</h3>
+      <div class="row">
+        <label class="field grow"><span>From the catalogue</span><select id="fmt-pick"></select></label>
+        <button type="button" class="primary" id="fmt-add">Add</button>
+      </div>
+    </aside>
+
+    <div class="bg-view">
+      <div class="bg-view-head">
+        <span id="fmt-view-name"></span>
+        <span class="zoom">
+          <button type="button" class="ghost" id="fmtz-out" title="Smaller tiles">−</button>
+          <button type="button" class="ghost" id="fmtz-value">100%</button>
+          <button type="button" class="ghost" id="fmtz-in" title="Bigger tiles">+</button>
+        </span>
+      </div>
+      <div class="fmt-grid" id="fmt-grid"></div>
+    </div>
+  </section>
+
   <section class="stub" id="seg-stub" hidden>
     <div class="stub-card">
       <img src="img/under-construction.svg" alt="Under construction" width="420" height="240">
