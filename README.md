@@ -122,11 +122,13 @@ Positions are not free coordinates. A shape's place on the format comes from thr
 3. **Anchor point** — which of the nine points *of the shape* lands on it.
 
 With both set to the same corner the shape sits flush inside the margin; decoupling them lets a
-shape hang off an edge or centre on a corner. The anchor follows the position while the two are
-in step, so it only decouples once you set it by hand.
+shape hang off an edge or centre on a corner. **The anchor is yours alone**: moving a shape never
+changes it, so what you set in the anchor grid is what it keeps. Pulling a solid out of the tray is
+the one exception — placing is not moving, so a fresh solid takes the anchor of the corner you drop
+it in and lands whole inside the format.
 
-Dragging a shape therefore snaps it to the nearest of the nine positions (the cells appear while
-you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
+Dragging a shape therefore snaps it to the nearest of the nine positions, measured with the anchor
+it already has (the cells appear while you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
 from the logo. **The guides are locked out of the box**, so a stray drag on the canvas cannot move
 them; *Lock the guides* in the Margins panel releases them. **Guides** in the toolbar takes every
 guide and grid off the canvas at once — margin guides, both baseline grids and the columns — and

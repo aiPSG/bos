@@ -1395,14 +1395,11 @@
     return { x: x, y: y, w: s.w, h: s.h };
   }
 
-  // clicking or dragging a shape to a new position also moves its anchor,
-  // as long as the two were still in step — set the anchor by hand to decouple them
+  /* Moving a shape moves it and nothing else. The anchor — which point of the
+     shape lands on the aligned point — is the user's own setting, so dragging
+     never touches it: it is only ever changed in the anchor grid. */
   function setAlign(name, h, v) {
-    var el = state[name];
-    var mh = el.anchor.h === el.align.h, mv = el.anchor.v === el.align.v;
-    el.align = { h: h, v: v };
-    if (mh) el.anchor.h = h;
-    if (mv) el.anchor.v = v;
+    state[name].align = { h: h, v: v };
   }
 
   // the content box divided into columns with a gutter between them
@@ -4472,24 +4469,17 @@
     if (!name || !state[name]) return;
     if (name === "rect" ? !state.solids.length : !state[name].visible) return;
     var el = state[name], b0 = box(name), start = toStage(e);
-    var mh = el.anchor.h === el.align.h, mv = el.anchor.v === el.align.v;
     els.cells.hidden = false;
     renderCells(name);
     drag(e, function (ev) {
       var p = toStage(ev);
       var cx = b0.x + (p.x - start.x) + b0.w / 2;
       var cy = b0.y + (p.y - start.y) + b0.h / 2;
+      // the cell it would sit closest to, measured with the anchor it already has
       var c = content(), sz = sizeOf(name);
-      // score each cell with the anchor the shape would have once it lands there
-      var best = function (keys, f, cPos, cLen, size, mirrored, anchor, target) {
-        return keys.map(function (k) {
-          var af = f(mirrored ? k : anchor);
-          return { k: k, d: Math.abs(cPos + cLen * f(k) - size * af + size / 2 - target) };
-        }).sort(function (a, b) { return a.d - b.d; })[0].k;
-      };
       setAlign(name,
-        best(H_KEYS, fh, c.x, c.w, sz.w, mh, el.anchor.h, cx),
-        best(V_KEYS, fv, c.y, c.h, sz.h, mv, el.anchor.v, cy));
+        nearestKey(H_KEYS, fh, c.x, c.w, sz.w, el.anchor.h, cx),
+        nearestKey(V_KEYS, fv, c.y, c.h, sz.h, el.anchor.v, cy));
       renderCells(name);
     }, function () { els.cells.hidden = true; });
   }
@@ -4552,10 +4542,14 @@
       moved = true;
       landed = p.x >= 0 && p.y >= 0 && p.x <= st.w && p.y <= st.h;
       if (isRect) {
+        /* Placing is not moving: a solid pulled out of the tray takes the anchor of
+           the corner it is dropped in, so it lands whole inside the format. From
+           then on the anchor is the user's, and dragging leaves it alone. */
         var sz = sizeOf("rect"), c = content();
-        setAlign("rect",
-          nearestKey(H_KEYS, fh, c.x, c.w, sz.w, state.rect.anchor.h, p.x),
-          nearestKey(V_KEYS, fv, c.y, c.h, sz.h, state.rect.anchor.v, p.y));
+        var h = cornerKey(H_KEYS, fh, c.x, c.w, sz.w, p.x);
+        var v = cornerKey(V_KEYS, fv, c.y, c.h, sz.h, p.y);
+        state.rect.anchor = { h: h, v: v };
+        setAlign("rect", h, v);
         renderCells("rect");
       } else {
         b.row = rowAt(p.y, b);
@@ -4578,6 +4572,13 @@
   function nearestKey(keys, f, cPos, cLen, size, anchor, target) {
     return keys.map(function (k) {
       return { k: k, d: Math.abs(cPos + cLen * f(k) - size * f(anchor) + size / 2 - target) };
+    }).sort(function (a, b) { return a.d - b.d; })[0].k;
+  }
+
+  // the same, for a shape whose anchor is the cell it lands in — it never hangs out
+  function cornerKey(keys, f, cPos, cLen, size, target) {
+    return keys.map(function (k) {
+      return { k: k, d: Math.abs(cPos + (cLen - size) * f(k) + size / 2 - target) };
     }).sort(function (a, b) { return a.d - b.d; })[0].k;
   }
 
