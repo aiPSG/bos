@@ -510,6 +510,12 @@
         // format edge to edge, or (width only) fitting around the text
         // placed: dragged onto the stage from the tray. visible: drawn with its fill
         placed: false, visible: true, w: 520, h: 360, wmode: "fixed", hmode: "fixed", grid: 2, cols: true,
+        /* What the box is filled with. A frame is a solid whose fill is a picture
+           rather than a colour: it is resized, snapped and masked by exactly the
+           same machinery, and the corner shape is the mask. */
+        content: "fill",        // fill | image | pattern | gradient
+        src: "", fit: "cover", scale: 100, x: 0, y: 0,     // the picture inside it
+        module: "linear", params: {},                      // when it is made rather than loaded
         // a column grid of its own, across the box — with margins of its own
         // inside it — that blocks can line up on
         columns: { n: 3, gutter: 24, show: true, m: { top: 0, right: 0, bottom: 0, left: 0 } },
@@ -557,8 +563,8 @@
         // format's own margin on that side instead of the box padding
         marginPad: true,
         // blocks are pulled out of the tray, one per drag and as many as you like.
-        // each sits on a row of its own, counted from the top or the bottom edge of
-        // the solid, so the text travels with the box as it is resized
+        // each sits on a row of its own, counted from the margin box, so nothing on
+        // the page moves it but the row it is given
         blocks: []
       },
       guides: { mode: "auto", color: "#ff2d55" },
@@ -582,6 +588,8 @@
      go on reading state.rect and know nothing about there being several. */
   function normaliseSolid(r, d) {
     r = Object.assign({}, d.rect, r);
+    if (["fill", "image", "pattern", "gradient"].indexOf(r.content) < 0) r.content = "fill";
+    if (!r.params || typeof r.params !== "object") r.params = {};
     r.corners = Object.assign({}, d.rect.corners, r.corners);
     r.columns = Object.assign({}, d.rect.columns, r.columns);
     if (!r.columns.m || typeof r.columns.m !== "object") r.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -1023,6 +1031,49 @@
     state.bgGen.on = kind;
   }
 
+  /* A box that holds a picture: where the picture sits inside it, the same way a
+     background sits in a format — a fit, a scale over it, and an offset. */
+  function picLayout(r, w, h) {
+    var nat = r.content === "image" ? imageSize(r.src) : { w: w, h: h };
+    var k = Math.max(1, r.scale || 100) / 100, pw, ph;
+    if (r.fit === "stretch" || !nat) { pw = w * k; ph = h * k; }
+    else if (r.fit === "tile") { pw = nat.w * k; ph = nat.h * k; }
+    else {
+      var f = r.fit === "contain" ? Math.min(w / nat.w, h / nat.h) : Math.max(w / nat.w, h / nat.h);
+      pw = nat.w * f * k; ph = nat.h * f * k;
+    }
+    return { w: pw, h: ph, x: (w - pw) / 2 + (r.x || 0), y: (h - ph) / 2 + (r.y || 0) };
+  }
+
+  // the picture itself: a loaded image, or one of the pattern and gradient modules
+  // drawn at the size of the box
+  var picCache = {};
+  function picSrc(r, w, h) {
+    if (r.content === "image") return r.src;
+    if (r.content !== "pattern" && r.content !== "gradient") return "";
+    var m = bgModule(r.content, r.module);
+    var pw = round(w, 2), ph = round(h, 2);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + pw + '" height="' + ph +
+      '" viewBox="0 0 ' + pw + " " + ph + '">' +
+      m.draw(Object.assign({}, m.defaults, r.params[r.content + ":" + m.id] || {}), pw, ph) + "</svg>";
+    var key = r.content + ":" + m.id + ":" + pw + "x" + ph;
+    var hit = picCache[key];
+    if (!hit || hit.svg !== svg) {
+      hit = picCache[key] = { svg: svg, uri: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+    }
+    return hit.uri;
+  }
+
+  function picParams(r) {
+    var m = bgModule(r.content, r.module);
+    return Object.assign({}, m.defaults, r.params[r.content + ":" + m.id] || {});
+  }
+  function picSetParam(r, k, v) {
+    var m = bgModule(r.content, r.module), key = r.content + ":" + m.id;
+    if (!r.params[key]) r.params[key] = {};
+    r.params[key][k] = v;
+  }
+
   function bgModule(kind, id) {
     var list = BG_MODULES[kind] || [];
     return list.filter(function (m) { return m.id === id; })[0] || list[0];
@@ -1275,7 +1326,7 @@
 
   // rows are counted from the margin box, not from the solid, so a block only
   // moves when the page moves. What rides along with the solid is decided by
-  // where a block sits (see carryBlocks), not by the coordinates it is stored in
+  // where a block sits, not by the coordinates it is stored in
   function rowOrigin(b) {
     var c = content(), u = blockUnit(b), shift = blockShift(b);
     var edge = b.from === "bottom" ? c.y + c.h : c.y;
@@ -2026,11 +2077,19 @@
           var el = solids.children[i];
           el.dataset.i = i;
           var shaped = sd.shape !== "radius";
+          var b = box("rect");
           Object.assign(el.style, shapeStyle("rect", s));
+          /* No background shorthand here: it would reset the image behind it. */
+          var pic = sd.visible ? picSrc(sd, b.w, b.h) : "";
+          var pl = pic ? picLayout(sd, b.w, b.h) : null;
           Object.assign(el.firstChild.style, {
-            background: sd.visible ? sd.fill : "transparent",
             borderRadius: shaped ? "0" : radiusCSS(s),
-            clipPath: shaped ? clipCSS(s) : "none"
+            clipPath: shaped ? clipCSS(s) : "none",   // the corner shape is the mask
+            backgroundColor: sd.visible ? sd.fill : "transparent",
+            backgroundSize: pl ? round(pl.w * s, 2) + "px " + round(pl.h * s, 2) + "px" : "auto",
+            backgroundPosition: pl ? round(pl.x * s, 2) + "px " + round(pl.y * s, 2) + "px" : "0 0",
+            backgroundRepeat: sd.fit === "tile" ? "repeat" : "no-repeat",
+            backgroundImage: pic ? 'url("' + pic.replace(/"/g, '\\"') + '")' : "none"
           });
         });
       });
@@ -2072,7 +2131,6 @@
   function renderStage() {
     renderSegments();
     if (!segment().built) return;   // nothing to measure while the canvas is away
-    carryBlocks();
     document.body.classList.toggle("rail-open", !!state.showRail);
     var s = scale(), p = pan(), st = state.stage;
     paintInto(els.stage, st.w, st.h, s);
@@ -2327,6 +2385,106 @@
 
   var fmtZoom = 1;
 
+  /* What fills the selected box: a colour, an image, or one of the pattern and
+     gradient modules the background stage uses, drawn at the size of the box. */
+  function syncPic(r) {
+    var kind = r.content, made = kind === "pattern" || kind === "gradient";
+    $("#pic-content").value = kind;
+    $("#pic-image").hidden = kind !== "image";
+    $("#pic-mods").hidden = !made;
+    $("#pic-mod-note").hidden = !made;
+    $("#pic-fields").hidden = !made;
+    $("#pic-place").hidden = kind === "fill";
+    if (kind === "image") {
+      setValue($("#pic-url"), /^data:/.test(r.src) ? "" : r.src);
+      $("#pic-url").placeholder = /^data:/.test(r.src) ? "— uploaded image —" : "https://…";
+    }
+    if (made) {
+      var list = BG_MODULES[kind], cur = bgModule(kind, r.module);
+      var host = $("#pic-mods"), sig = kind + ":" + list.map(function (m) { return m.id; }).join(",");
+      if (host.dataset.sig !== sig) {
+        host.dataset.sig = sig;
+        host.innerHTML = list.map(function (m) {
+          return '<button type="button" data-picmod="' + m.id + '">' +
+            '<span class="mod-chip" data-chip="' + m.id + '"></span>' + esc(m.name) + "</button>";
+        }).join("");
+      }
+      Array.prototype.forEach.call(host.children, function (btn, i) {
+        var m = list[i];
+        btn.setAttribute("aria-pressed", m.id === cur.id ? "true" : "false");
+        var chip = btn.querySelector(".mod-chip");
+        var pr = Object.assign({}, m.defaults, r.params[kind + ":" + m.id] || {});
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+          withFormat(320, 180, function () { return m.draw(pr, 320, 180); }) + "</svg>";
+        if (chip.dataset.svg !== svg) {
+          chip.dataset.svg = svg;
+          chip.style.backgroundColor = r.fill;
+          chip.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' +
+            encodeURIComponent(svg).replace(/"/g, "%22") + '")';
+        }
+      });
+      $("#pic-mod-note").textContent = cur.note;
+      buildPicFields(r, cur);
+    }
+    if (kind !== "fill") {
+      $("#pic-fit").value = r.fit;
+      setValue($("#pic-scale"), r.scale);
+      $("#pic-scale-val").textContent = fmt(r.scale) + "%";
+      setValue($("#pic-x"), fmt(r.x));
+      setValue($("#pic-y"), fmt(r.y));
+      var b = box("rect"), pl = picLayout(r, b.w, b.h);
+      $("#pic-hint").textContent = "The box is " + round(b.w, 1) + " × " + round(b.h, 1) +
+        " and what fills it runs " + round(pl.w, 1) + " × " + round(pl.h, 1) + " at " +
+        round(pl.x, 1) + " / " + round(pl.y, 1) + " inside it. Hold ⌥/Alt and drag the box on the " +
+        "canvas to move it. The corner shape masks it.";
+    } else {
+      $("#pic-hint").textContent = "A colour fill. Set it to an image, a pattern or a gradient and " +
+        "the box becomes a frame — resized, snapped and masked exactly the same way.";
+    }
+  }
+
+  function buildPicFields(r, m) {
+    var host = $("#pic-fields"), pr = picParams(r);
+    var show = m.fields.filter(function (f) { return !f.when || f.when(pr); });
+    var sig = r.content + ":" + m.id + ":" + show.map(function (f) { return f.k; }).join(",");
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.innerHTML = show.map(function (f) { return picFieldHtml(f); }).join("");
+    }
+    show.forEach(function (f) {
+      var el = host.querySelector('[data-picf="' + f.k + '"]');
+      if (!el) return;
+      if (f.type === "check") el.checked = !!pr[f.k];
+      else setValue(el, pr[f.k]);
+      var out = host.querySelector('[data-picv="' + f.k + '"]');
+      if (out) out.textContent = fmt(pr[f.k]);
+    });
+  }
+
+  function picFieldHtml(f) {
+    var lab = esc(f.label);
+    if (f.type === "check") {
+      return '<label class="check wide"><input type="checkbox" data-picf="' + f.k + '"><span>' + lab + "</span></label>";
+    }
+    if (f.type === "color") {
+      return '<label class="field color"><span>' + lab + '</span><input type="color" data-picf="' + f.k + '"></label>';
+    }
+    if (f.type === "range") {
+      return '<label class="field wide"><span>' + lab + ' <b data-picv="' + f.k + '"></b></span>' +
+        '<input type="range" data-picf="' + f.k + '" min="' + (f.min || 0) + '" max="' +
+        (f.max === undefined ? 100 : f.max) + '" step="1"></label>';
+    }
+    if (f.type === "select") {
+      return '<label class="field wide"><span>' + lab + '</span><select data-picf="' + f.k + '">' +
+        f.options.map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>"; }).join("") +
+        "</select></label>";
+    }
+    return '<label class="field"><span>' + lab + '</span><input type="number" data-picf="' + f.k + '"' +
+      (f.min === undefined ? "" : ' min="' + f.min + '"') +
+      (f.max === undefined ? "" : ' max="' + f.max + '"') +
+      ' step="' + (f.step || 1) + '"></label>';
+  }
+
   function renderFmtSeg() {
     var m = masterIndex();
     if (!$("#fmt-pick").options.length) {
@@ -2517,6 +2675,7 @@
   function renderTray() {
     var items = [];
     items.push({ id: "rect", kind: "shape", name: "Solid" });   // as many as you like
+    items.push({ id: "frame", kind: "shape", name: "Frame" });
     ROLES.forEach(function (r) {
       items.push({ id: "role:" + r, kind: "text", name: ROLE_NAMES[r] });   // as many as you like
     });
@@ -2539,8 +2698,14 @@
     ];
     if (state.solids.length) {
       var b = box("rect");
-      parts.push((state.solids.length > 1 ? state.solids.length + " solids · " : "") +
-        "Solid " + fmt(b.w) + " × " + fmt(b.h) + " — " + state.rect.align.v + " " + state.rect.align.h);
+      var frames = state.solids.filter(function (x) { return x.content !== "fill"; }).length;
+      var boxes = state.solids.length - frames;
+      parts.push((state.solids.length > 1
+        ? [boxes ? boxes + (boxes === 1 ? " solid" : " solids") : "",
+           frames ? frames + (frames === 1 ? " frame" : " frames") : ""].filter(Boolean).join(" · ") + " · "
+        : "") +
+        (state.rect.content === "fill" ? "Solid " : "Frame ") + fmt(b.w) + " × " + fmt(b.h) +
+        " — " + state.rect.align.v + " " + state.rect.align.h);
     }
     var onStage = state.text.blocks.length;
     if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
@@ -2624,7 +2789,8 @@
     // every solid, in the order they were put down
     state.solids.forEach(function (sd, si) { withSolid(si, function () {
       lines.push("");
-      lines.push(".solid" + (state.solids.length > 1 ? "-" + (si + 1) : "") + " {");
+      lines.push("." + (sd.content === "fill" ? "solid" : "frame") +
+        (state.solids.length > 1 ? "-" + (si + 1) : "") + " {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("rect", "  "));
       if (state.rect.shape === "radius") {
@@ -2633,7 +2799,16 @@
         lines.push("  clip-path: " + clipCSS(1) + ";");
         lines.push("  /* " + shapeDef().name + ", cut at this size — the points are in px */");
       }
-      lines.push("  background: " + state.rect.fill + ";");
+      lines.push("  background-color: " + state.rect.fill + ";");
+      if (sd.content !== "fill") {                 // a frame: what fills it, and where
+        var pb = box("rect"), ppl = picLayout(sd, pb.w, pb.h);
+        lines.push("  background-image: url(\"" + (sd.content === "image"
+          ? (/^data:/.test(sd.src) ? "…uploaded image…" : sd.src)
+          : "…" + bgModule(sd.content, sd.module).name.toLowerCase() + " " + sd.content + ", as SVG…") + "\");");
+        lines.push("  background-size: " + round(ppl.w, 2) + "px " + round(ppl.h, 2) + "px;");
+        lines.push("  background-position: " + round(ppl.x, 2) + "px " + round(ppl.y, 2) + "px;");
+        lines.push("  background-repeat: " + (sd.fit === "tile" ? "repeat" : "no-repeat") + ";");
+      }
       lines.push("}");
     }); });
     if (state.logo.visible) {
@@ -2753,7 +2928,8 @@
     }
     if (state.solids.length) {
       state.solids.forEach(function (sd, i) {
-        inner.push('  <div class="solid' + (state.solids.length > 1 ? "-" + (i + 1) : "") + '"></div>');
+        inner.push('  <div class="' + (sd.content === "fill" ? "solid" : "frame") +
+          (state.solids.length > 1 ? "-" + (i + 1) : "") + '"></div>');
       });
       inner = inner.concat(text);
     } else {
@@ -2826,7 +3002,6 @@
     inspectorFor = -1;
     blOffset = {};
     frameFor = null;
-    lastBox = null;              // an undone move must not drag the text along with it
     render();
     requestAnimationFrame(function () { restoring = false; syncHistoryButtons(); });
   }
@@ -3240,8 +3415,8 @@
     $("#rect-placed").checked = r.placed;
     $("#rect-visible").checked = r.visible;
     $("#rect-placed-hint").textContent = r.placed
-      ? "Text inside the box takes its padding and travels with it; anything above or below it " +
-        "keeps to the columns and stays where it is."
+      ? "Text inside the box takes its padding; text is pinned to its own row on the page and " +
+        "stays there whatever the box does."
       : "Not on the stage — drag it out of the tray above the canvas. Text runs on the columns " +
         "in the margin box without it.";
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
@@ -3281,6 +3456,7 @@
         : "");
     setValue($("#rect-h"), fmt(r.h));
     $("#rect-fill").value = r.fill;
+    syncPic(r);
 
     var shape = shapeDef();
     $("#corner-shape").value = shape.id;
@@ -3547,6 +3723,47 @@
       else takeRectOff();
     });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
+
+    onChange("#pic-content", function (el) { state.rect.content = el.value; state.sel = "rect"; });
+    onInput("#pic-url", function (el) { state.rect.src = el.value.trim(); });
+    $("#pic-clear").addEventListener("click", function () { state.rect.src = ""; render(); });
+    $("#pic-upload-btn").addEventListener("click", function () { $("#pic-file").click(); });
+    $("#pic-file").addEventListener("change", function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () { state.rect.src = String(fr.result); render(); };
+      fr.readAsDataURL(f);
+      e.target.value = "";
+    });
+    onChange("#pic-fit", function (el) { state.rect.fit = el.value; });
+    onInput("#pic-scale", function (el) { state.rect.scale = clamp(num(el.value, 100), 10, 500); });
+    numInput("#pic-x", function (v) { state.rect.x = snap(v); });
+    numInput("#pic-y", function (v) { state.rect.y = snap(v); });
+    $("#pic-reset").addEventListener("click", function () {
+      state.rect.scale = 100; state.rect.x = 0; state.rect.y = 0;
+      render();
+    });
+    $("#pic-mods").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-picmod]");
+      if (!t) return;
+      state.rect.module = t.dataset.picmod;
+      render();
+    });
+    function picField(e) {
+      var el = e.target.closest("[data-picf]");
+      if (!el) return;
+      var r = state.rect, m = bgModule(r.content, r.module);
+      var f = m.fields.filter(function (x) { return x.k === el.dataset.picf; })[0];
+      if (!f) return;
+      if (el.value === "" && f.type !== "check") return;
+      picSetParam(r, f.k, f.type === "check" ? el.checked
+        : f.type === "color" || f.type === "select" ? el.value
+        : num(el.value, m.defaults[f.k]));
+      render();
+    }
+    $("#pic-fields").addEventListener("input", picField);
+    $("#pic-fields").addEventListener("change", picField);
     onChange("#rect-wmode", function (el) {
       if (el.value === "fixed") state.rect.w = round(sizeOf("rect").w, 1);   // start from what is on screen
       state.rect.wmode = el.value;
@@ -4116,47 +4333,19 @@
     if (stack) stack.dataset.sig = "";
   }
 
-  // where the solid sat last time round, as an offset inside the margin box
-  var lastBox = null, placing = false;
-
-  // move the solid, or resize it, and the text inside it comes along; anything
-  // outside stays where it is. Measured against the margin box, so changing the
-  // format or the margins moves the page rather than the box within it
-  function carryBlocks() {
-    var c = content();
-    var now = state.solids.map(function (sd, i) {
-      var b = solidBox(i);
-      return { top: b.y - c.y, bot: b.y + b.h - c.y };
-    });
-    // a solid being pulled out of the tray sweeps across the format on its way in;
-    // it should not collect the text it passes over
-    if (placing) { lastBox = now; return; }
-    if (lastBox && lastBox.length === now.length) {
-      // a block travels with the solid it was in, and only that one
-      var moved = state.text.blocks.map(function () { return false; });
-      now.forEach(function (n, i) {
-        var was = lastBox[i];
-        var dTop = n.top - was.top, dBot = n.bot - was.bot;
-        if (!dTop && !dBot) return;
-        state.text.blocks.forEach(function (bl, k) {
-          if (moved[k]) return;
-          var y = rowY(bl) - c.y;
-          if (y < was.top - 0.5 || y > was.bot + 0.5) return;   // it was not in this box
-          var d = bl.from === "bottom" ? dBot : dTop;           // it follows its own edge
-          if (d) { bl.row = rowAt(rowY(bl) + d, bl); moved[k] = true; }
-        });
-      });
-    }
-    lastBox = now;
-  }
+  var placing = false;
 
   // pull an element out of the tray: it lands where the pointer is, snapping as it
   // goes, and goes back to the tray if it is let go outside the format
   function startPlace(e, id) {
-    var isRect = id === "rect", role = isRect ? null : id.split(":")[1];
+    var isRect = id === "rect" || id === "frame", role = isRect ? null : id.split(":")[1];
     var b, i = -1;
     if (isRect) {
       b = addSolid();                      // another one, every time
+      if (id === "frame") {                // a solid whose fill is a picture
+        b.content = "image";
+        b.fill = "#232834";
+      }
       state.sel = "rect";
       state.selBlock = -1;
     } else {
@@ -4205,6 +4394,17 @@
     }).sort(function (a, b) { return a.d - b.d; })[0].k;
   }
 
+  // push the picture around inside the box that holds it
+  function startPicDrag(e) {
+    var r = state.rect, start = toStage(e), x0 = r.x || 0, y0 = r.y || 0;
+    document.body.classList.add("moving-bg");
+    drag(e, function (ev) {
+      var p = toStage(ev);
+      r.x = snap(x0 + p.x - start.x);
+      r.y = snap(y0 + p.y - start.y);
+    }, function () { document.body.classList.remove("moving-bg"); });
+  }
+
   // push the background image around under everything else
   function startBgDrag(e) {
     var start = toStage(e), x0 = state.bg.x || 0, y0 = state.bg.y || 0;
@@ -4221,7 +4421,6 @@
     state.solids.splice(state.solid, 1);
     useSolid(state.solid - 1 >= 0 ? state.solid - 1 : 0);
     if (!state.solids.length && state.sel === "rect") state.sel = "";
-    lastBox = null;                        // the ones left must not be dragged along
   }
 
   // drag a text block up and down; it lands on whole rows of its own grid
@@ -4388,8 +4587,20 @@
     els.viewport.addEventListener("pointerdown", function (e) {
       if (e.button === 1 || spaceDown) return startPan(e);
       if (e.button !== 0) return;
-      // hold alt to push the background image around
-      if (e.altKey && state.bg.src) return startBgDrag(e);
+      // hold alt to push a picture around: the one in the box under the pointer,
+      // or the format's own background
+      if (e.altKey) {
+        // look under whatever is on top — text sits over the boxes
+        var under = document.elementsFromPoint(e.clientX, e.clientY), over = null, q;
+        for (q = 0; q < under.length && !over; q++) {
+          if (under[q].closest) over = under[q].closest(".shape.rect");
+        }
+        if (over && over.dataset.i !== undefined) {
+          useSolid(+over.dataset.i);
+          if (state.rect.content !== "fill") { render(); return startPicDrag(e); }
+        }
+        if (state.bg.src) return startBgDrag(e);
+      }
       var t = e.target;
       if (t.classList.contains("guide")) return startGuide(e, t.dataset.side);
       if (t.classList.contains("handle")) {

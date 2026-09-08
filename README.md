@@ -154,8 +154,24 @@ image from 10% to 500% of it and move it about**, by the sliders and number fiel
 format, *Reset* puts it back to the plain fit, and the CSS output carries the resulting
 `background-size` and `background-position` in pixels.
 
-**Solids** — **as many as you like on a page**: every drag out of the tray makes another, each with
-its own size, alignment, fill, corners and column grid. Click one on the canvas to work on it; the
+**Solids and frames** — **as many as you like on a page**: every drag out of the tray makes another,
+each with its own size, alignment, fill, corners and column grid. A **frame** is a solid whose fill
+is a picture rather than a colour, so it is resized, snapped, aligned and masked by exactly the same
+machinery — *What fills it* in the panel switches any box between the two.
+
+| Fills it | What that means |
+| --- | --- |
+| **A colour** | the solid as it always was |
+| **An image** | uploaded or from a URL |
+| **A pattern** | any of the five pattern modules, drawn at the size of the box |
+| **A gradient** | any of the five gradient modules, the same |
+
+Inside the frame the picture has a **fit** (cover, contain, stretch, tile), a **scale** from 10% to
+500% over it, and an offset — set by the fields, or by holding **⌥/Alt and dragging the box** on the
+canvas, which pushes the picture about inside it and looks under any text lying over it. **The
+corner shape is the mask**: bevel, notch, scoop and all seventeen outlines cut the picture the same
+way they cut a fill, and the exported CSS carries the `clip-path` with the `background-size` and
+`background-position` the picture ends up at. Click one on the canvas to work on it; the
 panel, the frame and its ✕ all follow whichever is picked, and a new one starts as a copy of the
 settings the last one had. *Draw its fill* switches the fill off without taking the box away. Once on the stage it rides the baseline grid: its top edge sits on a grid line and its height runs a
 whole number of rows, on grid 1 or grid 2 as you choose. The height field keeps what you typed and
@@ -292,14 +308,12 @@ shuts the panel** — the block stays on the stage, and picking a block opens it
 the block itself is the one that takes the block off. Hiding the guides hides the inspector with the
 rest of the selection UI.
 
-*A block belongs to a solid only while it sits inside it* — whichever one that is, when there are
-several. Inside, it takes that box's padding
-and **travels with it** as that is moved or resized — the top-anchored ones follow the top edge,
-the bottom-anchored ones the bottom edge, and only the blocks in that one solid move. Anywhere else — above the box, below it, or with no
-solid on the stage at all — a block **lines up on the columns**, its edges landing on column
-lines, and it stays exactly where it is whatever the solid does. Rows are counted from the top or
-the bottom margin, so the page is what a block is pinned to; the solid can come and go under it
-without anything jumping.
+**A text block is pinned to the page, not to a box.** Its row is counted from the top or the bottom
+margin, and **nothing a solid does moves it** — move a box, resize it, take it off the stage, and
+every block stays on the row it was given. What a block takes from the solid it sits inside is the
+box's *padding*, and only while its *Cols* is set to follow the box; set it to the format columns
+and the box has no say at all. Anywhere else — above a box, below it, or with none on the stage — a
+block **lines up on the columns**, its edges landing on column lines.
 
 **Which column grid** a block lines up on is its own to set, in *Cols*: *follow the box* is the rule
 just described — the box padding while it is inside the solid, the format columns everywhere

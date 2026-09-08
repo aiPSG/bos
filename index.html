@@ -270,6 +270,55 @@
       <p class="hint" id="rect-grid-hint"></p>
       <p class="hint" id="rect-width-hint"></p>
 
+      <details class="sub" open id="pic-sub">
+        <summary><h3>What fills it</h3></summary>
+        <label class="field grow"><span>Content</span>
+          <select id="pic-content">
+            <option value="fill">A colour</option>
+            <option value="image">An image</option>
+            <option value="pattern">A pattern</option>
+            <option value="gradient">A gradient</option>
+          </select>
+        </label>
+
+        <div id="pic-image" hidden>
+          <div class="row">
+            <button type="button" class="ghost grow" id="pic-upload-btn">Upload image…</button>
+            <button type="button" class="ghost" id="pic-clear">Clear</button>
+          </div>
+          <input type="file" id="pic-file" accept="image/*" hidden>
+          <label class="field grow"><span>Image URL</span>
+            <input type="text" id="pic-url" placeholder="https://…" spellcheck="false" autocomplete="off">
+          </label>
+        </div>
+
+        <div id="pic-mods" class="modules"></div>
+        <p class="hint" id="pic-mod-note"></p>
+        <div id="pic-fields"></div>
+
+        <div id="pic-place">
+          <div class="row">
+            <label class="field"><span>Fit</span>
+              <select id="pic-fit">
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="stretch">Stretch</option>
+                <option value="tile">Tile</option>
+              </select>
+            </label>
+            <label class="field"><span>Scale <b id="pic-scale-val">100%</b></span>
+              <input type="range" id="pic-scale" min="10" max="500" step="1">
+            </label>
+          </div>
+          <div class="row">
+            <label class="field"><span>Move across</span><input type="number" id="pic-x" step="1"></label>
+            <label class="field"><span>Move down</span><input type="number" id="pic-y" step="1"></label>
+            <button type="button" class="ghost" id="pic-reset">Reset</button>
+          </div>
+        </div>
+        <p class="hint" id="pic-hint"></p>
+      </details>
+
       <details class="sub" open>
         <summary><h3>Corners</h3></summary>
         <label class="field grow"><span>Shape</span>

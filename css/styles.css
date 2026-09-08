@@ -84,9 +84,12 @@ body{
   width:100%;height:44px;border-radius:5px;overflow:hidden;
   background:#0e1014 center / cover no-repeat;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);
 }
-#bg-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:12px}
-#bg-fields .field{margin-bottom:0}
-#bg-fields .wide{grid-column:1 / -1;margin-bottom:0}
+#bg-fields,#pic-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:12px}
+#pic-mods{grid-template-columns:repeat(3,1fr);gap:6px}
+#pic-mods .mod-chip{height:34px}
+#pic-mods button{padding:6px;font-size:11px}
+#bg-fields .field,#pic-fields .field{margin-bottom:0}
+#bg-fields .wide,#pic-fields .wide{grid-column:1 / -1;margin-bottom:0}
 
 .bg-view{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
 .bg-view-head{
