@@ -15,20 +15,39 @@ toolbar clears the stage back to empty.
 
 **Live:** https://aipsg.github.io/bos/
 
-## The four stages
+## The five stages
 
 The work runs in stages, and the tabs across the top are those stages in order:
 
 | | Stage | What it is |
 | --- | --- | --- |
 | 1 | **Set design system** | The format, the logo, the margins and columns, the solid, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
-| 2 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
-| 3 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
-| 4 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
+| 2 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — and put on the type and the solids. |
+| 3 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
+| 4 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
+| 5 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-The first three are built. *Dummies* carries an **under construction** placeholder that names what
+The first four are built. *Dummies* carries an **under construction** placeholder that names what
 will live there, as does the *Image* tab inside *Generate background*. The tab you were last on is
 remembered.
+
+## The colour scheme
+
+**Create colour scheme** builds a palette the way colour is usually worked out: **one colour and a
+relationship between hues**. Pick the colour it starts from, then the relationship —
+**monochromatic**, **analogous**, **complementary**, **split complementary**, **triadic**,
+**tetradic**, or **tints and shades** — and set how many swatches you want (3 to 12). The first pass
+is the hues themselves; each pass after it steps the lightness, so a six-swatch complementary scheme
+is the two hues, then a lighter pair, then a darker pair. Analogous and split complementary also take
+a **spread**, the angle between neighbours.
+
+Underneath, every place a colour can go: the **page background**, each of the five **type roles**,
+and every **solid and frame** on the page. Click a swatch on a row to put it there, or open the
+picker at the left of the row for a colour of your own. Type rows carry their **WCAG contrast ratio
+against the page**, so a scheme can be judged as it is built.
+
+Beside it, **the formats the work runs in** — the ones added in *Design formats*, each painted at
+its own values — so a scheme can be seen landing on all of them at once rather than one at a time.
 
 ## Generating a background
 
@@ -443,10 +462,11 @@ Below them, the live **CSS and markup** output with copy buttons.
 
 ## The panel
 
-Seven groups, in the order the design comes together: **Format** (with background image inside it),
-**Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Solid** (with
-corners), **Typography**, **Export** (the slides, then CSS). Text blocks are not among them — they
-are set on the canvas, beside the block.
+Five groups, in the order the design comes together: **Format** (with background image inside it),
+**Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Typography**,
+**Export** (the slides, then CSS). Neither text blocks nor solids are among them — both are set on
+the canvas, beside the thing they belong to, and a solid's panel carries everything the group used
+to: its position and anchor, width and height, snapping, fill, what fills it, and its corners.
 
 ## Layout
 

@@ -348,6 +348,9 @@
     { id: "system", name: "Set design system", built: true,
       note: "The format, the logo, the margins and the columns, the solid, the type scale " +
         "and both baseline grids, and the text that sits on them." },
+    { id: "colour", name: "Create colour scheme", built: true,
+      note: "A scheme worked out the way colour is worked out — from one colour and a " +
+        "relationship — and put on the type and the solids." },
     { id: "background", name: "Generate background", built: true,
       note: "One ground for the system to sit on, made rather than found." },
     { id: "formats", name: "Design formats", built: true,
@@ -489,6 +492,8 @@
     return {
       v: 21,
       seg: "system",
+      // a scheme built from one colour and a relationship between hues
+      scheme: { base: "#4f7cff", technique: "complement", count: 6, spread: 30 },
       // the formats the work runs in; one of them is the master
       pages: [], page: 0, pageKey: 1,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
@@ -647,7 +652,7 @@
       if (!raw) return null;
       var s = JSON.parse(raw), d = defaults();
       if (s.v !== d.v) return null;
-      ["stage", "bg", "bgGen", "comfy", "margin", "logo", "view", "text", "guides", "cols"].forEach(function (k) {
+      ["stage", "bg", "bgGen", "scheme", "comfy", "margin", "logo", "view", "text", "guides", "cols"].forEach(function (k) {
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
@@ -1074,8 +1079,9 @@
     r.params[key][k] = v;
   }
 
+  // always a module, so a box set to a colour or an image cannot trip over it
   function bgModule(kind, id) {
-    var list = BG_MODULES[kind] || [];
+    var list = BG_MODULES[kind] || BG_MODULES.pattern;
     return list.filter(function (m) { return m.id === id; })[0] || list[0];
   }
 
@@ -2154,6 +2160,7 @@
     renderFrame(s);
     renderBlockFrame();
     renderBlockInspector();
+    renderSolidInspector();
     renderRail();
     renderTray();
     els.zoomValue.textContent = Math.round(s * 100) + "%";
@@ -2366,14 +2373,17 @@
     }).join("");
 
     var system = cur.id === "system", bg = cur.id === "background", fmt = cur.id === "formats";
+    var col = cur.id === "colour";
     $("#panel").hidden = !system;
     $("#canvas").hidden = !system;
     $("#seg-bg").hidden = !bg;
     $("#seg-fmt").hidden = !fmt;
+    $("#seg-col").hidden = !col;
     $("#seg-stub").hidden = !!cur.built;
     document.body.classList.toggle("stub-on", !cur.built);
     if (bg) return renderBgSeg();
     if (fmt) return renderFmtSeg();
+    if (col) return renderColSeg();
     if (cur.built) return;
 
     $("#stub-name").textContent = cur.name;
@@ -2552,6 +2562,127 @@
         (m >= 0 ? " \u2014 master: " + state.pages[m].name : "")
       : "Nothing in the project yet";
     $("#fmtz-value").textContent = Math.round(fmtZoom * 100) + "%";
+  }
+
+  /* ------------------------------------------------------- colour schemes
+
+     A scheme is one colour and a relationship between hues — the ways colour is
+     usually worked out. The swatches fall out of the two, and are put on the type
+     roles, the solids and the page. */
+  var TECHNIQUES = [
+    { id: "mono", name: "Monochromatic — one hue, light to dark", offs: function () { return [0]; } },
+    { id: "analogous", name: "Analogous — neighbours on the wheel",
+      offs: function (d) { return [0, -d, d, -2 * d, 2 * d]; }, spread: true },
+    { id: "complement", name: "Complementary — opposite hues", offs: function () { return [0, 180]; } },
+    { id: "split", name: "Split complementary — either side of the opposite",
+      offs: function (d) { return [0, 180 - d, 180 + d]; }, spread: true },
+    { id: "triad", name: "Triadic — three, evenly spaced", offs: function () { return [0, 120, 240]; } },
+    { id: "tetrad", name: "Tetradic — four, evenly spaced", offs: function () { return [0, 90, 180, 270]; } },
+    { id: "shades", name: "Tints and shades — one hue, wide range", offs: function () { return [0]; } }
+  ];
+
+  function techniqueOf(id) {
+    return TECHNIQUES.filter(function (t) { return t.id === id; })[0] || TECHNIQUES[0];
+  }
+
+  function schemeSwatches() {
+    var sc = state.scheme, t = techniqueOf(sc.technique), base = hexHsl(sc.base);
+    var offs = t.offs(clamp(num(sc.spread, 30), 5, 90));
+    var n = clamp(Math.round(num(sc.count, 6)), 3, 12), out = [], i;
+    var wide = sc.technique === "shades" ? 0.26 : 0.16;
+    for (i = 0; i < n; i++) {
+      var pass = Math.floor(i / offs.length);
+      // the first pass is the hues themselves; each one after it steps the lightness
+      var step = pass === 0 ? 0 : (pass % 2 ? 1 : -1) * Math.ceil(pass / 2) * wide;
+      var sat = base.s * (offs.length === 1 && pass ? 1 - Math.abs(step) * 0.5 : 1);
+      out.push(hslHex(base.h + offs[i % offs.length], sat, clamp(base.l + step, 0.06, 0.96)));
+    }
+    return out;
+  }
+
+  // everything a scheme colour can be put on
+  function schemeTargets() {
+    var out = [{ k: "bg", name: "Page background", get: function () { return state.stage.bg; },
+      put: function (v) { state.stage.bg = v; } }];
+    ROLES.forEach(function (r) {
+      out.push({ k: "role:" + r, name: ROLE_NAMES[r], type: true,
+        get: function () { return state.type.roles[r].color; },
+        put: function (v) { state.type.roles[r].color = v; } });
+    });
+    state.solids.forEach(function (sd, i) {
+      out.push({ k: "solid:" + i, name: (sd.content === "fill" ? "Solid " : "Frame ") + (i + 1),
+        get: function () { return sd.fill; },
+        put: function (v) { sd.fill = v; } });
+    });
+    return out;
+  }
+
+  var colZoom = 1;
+
+  function renderColSeg() {
+    var sc = state.scheme, sw = schemeSwatches();
+
+    if (!$("#col-technique").options.length) {
+      $("#col-technique").innerHTML = TECHNIQUES.map(function (t) {
+        return '<option value="' + t.id + '">' + esc(t.name) + "</option>";
+      }).join("");
+    }
+    $("#col-technique").value = sc.technique;
+    $("#col-base").value = sc.base;
+    setValue($("#col-count"), sc.count);
+    $("#col-count-val").textContent = clamp(Math.round(sc.count), 3, 12);
+    setValue($("#col-spread"), sc.spread);
+    $("#col-spread-val").textContent = fmt(sc.spread) + "°";
+    $("#col-spread-field").hidden = !techniqueOf(sc.technique).spread;
+    $("#col-note").textContent = techniqueOf(sc.technique).name + ". " + sw.length +
+      " swatches from " + sc.base.toUpperCase() + " — click one on a row below to put it there.";
+
+    $("#col-swatches").innerHTML = sw.map(function (hex) {
+      return '<div class="sw-cell"><span class="sw-box" style="background:' + hex + '"></span>' +
+        "<span>" + hex.toUpperCase() + "</span></div>";
+    }).join("");
+
+    $("#col-targets").innerHTML = schemeTargets().map(function (t) {
+      var cur = (t.get() || "").toLowerCase();
+      var chips = sw.map(function (hex) {
+        return '<button type="button" class="sw-chip-btn' + (hex.toLowerCase() === cur ? " on" : "") +
+          '" style="background:' + hex + '" data-put="' + t.k + '" data-hex="' + hex +
+          '" title="' + esc(t.name) + " \u2192 " + hex.toUpperCase() + '"></button>';
+      }).join("");
+      var ratio = t.type ? contrastRatio(t.get(), state.stage.bg) : 0;
+      return '<div class="col-row"><div class="col-row-head">' +
+        '<input type="color" data-col="' + t.k + '" value="' + t.get() + '">' +
+        "<b>" + esc(t.name) + "</b>" +
+        (t.type ? '<span class="px">' + round(ratio, 2) + ":1 on the page</span>" : "") +
+        "</div><div class=\"sw-row\">" + chips + "</div></div>";
+    }).join("");
+
+    // the formats the work runs in, painted with the scheme on them
+    var host = $("#col-grid"), list = state.pages.length ? state.pages : null;
+    var sig = (list ? list.map(function (pg) { return pg.key; }).join(",") : "one") + "|" + colZoom;
+    if (host.dataset.sig !== sig) {
+      host.dataset.sig = sig;
+      host.innerHTML = (list || [{ name: formatName(), w: state.stage.w, h: state.stage.h }])
+        .map(function (pg, i) {
+          return '<button type="button" class="fmt-tile" data-page="' + i + '">' +
+            '<span class="tile-box"><span class="tile-stage"></span></span>' +
+            "<b>" + esc(pg.name) + "</b><span>" + fmt(pg.w) + " × " + fmt(pg.h) + "</span></button>";
+        }).join("");
+    }
+    var side = 240 * colZoom;
+    Array.prototype.forEach.call(host.children, function (btn, i) {
+      var pg = list ? list[i] : { w: state.stage.w, h: state.stage.h };
+      var boxEl = btn.querySelector(".tile-box");
+      boxEl.style.width = side + "px";
+      boxEl.style.height = side + "px";
+      var sc2 = Math.min(side / pg.w, side / pg.h);
+      var paint = function () { paintInto(btn.querySelector(".tile-stage"), pg.w, pg.h, sc2); };
+      if (list) withPage(i, paint); else paint();
+    });
+    $("#col-view-name").textContent = list
+      ? list.length + (list.length === 1 ? " format" : " formats") + " in the project"
+      : "This format — add more in Design formats";
+    $("#colz-value").textContent = Math.round(colZoom * 100) + "%";
   }
 
   var BG_TABS = [["image", "Image"], ["pattern", "Pattern"], ["gradient", "Gradient"]];
@@ -3154,6 +3285,7 @@
   var inspectorFor = -1, sharedOpen = false;
   var insClosed = false;      // shut by its ✕; picking a block opens it again
   var insPos = null;          // where the user parked it, in canvas-body pixels
+  var solClosed = false, solPos = null;      // the same, for the solid's panel
 
   function buildInspector() {
     $("#ins-body").innerHTML =
@@ -3237,7 +3369,24 @@
       btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
     });
     syncTextShared();
-    positionInspector(ins, el);
+    positionInspector(ins, el, insPos);
+  }
+
+  /* The solid's settings, beside the solid: the same panel markup the left rail
+     used to hold, moved onto the canvas so a box is set where it is. */
+  function renderSolidInspector() {
+    var ins = $("#solid-inspector");
+    var el = state.solids.length && els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
+    // one selection, one panel: a picked text block shows its own instead
+    var show = el && state.sel === "rect" && state.selBlock < 0 &&
+      state.showGuides !== false && !solClosed;
+    ins.hidden = !show;
+    if (!show) return;
+    var r = state.rect;
+    $("#sol-title").textContent = (r.content === "fill" ? "Solid " : "Frame ") + (state.solid + 1) +
+      (state.solids.length > 1 ? " of " + state.solids.length : "");
+    positionInspector(ins, el, solPos);
+
   }
 
   // the two settings every block shares, kept with the blocks rather than in the panel
@@ -3265,25 +3414,28 @@
   function repositionInspector() {
     var ins = $("#block-inspector");
     var el = els.stage.querySelector('.tb[data-i="' + state.selBlock + '"]');
-    if (!ins.hidden && el) positionInspector(ins, el);
+    if (!ins.hidden && el) positionInspector(ins, el, insPos);
+    var sol = $("#solid-inspector");
+    var sel = els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
+    if (!sol.hidden && sel) positionInspector(sol, sel, solPos);
   }
 
   // where the user parked it, held inside the canvas whatever the window does
-  function parkInspector(ins) {
+  function parkInspector(ins, pos) {
     var host = ins.parentNode.getBoundingClientRect();
     var w = ins.offsetWidth, h = ins.offsetHeight;
-    ins.style.left = clamp(insPos.x, 8, Math.max(8, host.width - w - 8)) + "px";
-    ins.style.top = clamp(insPos.y, 8, Math.max(8, host.height - h - 8)) + "px";
+    ins.style.left = clamp(pos.x, 8, Math.max(8, host.width - w - 8)) + "px";
+    ins.style.top = clamp(pos.y, 8, Math.max(8, host.height - h - 8)) + "px";
   }
 
   // drag it about by its head, and it stays where it is put
-  function startInspectorDrag(e) {
-    var ins = $("#block-inspector");
+  function startInspectorDrag(e, ins, put) {
     var x0 = ins.offsetLeft, y0 = ins.offsetTop, sx = e.clientX, sy = e.clientY;
     document.body.classList.add("moving-ins");
     function move(ev) {
-      insPos = { x: x0 + ev.clientX - sx, y: y0 + ev.clientY - sy };
-      parkInspector(ins);
+      var pos = { x: x0 + ev.clientX - sx, y: y0 + ev.clientY - sy };
+      put(pos);
+      parkInspector(ins, pos);
     }
     function up() {
       document.removeEventListener("pointermove", move);
@@ -3296,8 +3448,8 @@
   }
 
   // beside the block, on whichever side has the room, and never off the canvas
-  function positionInspector(ins, el) {
-    if (insPos) return parkInspector(ins);
+  function positionInspector(ins, el, pos) {
+    if (pos) return parkInspector(ins, pos);
     var r = el.getBoundingClientRect();
     var host = ins.parentNode.getBoundingClientRect();
     var vp = els.viewport.getBoundingClientRect();
@@ -3412,13 +3564,10 @@
         SIDES.map(function (s) { return fmt(mm[s]); }).join(" / ") +
         " top, right, bottom, left. Dragging a guide moves that side's buffer.";
 
-    $("#rect-placed").checked = r.placed;
     $("#rect-visible").checked = r.visible;
-    $("#rect-placed-hint").textContent = r.placed
-      ? "Text inside the box takes its padding; text is pinned to its own row on the page and " +
-        "stays there whatever the box does."
-      : "Not on the stage — drag it out of the tray above the canvas. Text runs on the columns " +
-        "in the margin box without it.";
+    $("#rect-placed-hint").textContent = "Text inside the box takes its padding; text is pinned " +
+      "to its own row on the page and stays there whatever the box does. The ✕ above takes this " +
+      "box off the stage; the tray puts another one on.";
     syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
     $("#rect-grid").value = String(r.grid);
     var rb = box("rect");
@@ -3718,10 +3867,6 @@
       });
     });
 
-    onChange("#rect-placed", function (el) {
-      if (el.checked) { if (!state.solids.length) addSolid(); state.sel = "rect"; }
-      else takeRectOff();
-    });
     onChange("#rect-visible", function (el) { state.rect.visible = el.checked; if (el.checked) state.sel = "rect"; });
 
     onChange("#pic-content", function (el) { state.rect.content = el.value; state.sel = "rect"; });
@@ -4047,7 +4192,22 @@
     $("#block-inspector").addEventListener("pointerdown", function (e) {
       e.stopPropagation();
       if (e.button !== 0 || e.target.closest("button")) return;
-      if (e.target.closest(".ins-head")) startInspectorDrag(e);
+      if (e.target.closest(".ins-head")) {
+        startInspectorDrag(e, $("#block-inspector"), function (p) { insPos = p; });
+      }
+    });
+    $("#solid-inspector").addEventListener("pointerdown", function (e) {
+      e.stopPropagation();
+      if (e.button !== 0 || e.target.closest("button")) return;
+      if (e.target.closest(".ins-head")) {
+        startInspectorDrag(e, $("#solid-inspector"), function (p) { solPos = p; });
+      }
+    });
+    $("#solid-inspector").addEventListener("click", function (e) {
+      if (e.target.closest('[data-ins="close"]')) {
+        solClosed = true;
+        $("#solid-inspector").hidden = true;
+      }
     });
     // opening the shared settings makes it taller; keep it on the canvas
     $("#block-inspector").addEventListener("toggle", function (e) {
@@ -4104,6 +4264,32 @@
       state.bgGen.on = "";
       render();
     });
+    onInput("#col-base", function (el) { state.scheme.base = el.value; });
+    onChange("#col-technique", function (el) { state.scheme.technique = el.value; });
+    onInput("#col-count", function (el) { state.scheme.count = clamp(Math.round(num(el.value, 6)), 3, 12); });
+    onInput("#col-spread", function (el) { state.scheme.spread = clamp(num(el.value, 30), 5, 90); });
+    $("#col-targets").addEventListener("click", function (e) {
+      var chip = e.target.closest("[data-put]");
+      if (!chip) return;
+      var t = schemeTargets().filter(function (x) { return x.k === chip.dataset.put; })[0];
+      if (t) { t.put(chip.dataset.hex); render(); }
+    });
+    $("#col-targets").addEventListener("input", function (e) {
+      var el = e.target.closest("[data-col]");
+      if (!el) return;
+      var t = schemeTargets().filter(function (x) { return x.k === el.dataset.col; })[0];
+      if (t) { t.put(el.value); render(); }
+    });
+    $("#col-grid").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-page]");
+      if (!t || !state.pages.length) return;
+      usePage(+t.dataset.page);
+      render();
+    });
+    $("#colz-in").addEventListener("click", function () { colZoom = clamp(colZoom * 1.25, .3, 4); render(); });
+    $("#colz-out").addEventListener("click", function () { colZoom = clamp(colZoom / 1.25, .3, 4); render(); });
+    $("#colz-value").addEventListener("click", function () { colZoom = 1; render(); });
+
     $("#fmt-add").addEventListener("click", function () {
       storePage(state.page);
       addPage($("#fmt-pick").value);
@@ -4346,6 +4532,7 @@
         b.content = "image";
         b.fill = "#232834";
       }
+      solClosed = false;
       state.sel = "rect";
       state.selBlock = -1;
     } else {
@@ -4644,7 +4831,10 @@
       if (shape) {
         state.sel = shape.dataset.el;
         // clicking a solid picks that one out of however many are on the page
-        if (state.sel === "rect" && shape.dataset.i !== undefined) useSolid(+shape.dataset.i);
+        if (state.sel === "rect" && shape.dataset.i !== undefined) {
+          useSolid(+shape.dataset.i);
+          solClosed = false;                       // picking one brings its panel back
+        }
         els.frame.focus();
         render();
         return startShapeDrag(e, state.sel);
@@ -4732,6 +4922,32 @@
     var d = 1 - k;
     var cy = d ? (d - r) / d : 0, m = d ? (d - g) / d : 0, y = d ? (d - b) / d : 0;
     return [cy, m, y, k].map(function (v) { return Math.round(v * 100); }).join(" / ") + " %";
+  }
+
+  // hue 0-360, saturation and lightness 0-1
+  function hexHsl(hex) {
+    var c = hexRgb(hex), r = c.r / 255, g = c.g / 255, b = c.b / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    var l = (mx + mn) / 2, h = 0, sat = 0;
+    if (d) {
+      sat = d / (1 - Math.abs(2 * l - 1));
+      h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60;
+    }
+    return { h: h, s: sat, l: l };
+  }
+
+  function hslHex(h, sat, l) {
+    h = ((h % 360) + 360) % 360;
+    sat = clamp(sat, 0, 1);
+    l = clamp(l, 0, 1);
+    var c = (1 - Math.abs(2 * l - 1)) * sat, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    var t = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+      : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return "#" + t.map(function (v) {
+      var n = Math.round((v + m) * 255);
+      return (n < 16 ? "0" : "") + clamp(n, 0, 255).toString(16);
+    }).join("");
   }
 
   function hslLabel(hex) {

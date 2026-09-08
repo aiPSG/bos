@@ -229,119 +229,6 @@
     </details>
 
     <details class="group" open>
-      <summary><h2>Solid</h2></summary>
-      <div class="row toggles">
-        <label class="check"><input type="checkbox" id="rect-placed"><span>On the stage</span></label>
-        <label class="check"><input type="checkbox" id="rect-visible"><span>Draw its fill</span></label>
-      </div>
-      <p class="hint" id="rect-placed-hint"></p>
-      <div class="row aligners">
-        <div class="field"><span>Position in format</span><div class="grid3" id="rect-align"></div></div>
-        <div class="field"><span>Anchor point</span><div class="grid3" id="rect-anchor"></div></div>
-      </div>
-      <div class="row">
-        <label class="field"><span>Width</span>
-          <select id="rect-wmode">
-            <option value="fixed">Set by hand</option>
-            <option value="full">Fill between the margins</option>
-            <option value="format">Fill the format</option>
-            <option value="fit">Fit around the text</option>
-          </select>
-        </label>
-        <label class="field"><span>Height</span>
-          <select id="rect-hmode">
-            <option value="fixed">Set by hand</option>
-            <option value="full">Fill between the margins</option>
-            <option value="format">Fill the format</option>
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <label class="field"><span>Width</span><input type="number" id="rect-w" min="1" step="1"></label>
-        <label class="field"><span>Height</span><input type="number" id="rect-h" min="1" step="1"></label>
-      </div>
-      <div class="row">
-        <label class="field"><span>Snap to</span>
-          <select id="rect-grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>
-        </label>
-        <label class="field color"><span>Fill</span><input type="color" id="rect-fill"></label>
-      </div>
-      <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
-      <p class="hint" id="rect-grid-hint"></p>
-      <p class="hint" id="rect-width-hint"></p>
-
-      <details class="sub" open id="pic-sub">
-        <summary><h3>What fills it</h3></summary>
-        <label class="field grow"><span>Content</span>
-          <select id="pic-content">
-            <option value="fill">A colour</option>
-            <option value="image">An image</option>
-            <option value="pattern">A pattern</option>
-            <option value="gradient">A gradient</option>
-          </select>
-        </label>
-
-        <div id="pic-image" hidden>
-          <div class="row">
-            <button type="button" class="ghost grow" id="pic-upload-btn">Upload image…</button>
-            <button type="button" class="ghost" id="pic-clear">Clear</button>
-          </div>
-          <input type="file" id="pic-file" accept="image/*" hidden>
-          <label class="field grow"><span>Image URL</span>
-            <input type="text" id="pic-url" placeholder="https://…" spellcheck="false" autocomplete="off">
-          </label>
-        </div>
-
-        <div id="pic-mods" class="modules"></div>
-        <p class="hint" id="pic-mod-note"></p>
-        <div id="pic-fields"></div>
-
-        <div id="pic-place">
-          <div class="row">
-            <label class="field"><span>Fit</span>
-              <select id="pic-fit">
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="stretch">Stretch</option>
-                <option value="tile">Tile</option>
-              </select>
-            </label>
-            <label class="field"><span>Scale <b id="pic-scale-val">100%</b></span>
-              <input type="range" id="pic-scale" min="10" max="500" step="1">
-            </label>
-          </div>
-          <div class="row">
-            <label class="field"><span>Move across</span><input type="number" id="pic-x" step="1"></label>
-            <label class="field"><span>Move down</span><input type="number" id="pic-y" step="1"></label>
-            <button type="button" class="ghost" id="pic-reset">Reset</button>
-          </div>
-        </div>
-        <p class="hint" id="pic-hint"></p>
-      </details>
-
-      <details class="sub" open>
-        <summary><h3>Corners</h3></summary>
-        <label class="field grow"><span>Shape</span>
-          <select id="corner-shape"></select>
-        </label>
-        <p class="hint" id="corner-shape-hint"></p>
-        <label class="field grow" id="corner-preset-field"><span>Corner style</span>
-          <select id="corner-preset"></select>
-        </label>
-        <div class="row toggles">
-          <label class="check"><input type="checkbox" id="corners-linked"><span>Link all corners</span></label>
-          <label class="check"><input type="checkbox" id="corners-elliptical"><span>Elliptical</span></label>
-        </div>
-        <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
-        <div id="corners"></div>
-        <label class="field grow shorthand" id="shorthand-field"><span>border-radius</span>
-          <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
-        </label>
-        <p class="hint" id="shorthand-hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
-      </details>
-    </details>
-
-    <details class="group" open>
       <summary><h2>Typography</h2></summary>
       <label class="field grow"><span>Font family</span><select id="type-family"></select></label>
       <div class="row">
@@ -483,6 +370,121 @@
         </div>
       </div>
 
+      <div class="inspector" id="solid-inspector" hidden>
+        <div class="ins-head">
+          <span id="sol-title">Solid</span>
+          <button type="button" class="x" data-ins="close" title="Close this panel — the solid stays on the stage">✕</button>
+        </div>
+        <div class="ins-body">
+      <label class="check"><input type="checkbox" id="rect-visible"><span>Draw its fill</span></label>
+      <p class="hint" id="rect-placed-hint"></p>
+      <div class="row aligners">
+        <div class="field"><span>Position in format</span><div class="grid3" id="rect-align"></div></div>
+        <div class="field"><span>Anchor point</span><div class="grid3" id="rect-anchor"></div></div>
+      </div>
+      <div class="row">
+        <label class="field"><span>Width</span>
+          <select id="rect-wmode">
+            <option value="fixed">Set by hand</option>
+            <option value="full">Fill between the margins</option>
+            <option value="format">Fill the format</option>
+            <option value="fit">Fit around the text</option>
+          </select>
+        </label>
+        <label class="field"><span>Height</span>
+          <select id="rect-hmode">
+            <option value="fixed">Set by hand</option>
+            <option value="full">Fill between the margins</option>
+            <option value="format">Fill the format</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Width</span><input type="number" id="rect-w" min="1" step="1"></label>
+        <label class="field"><span>Height</span><input type="number" id="rect-h" min="1" step="1"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Snap to</span>
+          <select id="rect-grid"><option value="1">Grid 1</option><option value="2">Grid 2</option></select>
+        </label>
+        <label class="field color"><span>Fill</span><input type="color" id="rect-fill"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="rect-cols"><span>Snap the width and the left edge to the columns</span></label>
+      <p class="hint" id="rect-grid-hint"></p>
+      <p class="hint" id="rect-width-hint"></p>
+
+      <details class="sub" open id="pic-sub">
+        <summary><h3>What fills it</h3></summary>
+        <label class="field grow"><span>Content</span>
+          <select id="pic-content">
+            <option value="fill">A colour</option>
+            <option value="image">An image</option>
+            <option value="pattern">A pattern</option>
+            <option value="gradient">A gradient</option>
+          </select>
+        </label>
+
+        <div id="pic-image" hidden>
+          <div class="row">
+            <button type="button" class="ghost grow" id="pic-upload-btn">Upload image…</button>
+            <button type="button" class="ghost" id="pic-clear">Clear</button>
+          </div>
+          <input type="file" id="pic-file" accept="image/*" hidden>
+          <label class="field grow"><span>Image URL</span>
+            <input type="text" id="pic-url" placeholder="https://…" spellcheck="false" autocomplete="off">
+          </label>
+        </div>
+
+        <div id="pic-mods" class="modules"></div>
+        <p class="hint" id="pic-mod-note"></p>
+        <div id="pic-fields"></div>
+
+        <div id="pic-place">
+          <div class="row">
+            <label class="field"><span>Fit</span>
+              <select id="pic-fit">
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="stretch">Stretch</option>
+                <option value="tile">Tile</option>
+              </select>
+            </label>
+            <label class="field"><span>Scale <b id="pic-scale-val">100%</b></span>
+              <input type="range" id="pic-scale" min="10" max="500" step="1">
+            </label>
+          </div>
+          <div class="row">
+            <label class="field"><span>Move across</span><input type="number" id="pic-x" step="1"></label>
+            <label class="field"><span>Move down</span><input type="number" id="pic-y" step="1"></label>
+            <button type="button" class="ghost" id="pic-reset">Reset</button>
+          </div>
+        </div>
+        <p class="hint" id="pic-hint"></p>
+      </details>
+
+      <details class="sub" open>
+        <summary><h3>Corners</h3></summary>
+        <label class="field grow"><span>Shape</span>
+          <select id="corner-shape"></select>
+        </label>
+        <p class="hint" id="corner-shape-hint"></p>
+        <label class="field grow" id="corner-preset-field"><span>Corner style</span>
+          <select id="corner-preset"></select>
+        </label>
+        <div class="row toggles">
+          <label class="check"><input type="checkbox" id="corners-linked"><span>Link all corners</span></label>
+          <label class="check"><input type="checkbox" id="corners-elliptical"><span>Elliptical</span></label>
+        </div>
+        <div class="corner-head"><span></span><span>Horizontal</span><span class="axis-y">Vertical</span></div>
+        <div id="corners"></div>
+        <label class="field grow shorthand" id="shorthand-field"><span>border-radius</span>
+          <input type="text" id="radius-shorthand" spellcheck="false" autocomplete="off">
+        </label>
+        <p class="hint" id="shorthand-hint">Type any valid CSS <code>border-radius</code>: 1–4 values, optional <code>/</code> for elliptical corners, in <code>px</code> or <code>%</code>.</p>
+      </details>
+        </div>
+      </div>
+
       <div class="inspector" id="block-inspector" hidden>
         <div class="ins-head">
           <span id="ins-title">Block</span>
@@ -538,6 +540,41 @@
         </span>
       </div>
       <div class="bg-view-stage" id="bg-view-stage"></div>
+    </div>
+  </section>
+
+  <section class="bgseg" id="seg-col" hidden>
+    <aside class="panel bg-panel">
+      <h3 class="sub-head">The scheme</h3>
+      <div class="row">
+        <label class="field color"><span>From</span><input type="color" id="col-base"></label>
+        <label class="field grow"><span>Worked out as</span><select id="col-technique"></select></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Swatches <b id="col-count-val">6</b></span>
+          <input type="range" id="col-count" min="3" max="12" step="1"></label>
+        <label class="field" id="col-spread-field"><span>Spread <b id="col-spread-val">30°</b></span>
+          <input type="range" id="col-spread" min="5" max="90" step="1"></label>
+      </div>
+      <div class="sw-grid" id="col-swatches"></div>
+      <p class="hint" id="col-note"></p>
+
+      <h3 class="sub-head">Put it on</h3>
+      <div id="col-targets"></div>
+      <p class="hint">Click a swatch on a row to give it that colour, or open the picker on the left
+        of the row for one of your own. The ratio is the WCAG contrast against the page.</p>
+    </aside>
+
+    <div class="bg-view">
+      <div class="bg-view-head">
+        <span id="col-view-name"></span>
+        <span class="zoom">
+          <button type="button" class="ghost" id="colz-out" title="Smaller tiles">−</button>
+          <button type="button" class="ghost" id="colz-value">100%</button>
+          <button type="button" class="ghost" id="colz-in" title="Bigger tiles">+</button>
+        </span>
+      </div>
+      <div class="fmt-grid" id="col-grid"></div>
     </div>
   </section>
 
