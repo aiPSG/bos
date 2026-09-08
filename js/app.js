@@ -524,7 +524,10 @@
         // a column grid of its own, across the box — with margins of its own
         // inside it — that blocks can line up on
         columns: { n: 3, gutter: 24, show: true, m: { top: 0, right: 0, bottom: 0, left: 0 } },
-        align: { h: "left", v: "bottom" }, anchor: { h: "left", v: "bottom" },
+        /* Where it sits: the anchor point of the box, held as a share of the
+           margin box, so it keeps its place across formats of every size and is
+           free of the nine cells the logo still uses */
+        pos: { x: .5, y: .5 }, anchor: { h: "center", v: "middle" },
         fill: "#4f7cff", shape: "radius", linked: true, elliptical: false,
         corners: {
           tl: { x: 32, ux: "px", y: 32, uy: "px" }, tr: { x: 32, ux: "px", y: 32, uy: "px" },
@@ -596,6 +599,11 @@
     if (["fill", "image", "pattern", "gradient"].indexOf(r.content) < 0) r.content = "fill";
     if (!r.params || typeof r.params !== "object") r.params = {};
     r.corners = Object.assign({}, d.rect.corners, r.corners);
+    // solids used to be aligned to one of the nine cells: that cell is its position now
+    if (!r.pos || !isFinite(r.pos.x) || !isFinite(r.pos.y)) {
+      r.pos = r.align ? { x: fh(r.align.h), y: fv(r.align.v) } : { x: .5, y: .5 };
+    }
+    delete r.align;
     r.columns = Object.assign({}, d.rect.columns, r.columns);
     if (!r.columns.m || typeof r.columns.m !== "object") r.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
     SIDES.forEach(function (side) { if (!isFinite(r.columns.m[side])) r.columns.m[side] = 0; });
@@ -1297,7 +1305,7 @@
     return clamp(v, 0, W / 2 - MIN_SIZE);
   }
 
-  // the box the shapes are aligned inside: the format inset by the margins
+  // the box the shapes are placed inside: the format inset by the margins
   function content() {
     var m = margins(), s = state.stage;
     return {
@@ -1382,8 +1390,11 @@
 
   function box(name) {
     var el = state[name], c = content(), s = sizeOf(name);
-    var y = c.y + c.h * fv(el.align.v) - s.h * fv(el.anchor.v);
-    var x = c.x + c.w * fh(el.align.h) - s.w * fh(el.anchor.h);
+    // the logo goes to one of nine points of the margin box; a solid goes where it was put
+    var pv = name === "rect" ? el.pos.y : fv(el.align.v);
+    var ph = name === "rect" ? el.pos.x : fh(el.align.h);
+    var y = c.y + c.h * pv - s.h * fv(el.anchor.v);
+    var x = c.x + c.w * ph - s.w * fh(el.anchor.h);
     // and its top edge sits on a grid line, its left edge on a column line
     if (name === "rect") {
       if (state.rect.hmode === "format") y = 0;
@@ -1396,10 +1407,43 @@
   }
 
   /* Moving a shape moves it and nothing else. The anchor — which point of the
-     shape lands on the aligned point — is the user's own setting, so dragging
-     never touches it: it is only ever changed in the anchor grid. */
+     shape lands on the point it is placed at — is the user's own setting, so
+     dragging never touches it: it is only ever changed in the anchor grid. */
   function setAlign(name, h, v) {
     state[name].align = { h: h, v: v };
+  }
+
+  // where the anchor point of the selected solid is, and putting it somewhere else,
+  // both in format pixels — the state keeps the share of the margin box behind them
+  function solidAt() {
+    var b = box("rect"), a = state.rect.anchor;
+    return { x: b.x + b.w * fh(a.h), y: b.y + b.h * fv(a.v) };
+  }
+  function putSolidAt(x, y) {
+    var c = content();
+    state.rect.pos = { x: (x - c.x) / Math.max(1, c.w), y: (y - c.y) / Math.max(1, c.h) };
+    keepSolidInReach();
+  }
+  function moveSolidBy(dx, dy) {
+    var c = content();
+    state.rect.pos = {
+      x: state.rect.pos.x + dx / Math.max(1, c.w),
+      y: state.rect.pos.y + dy / Math.max(1, c.h)
+    };
+    keepSolidInReach();
+  }
+
+  /* A solid may bleed off the format as far as it likes — that is what bleed is —
+     but not so far that there is nothing left to take hold of, so a strip of it
+     always stays on the format. */
+  var IN_REACH = 48;
+  function keepSolidInReach() {
+    var r = state.rect, c = content(), s = sizeOf("rect"), st = state.stage;
+    var kx = Math.min(s.w, IN_REACH), ky = Math.min(s.h, IN_REACH);
+    var ax = s.w * fh(r.anchor.h), ay = s.h * fv(r.anchor.v);
+    var x = clamp(c.x + c.w * r.pos.x - ax, kx - s.w, st.w - kx);
+    var y = clamp(c.y + c.h * r.pos.y - ay, ky - s.h, st.h - ky);
+    r.pos = { x: (x + ax - c.x) / Math.max(1, c.w), y: (y + ay - c.y) / Math.max(1, c.h) };
   }
 
   // the content box divided into columns with a gutter between them
@@ -2833,7 +2877,7 @@
            frames ? frames + (frames === 1 ? " frame" : " frames") : ""].filter(Boolean).join(" · ") + " · "
         : "") +
         (state.rect.content === "fill" ? "Solid " : "Frame ") + fmt(b.w) + " × " + fmt(b.h) +
-        " — " + state.rect.align.v + " " + state.rect.align.h);
+        " at " + fmt(b.x) + " / " + fmt(b.y));
     }
     var onStage = state.text.blocks.length;
     if (onStage) parts.push(onStage + (onStage === 1 ? " text block" : " text blocks"));
@@ -3554,7 +3598,7 @@
       : "Fixed at " + state.guides.color.toUpperCase() + ".";
 
     $("#margin-hint").textContent = m.mode === "manual"
-      ? "The margins define the box both shapes are aligned inside."
+      ? "The margins define the box the shapes are placed inside."
       : "Every side starts from " + m.factor + " × the logo " +
         (m.mode === "logoH" ? "height" : "width") + " = " + round(marginBase(), 2) +
         ", and each field above adds its own buffer to that: " +
@@ -3565,7 +3609,17 @@
     $("#rect-placed-hint").textContent = "Text inside the box takes its padding; text is pinned " +
       "to its own row on the page and stays there whatever the box does. The ✕ above takes this " +
       "box off the stage; the tray puts another one on.";
-    syncGrid("#rect-align", r); syncGrid("#rect-anchor", r);
+    syncGrid("#rect-anchor", r);
+    var at = solidAt(), fixedW = r.wmode === "fixed" || r.wmode === "fit";
+    setValue($("#rect-x"), fmt(at.x));
+    setValue($("#rect-y"), fmt(at.y));
+    $("#rect-x").disabled = !fixedW;
+    $("#rect-y").disabled = r.hmode !== "fixed";
+    $("#rect-pos-hint").textContent = fixedW && r.hmode === "fixed"
+      ? "Measured from the top left corner of the format to the anchor point of the box. " +
+        "Drag the box to put it anywhere; the arrow keys step it by a column and a row."
+      : "A box that fills the " + (!fixedW && r.hmode !== "fixed" ? "format" :
+          !fixedW ? "width" : "height") + " is placed by that, not by hand.";
     $("#rect-grid").value = String(r.grid);
     var rb = box("rect");
     $("#rect-grid-hint").textContent = r.hmode !== "fixed"
@@ -3935,7 +3989,10 @@
     });
     onInput("#logo-fill", function (el) { state.logo.fill = el.value; });
 
-    ["#rect-align", "#rect-anchor", "#logo-align", "#logo-anchor"].forEach(function (id) {
+    onInput("#rect-x", function (el) { putSolidAt(num(el.value, solidAt().x), solidAt().y); });
+    onInput("#rect-y", function (el) { putSolidAt(solidAt().x, num(el.value, solidAt().y)); });
+
+    ["#rect-anchor", "#logo-align", "#logo-anchor"].forEach(function (id) {
       $(id).addEventListener("click", function (e) {
         var b = e.target.closest("button");
         if (!b) return;
@@ -4464,11 +4521,23 @@
     }, function () { document.body.classList.remove("panning"); });
   }
 
-  // dragging a shape picks the alignment cell nearest the pointer
+  // a solid follows the pointer; the logo picks the alignment cell nearest it
   function startShapeDrag(e, name) {
     if (!name || !state[name]) return;
     if (name === "rect" ? !state.solids.length : !state[name].visible) return;
     var el = state[name], b0 = box(name), start = toStage(e);
+    if (name === "rect") {
+      var p0 = { x: el.pos.x, y: el.pos.y }, c0 = content();
+      drag(e, function (ev) {
+        var p = toStage(ev);
+        el.pos = {
+          x: p0.x + (p.x - start.x) / Math.max(1, c0.w),
+          y: p0.y + (p.y - start.y) / Math.max(1, c0.h)
+        };
+        keepSolidInReach();
+      });
+      return;
+    }
     els.cells.hidden = false;
     renderCells(name);
     drag(e, function (ev) {
@@ -4542,20 +4611,11 @@
       moved = true;
       landed = p.x >= 0 && p.y >= 0 && p.x <= st.w && p.y <= st.h;
       if (isRect) {
-        /* Placing is not moving: a solid pulled out of the tray takes the anchor of
-           the corner it is dropped in, so it lands whole inside the format. From
-           then on the anchor is the user's, and dragging leaves it alone. */
-        var sz = sizeOf("rect"), c = content();
-        var h = cornerKey(H_KEYS, fh, c.x, c.w, sz.w, p.x);
-        var v = cornerKey(V_KEYS, fv, c.y, c.h, sz.h, p.y);
-        state.rect.anchor = { h: h, v: v };
-        setAlign("rect", h, v);
-        renderCells("rect");
+        putSolidAt(p.x, p.y);          // its anchor point lands under the pointer
       } else {
         b.row = rowAt(p.y, b);
       }
     };
-    if (isRect) { els.cells.hidden = false; renderCells("rect"); }
     drag(e, move, function () {
       placing = false;
       els.cells.hidden = true;
@@ -4572,13 +4632,6 @@
   function nearestKey(keys, f, cPos, cLen, size, anchor, target) {
     return keys.map(function (k) {
       return { k: k, d: Math.abs(cPos + cLen * f(k) - size * f(anchor) + size / 2 - target) };
-    }).sort(function (a, b) { return a.d - b.d; })[0].k;
-  }
-
-  // the same, for a shape whose anchor is the cell it lands in — it never hangs out
-  function cornerKey(keys, f, cPos, cLen, size, target) {
-    return keys.map(function (k) {
-      return { k: k, d: Math.abs(cPos + (cLen - size) * f(k) + size / 2 - target) };
     }).sort(function (a, b) { return a.d - b.d; })[0].k;
   }
 
@@ -4891,6 +4944,15 @@
       if (!d) return;
       var el = state[state.sel];
       if (!el) return;
+      // a solid steps by a column and a row, the size of the snap it lands on
+      if (state.sel === "rect") {
+        if (!state.solids.length) return;
+        e.preventDefault();
+        moveSolidBy(d[0] * (state.rect.cols ? colStep() : gridUnit(state.rect.grid)),
+          d[1] * gridUnit(state.rect.grid));
+        render();
+        return;
+      }
       e.preventDefault();
       var hi = clamp(H_KEYS.indexOf(el.align.h) + d[0], 0, 2);
       var vi = clamp(V_KEYS.indexOf(el.align.v) + d[1], 0, 2);
@@ -5390,7 +5452,6 @@
   buildPresetSelect();
   buildFormatSelect();
   buildTypeSelects();
-  buildGrid("#rect-align", "rect", "align");
   buildGrid("#rect-anchor", "rect", "anchor");
   buildGrid("#logo-align", "logo", "align");
   buildGrid("#logo-anchor", "logo", "anchor");

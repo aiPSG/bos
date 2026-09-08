@@ -109,25 +109,38 @@ without switching between them.
 
 ## The model
 
-Positions are not free coordinates. A shape's place on the format comes from three things:
+A shape's place on the format is measured, not free-floating. It comes from:
 
-1. **Margins** — the box both shapes are aligned inside. Set per side (linked or not), or
+1. **Margins** — the box the shapes are placed inside. Set per side (linked or not), or
    derived from the logo: `margin = factor × logo width + buffer`, or `× logo height`, the usual
    clear-space rule with a constant of your own on top. The factor gives every side the same base;
    **each side then adds a buffer of its own**, so the four can differ while sharing the rule — the
    four fields hold those buffers and their labels report what each side comes to. Switching the
    source to the logo **unlinks the sides**, since that is the point of having four; link them again
    and they move together. Dragging a guide moves that side's buffer and leaves the factor alone.
-2. **Position in format** — which of the nine points of the margin box the shape goes to.
-3. **Anchor point** — which of the nine points *of the shape* lands on it.
+2. **Where it sits** — for a **solid**, anywhere: a point across and down, measured from the top left
+   corner of the format to the solid's anchor point. For the **logo**, one of the nine points of the
+   margin box.
+3. **Anchor point** — which of the nine points *of the shape* lands on that place.
 
-With both set to the same corner the shape sits flush inside the margin; decoupling them lets a
-shape hang off an edge or centre on a corner. **The anchor is yours alone**: moving a shape never
-changes it, so what you set in the anchor grid is what it keeps. Pulling a solid out of the tray is
-the one exception — placing is not moving, so a fresh solid takes the anchor of the corner you drop
-it in and lands whole inside the format.
+**A solid goes where you put it.** Drag it and it follows the pointer; the two fields beside the
+anchor grid say where it is and put it somewhere exact; the arrow keys step it by a column and a
+row. It still lands on the design: the top edge is pulled onto the baseline grid and the left edge
+onto a column line, so free placement never means off the grid. The position is held as a share of
+the margin box rather than in pixels, so a solid keeps its place across formats of every size, and
+follows the margins when they move.
 
-Dragging a shape therefore snaps it to the nearest of the nine positions, measured with the anchor
+It may run off the format as far as you like — that is what bleed is — but **a strip of it always
+stays on the format**, so there is something left to take hold of. A box set to fill the width, the
+height or the format is placed by that instead, and the field for that side is closed.
+
+The logo keeps the nine cells: with its position and anchor on the same corner it sits flush inside
+the margin, and decoupling them lets it hang off an edge or centre on a corner. **The anchor is
+yours alone** — for the logo and for a solid alike, moving a shape never changes it, so what you set
+in the anchor grid is what it keeps. A solid pulled out of the tray simply lands centred under the
+pointer.
+
+Dragging the logo therefore snaps it to the nearest of the nine positions, measured with the anchor
 it already has (the cells appear while you drag), and dragging the dashed guides changes the margins — or the factor, when margins come
 from the logo. **The guides are locked out of the box**, so a stray drag on the canvas cannot move
 them; *Lock the guides* in the Margins panel releases them. **Guides** in the toolbar takes every
@@ -468,7 +481,7 @@ Five groups, in the order the design comes together: **Format** (with background
 **Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Typography**,
 **Export** (the slides, then CSS). Neither text blocks nor solids are among them — both are set on
 the canvas, beside the thing they belong to, and a solid's panel carries everything the group used
-to: its position and anchor, width and height, snapping, fill, what fills it, and its corners.
+to: where it sits and its anchor, width and height, snapping, fill, what fills it, and its corners.
 
 ## Layout
 
