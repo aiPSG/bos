@@ -220,16 +220,18 @@ logo gives margins that scale with the format too.
 print**. Display is the biggest of them, one ratio step past the headline (4.236 × paragraph out of
 the box, against the headline's 2.618).
 
-*Paragraph is the anchor*, and it is arrived at one of four ways:
+*Paragraph is the anchor*, set by a **slider and a field on the same value** — drag it or type it —
+and measured one of four ways:
 
 | Measured as | What the number means |
 | --- | --- |
-| **× the longest side** (the default) | a factor from 0.01 to 1 — 0.015 of a 1350 px side is 20.25 px |
-| **× the format height** | the same factor, against the height |
-| **× the format width** | the same factor, against the width |
+| **the longest side** (the default) | a percentage, 0.1% to 4% — 1% of a 1350 px side is 13.5 px |
+| **the format height** | the same percentage, of the height |
+| **the format width** | the same percentage, of the width |
 | **px, set by hand** | a size in pixels, the same in every format |
 
-A factor scales the whole scale with the format; a hand-set size holds still. Every other role is a
+A percentage scales the whole type scale with the format; a hand-set size holds still. It starts at
+**1%**, and the slider covers the range in hundredths. Every other role is a
 **multiple of the paragraph size** — 2.618, 1.618 and 0.5 out of the box — and the panel shows what
 each resolves to in pixels.
 

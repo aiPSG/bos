@@ -171,12 +171,14 @@
      height or width — 0.01 to 1, so a hundredth of the side up to all of it — or a
      value in pixels, set by hand and the same whatever the format. */
   var BASES = [
-    { id: "long", name: "× the longest side" },
-    { id: "height", name: "× the format height" },
-    { id: "width", name: "× the format width" },
+    { id: "long", name: "the longest side" },
+    { id: "height", name: "the format height" },
+    { id: "width", name: "the format width" },
     { id: "px", name: "px, set by hand" }
   ];
-  var PARA_MIN = 0.01, PARA_MAX = 1;
+  var PARA_MIN = 0.1, PARA_MAX = 4;          // per cent of the side it is measured against
+  var PARAPX_MIN = 1, PARAPX_MAX = 9999;     // and in pixels, when it is set by hand
+  var PARAPX_SLIDER = 400;                   // as far as the slider goes in that mode
 
   // ratios designers reach for; picking one fills the multipliers in, and every one
   // of them can still be typed over by hand
@@ -529,7 +531,7 @@
       type: {
         family: "sans",
         basis: "long",          // which side the paragraph factor measures against
-        paragraph: 0.015, paraFactor: true,   // a factor of that side — the anchor of the whole scale
+        paragraph: 1, paraPct: true,   // per cent of that side — the anchor of the whole scale
         system: "custom",       // which ratio filled the multipliers in, if any
         rows: 39,               // how many rows grid 1 divides the content height into
         // where grid 1 comes from: "fit" divides the content height into whole rows,
@@ -641,10 +643,11 @@
         s[k] = Object.assign(d[k], s[k]);
       });
       s.type = Object.assign(d.type, s.type);
-      // it was a percentage of a side before it was a factor of one
-      if (!s.type.paraFactor) {
-        s.type.paraFactor = true;
-        if (s.type.basis !== "px") s.type.paragraph = round(s.type.paragraph / 100, 5);
+      // it was briefly a factor of a side between being a percentage of one twice
+      if (!s.type.paraPct) {
+        if (s.type.paraFactor && s.type.basis !== "px") s.type.paragraph = round(s.type.paragraph * 100, 3);
+        delete s.type.paraFactor;
+        s.type.paraPct = true;
       }
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
       if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
@@ -1631,7 +1634,7 @@
   // the anchor: paragraph size in format pixels
   function paraPx() {
     if (paraByHand()) return Math.max(1, state.type.paragraph);
-    return Math.max(1, clamp(state.type.paragraph, PARA_MIN, PARA_MAX) * typeBasis());
+    return Math.max(1, clamp(state.type.paragraph, PARA_MIN, PARA_MAX) / 100 * typeBasis());
   }
 
   function rolePx(role) {
@@ -2732,7 +2735,7 @@
   function paraRule() {
     return paraByHand()
       ? fmt(round(state.type.paragraph, 2)) + " px, set by hand"
-      : round(state.type.paragraph, 5) + " " + basisLabel();
+      : round(state.type.paragraph, 3) + "% of " + basisLabel();
   }
 
   function renderMarkup(used) {
@@ -3333,12 +3336,19 @@
     if ($("#type-family").selectedIndex < 0) $("#type-family").selectedIndex = 0;
 
     var byHand = paraByHand();
-    setValue($("#type-para"), round(ty.paragraph, byHand ? 2 : 5));
-    $("#type-para").min = byHand ? 1 : PARA_MIN;
-    $("#type-para").max = byHand ? 9999 : PARA_MAX;
-    $("#type-para").step = byHand ? 1 : 0.001;
+    var pv = round(ty.paragraph, byHand ? 2 : 3);
+    setValue($("#type-para"), pv);
+    $("#type-para").min = byHand ? PARAPX_MIN : PARA_MIN;
+    $("#type-para").max = byHand ? PARAPX_MAX : PARA_MAX;
+    $("#type-para").step = byHand ? 1 : 0.01;
+    var slider = $("#type-para-range");
+    slider.min = byHand ? PARAPX_MIN : PARA_MIN;
+    slider.max = byHand ? PARAPX_SLIDER : PARA_MAX;
+    slider.step = byHand ? 1 : 0.01;
+    setValue(slider, pv);
     $("#type-basis").value = ty.basis;
-    $("#type-para-px").textContent = "= " + Math.round(paraPx()) + " px";
+    $("#type-para-px").textContent = (paraByHand() ? "" : round(ty.paragraph, 3) + "% = ") +
+      Math.round(paraPx()) + " px";
     $("#type-system").value = ty.system;
     ROLES.forEach(function (r) {
       var input = $('[data-mult="' + r + '"]');
@@ -3349,8 +3359,8 @@
       (byHand ? "" : " = " + Math.round(paraPx()) + " px") +
       ". Every other role is a multiple of it — pick a ratio above or type any multiple. " +
       (byHand
-        ? "Set by hand it is the same in every format; a factor of a side scales with the format."
-        : "The factor runs from " + PARA_MIN + " to " + PARA_MAX + " — a hundredth of that side up to all of it.");
+        ? "Set by hand it is the same in every format; a share of a side scales with the format."
+        : "It runs from " + PARA_MIN + "% to " + PARA_MAX + "% of that side.");
 
     $("#type-grid").value = ty.grid;
     $("#type-grid-from").value = ty.gridFrom || "fit";
@@ -3689,11 +3699,13 @@
     $("#gf-load").addEventListener("click", loadGoogleCatalogue);
     onChange("#type-level", function (el) { state.type.editing = el.value; });
     var styleOf = function () { return state.type.roles[state.type.editing]; };
-    numInput("#type-para", function (v) {
+    function setPara(v) {
       state.type.paragraph = paraByHand()
-        ? Math.max(1, round(v, 2))
-        : clamp(round(v, 5), PARA_MIN, PARA_MAX);
-    });
+        ? clamp(round(v, 2), PARAPX_MIN, PARAPX_MAX)
+        : clamp(round(v, 3), PARA_MIN, PARA_MAX);
+    }
+    numInput("#type-para", setPara);
+    onInput("#type-para-range", function (el) { setPara(num(el.value, state.type.paragraph)); });
     onChange("#type-basis", function (el) { state.type.basis = el.value; });
     onChange("#type-system", function (el) {
       if (el.value === "custom") { state.type.system = "custom"; return; }
@@ -4012,8 +4024,8 @@
     });
     state.text.padding = Math.round(state.text.padding);
     state.type.paragraph = paraByHand()
-      ? Math.max(1, round(state.type.paragraph, 2))
-      : clamp(round(state.type.paragraph, 5), PARA_MIN, PARA_MAX);
+      ? clamp(round(state.type.paragraph, 2), PARAPX_MIN, PARAPX_MAX)
+      : clamp(round(state.type.paragraph, 3), PARA_MIN, PARA_MAX);
     ROLES.forEach(function (r) {
       var t = state.type.roles[r];
       t.mult = Math.max(0.01, round(t.mult, 3));
@@ -4261,8 +4273,8 @@
       var k = clamp(1 + dy / Math.max(40, px0 * 4), 0.05, 20);
       if (role === "paragraph") {
         ty.paragraph = paraByHand()
-          ? clamp(round(from * k, 2), 1, 9999)
-          : clamp(round(from * k, 5), PARA_MIN, PARA_MAX);
+          ? clamp(round(from * k, 2), PARAPX_MIN, PARAPX_MAX)
+          : clamp(round(from * k, 3), PARA_MIN, PARA_MAX);
       }
       else {
         ty.roles[role].mult = clamp(round(from * k, 3), 0.01, 50);
