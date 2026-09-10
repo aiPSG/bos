@@ -310,6 +310,16 @@ stands.
 Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
 and colour, so the hierarchy is real markup, not just sizes.
 
+**And its own family.** The family at the top of the Typography group is the design's — what every
+role runs in unless it says otherwise — and each role has a **Family** of its own in *Style*, set to
+*Same as the design* until you change it. So the hierarchy can be **different faces, not only
+different weights of one**: a display serif over a grotesque headline over a neutral text face, with
+the small print in a mono. Add the families you want to the list first (the system stacks are always
+there; *Google Fonts* adds any family from the catalogue, and a font file can be uploaded), then
+assign them per role. Every family in use is loaded, named on the typography slide, `@import`-ed in
+the CSS output and carried in the token file — and a format that links *Font* to the master follows
+the whole pairing, not just the one family.
+
 **Baseline grid** (in *Page setup*, with the margins and the two column grids) — there are two grids, and
 you choose which way round they are built.
 
@@ -539,8 +549,9 @@ What comes back is **the app's own settings** — the controls a designer would 
 pixels. A scheme comes back as *one colour, a relationship, a swatch count and where each swatch
 goes*, so the harmony maths and the contrast readouts still hold. A layout comes back as *blocks on
 rows of a named grid, with real copy*, so it cannot land off the grid or the columns. A pairing comes
-back as *two families copied out of the catalogue the app can load*, checked against it before
-anything is applied. Each answer is shown as JSON with what it cost, and nothing changes until you
+back as *a family and a weight for each of the five roles*, every name copied out of the catalogue
+the app can load and checked against it before anything is applied — so the answer can be one face,
+two, or five. Each answer is shown as JSON with what it cost, and nothing changes until you
 press **Apply** — after which **⌘/Ctrl + Z** takes the whole thing back in one step.
 
 The design system travels with the question **as the token file above**, so the answer is in terms of

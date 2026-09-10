@@ -369,8 +369,20 @@
      out of the state and put them back. */
   var LINK_GROUPS = [
     { k: "font", name: "Font",
-      pick: function () { return { family: state.type.family, google: (state.type.google || []).slice() }; },
-      put: function (v) { state.type.family = v.family; state.type.google = v.google.slice(); } },
+      pick: function () {
+        var roles = {};
+        ROLES.forEach(function (r) { if (state.type.roles[r].family) roles[r] = state.type.roles[r].family; });
+        return { family: state.type.family, google: (state.type.google || []).slice(), roles: roles };
+      },
+      put: function (v) {
+        state.type.family = v.family;
+        state.type.google = v.google.slice();
+        var roles = v.roles || {};
+        ROLES.forEach(function (r) {
+          if (roles[r]) state.type.roles[r].family = roles[r];
+          else delete state.type.roles[r].family;
+        });
+      } },
     { k: "sizes", name: "Font sizes",
       pick: function () {
         var r = {};
@@ -3331,6 +3343,7 @@
             ? "  /* one row of grid 1 = " + round(size * lh, 3) + "px */"
             : steps ? "  /* " + round(size * lh, 2) + "px = " + steps + " × grid " +
               (st.snap === "half" ? "2" : "1") + " */" : ""));
+        if (st.family) lines.push("  font-family: " + roleStack(r) + ";");
         lines.push("  font-weight: " + st.weight + ";");
         lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
@@ -3562,6 +3575,8 @@
         state.type.uploads.map(function (u) { return opt("u:" + u.name, u.name); }).join("") + "</optgroup>";
     }
     $("#type-family").innerHTML = html;
+    // the same list again, for a role that runs in a family of its own
+    $("#type-role-family").innerHTML = '<option value="">Same as the design</option>' + html;
   }
 
   function gfList() {
@@ -4140,6 +4155,8 @@
         round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.";
 
     $("#type-level").value = ty.editing;
+    $("#type-role-family").value = st2.family || "";
+    if ($("#type-role-family").selectedIndex < 0) $("#type-role-family").selectedIndex = 0;
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
     setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
@@ -4559,6 +4576,15 @@
     numInput("#col-gutter", function (v) { state.cols.gutter = Math.max(0, snap(v)); }, 0);
     onChange("#col-show", function (el) { state.cols.show = el.checked; });
     numInput("#type-rows", function (v) { setRows(v); }, 1);
+    onChange("#type-role-family", function (el) {
+      // a role runs in the design's family until it is given one of its own
+      if (el.value) {
+        styleOf().family = el.value;
+        if (el.value.indexOf("g:") === 0) loadGoogleFont(el.value.slice(2));
+      } else {
+        delete styleOf().family;
+      }
+    });
     onChange("#type-tag", function (el) { styleOf().tag = el.value; });
     onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
@@ -6201,57 +6227,70 @@
     return "Scheme applied: " + v.technique + " from " + state.scheme.base + ".";
   }
 
-  /* ---- a font pairing, from the families the app can actually load */
+  /* ---- the fonts, one per role, from the families the app can actually load.
+     A role may run in a family of its own, so an answer can be one face used five
+     ways, two, or five different ones — that is the answer's business. */
   function aiFontsSchema() {
-    var weights = { type: "object", properties: {}, required: ROLES.slice(), additionalProperties: false };
-    ROLES.forEach(function (r) {
-      weights.properties[r] = { type: "integer", enum: [300, 400, 500, 600, 700, 900] };
-    });
+    var perRole = function (item) {
+      var o = { type: "object", properties: {}, required: ROLES.slice(), additionalProperties: false };
+      ROLES.forEach(function (r) { o.properties[r] = item; });
+      return o;
+    };
     return {
       type: "object",
       properties: {
-        heading: { type: "string", description: "Family for display, headline and subline — exactly as listed" },
-        body: { type: "string", description: "Family for paragraph and small print — exactly as listed" },
-        weights: weights,
+        families: perRole({ type: "string", description: "The family for this role, copied exactly from the list" }),
+        weights: perRole({ type: "integer", enum: [300, 400, 500, 600, 700, 900] }),
         note: { type: "string" }
       },
-      required: ["heading", "body", "weights", "note"],
+      required: ["families", "weights", "note"],
       additionalProperties: false
     };
   }
   function aiAskFonts() {
     var all = gfList();
     var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
-      "\n\nSuggest a pairing: one family for the headings (display, headline, subline) and one for the " +
-      "text (paragraph, small print) — they may be the same family if that is the better answer — and a " +
-      "weight for each of the five roles. Both names must be copied exactly from this list of Google " +
-      "families, which is all the app can load:\n\n" + all.join(", ");
-    aiAsk("fonts", "a font pairing", aiFontsSchema(), aiSystemText(), user);
+      "\n\nName the family and the weight for each of the five roles. Each role can run in a family " +
+      "of its own, so this is not a choice between one font and one pairing: use as many faces as the " +
+      "work wants — the usual answer is two, one for the headings and one for the text, but a display " +
+      "face for the display role, a workhorse for the headline and subline, and something else again " +
+      "for the small print is a perfectly good answer if that is what the brief asks for. Say why in " +
+      "the note. Every name must be copied exactly from this list of Google families, which is all " +
+      "the app can load:\n\n" + all.join(", ");
+    aiAsk("fonts", "the fonts", aiFontsSchema(), aiSystemText(), user);
   }
   function aiApplyFonts(v) {
-    var all = gfList();
+    var all = gfList(), fams = v.families || {};
     var find = function (name) {
       var want = String(name || "").trim().toLowerCase();
       return all.filter(function (n) { return n.toLowerCase() === want; })[0] || null;
     };
-    var head = find(v.heading), body = find(v.body);
-    if (!head || !body) {
-      throw new Error("Not in the catalogue: " + [!head && v.heading, !body && v.body].filter(Boolean).join(", ") +
+    var found = {}, missing = [];
+    ROLES.forEach(function (r) {
+      var n = find(fams[r]);
+      if (n) found[r] = n; else missing.push(fams[r] || r);
+    });
+    if (missing.length) {
+      throw new Error("Not in the catalogue: " + missing.join(", ") +
         ". Load the Google Fonts catalogue, or ask again.");
     }
-    [head, body].forEach(function (n) {
+    // the text face is the design's family; a role that wants another one says so
+    var shared = found.paragraph;
+    state.type.family = "g:" + shared;
+    ROLES.forEach(function (r) {
+      var n = found[r];
       if (state.type.google.indexOf(n) < 0) state.type.google.push(n);
       loadGoogleFont(n);
-    });
-    state.type.family = "g:" + body;                    // the text is the design's family
-    ["display", "headline", "subline"].forEach(function (r) { state.type.roles[r].family = "g:" + head; });
-    ["paragraph", "smallprint"].forEach(function (r) { delete state.type.roles[r].family; });
-    ROLES.forEach(function (r) {
+      if (n === shared) delete state.type.roles[r].family;
+      else state.type.roles[r].family = "g:" + n;
       var w = v.weights && v.weights[r];
       if (w) state.type.roles[r].weight = clamp(Math.round(w), 100, 900);
     });
     buildFamilySelect();
-    return head === body ? head + " throughout." : head + " for the headings, " + body + " for the text.";
+    var names = [];
+    ROLES.forEach(function (r) { if (names.indexOf(found[r]) < 0) names.push(found[r]); });
+    return names.length === 1 ? names[0] + " throughout."
+      : ROLES.map(function (r) { return ROLE_NAMES[r].toLowerCase() + " in " + found[r]; }).join(", ") + ".";
   }
 
   /* ---- a layout: the blocks and the solids, in the app's own terms. Rows, not
