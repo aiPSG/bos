@@ -23,8 +23,8 @@
     <details class="group" open>
       <summary><h2>Format</h2></summary>
       <div class="row">
-        <label class="field"><span>Width</span><input type="number" id="stage-w" min="1" step="1"></label>
-        <label class="field"><span>Height</span><input type="number" id="stage-h" min="1" step="1"></label>
+        <label class="field"><span>Width</span><input type="number" id="stage-w" min="1" max="12000" step="1"></label>
+        <label class="field"><span>Height</span><input type="number" id="stage-h" min="1" max="12000" step="1"></label>
       </div>
       <div class="row">
         <label class="field grow"><span>Template</span>
@@ -89,7 +89,7 @@
           <label class="field grow"><span>Prompt</span><textarea id="cf-prompt" rows="2" spellcheck="false"></textarea></label>
           <label class="field grow"><span>Negative prompt</span><textarea id="cf-negative" rows="2" spellcheck="false"></textarea></label>
           <div class="row">
-            <label class="field"><span>Seed</span><input type="number" id="cf-seed" step="1"></label>
+            <label class="field"><span>Seed</span><input type="number" id="cf-seed" min="0" max="999999" step="1"></label>
             <label class="field seed-btn"><span>&nbsp;</span><button type="button" class="ghost" id="cf-random">Randomise</button></label>
           </div>
           <button type="button" class="primary wide" id="cf-generate">Generate background</button>
@@ -151,7 +151,7 @@
           </select>
         </label>
         <label class="field" id="margin-factor-field"><span>Factor</span>
-          <input type="number" id="margin-factor" min="0" step="0.05">
+          <input type="number" id="margin-factor" min="0" max="6" step="0.05">
         </label>
       </div>
       <div class="row toggles">
@@ -187,7 +187,7 @@
         </select>
       </label>
       <div class="row">
-        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" step="1"></label>
+        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" max="200" step="1"></label>
         <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>
       </div>
       <div class="row">
@@ -205,7 +205,7 @@
       <h3 class="sub-head">Format columns</h3>
       <div class="row">
         <label class="field"><span>Columns</span><input type="number" id="col-n" min="1" max="48" step="1"></label>
-        <label class="field"><span>Gutter</span><input type="number" id="col-gutter" min="0" step="1"></label>
+        <label class="field"><span>Gutter</span><input type="number" id="col-gutter" min="0" max="400" step="1"></label>
       </div>
       <label class="check"><input type="checkbox" id="col-show"><span>Show the column grid</span></label>
       <p class="hint" id="col-hint"></p>
@@ -213,16 +213,16 @@
       <h3 class="sub-head">Solid columns</h3>
       <div class="row">
         <label class="field"><span>Columns</span><input type="number" id="rcol-n" min="1" max="48" step="1"></label>
-        <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" step="1"></label>
+        <label class="field"><span>Gutter</span><input type="number" id="rcol-gutter" min="0" max="400" step="1"></label>
       </div>
       <p class="hint">Margins of its own, inside the box:</p>
       <div class="row">
-        <label class="field"><span>Top</span><input type="number" id="rcol-top" step="1"></label>
-        <label class="field"><span>Right</span><input type="number" id="rcol-right" step="1"></label>
+        <label class="field"><span>Top</span><input type="number" id="rcol-top" min="0" step="1"></label>
+        <label class="field"><span>Right</span><input type="number" id="rcol-right" min="0" step="1"></label>
       </div>
       <div class="row">
-        <label class="field"><span>Bottom</span><input type="number" id="rcol-bottom" step="1"></label>
-        <label class="field"><span>Left</span><input type="number" id="rcol-left" step="1"></label>
+        <label class="field"><span>Bottom</span><input type="number" id="rcol-bottom" min="0" step="1"></label>
+        <label class="field"><span>Left</span><input type="number" id="rcol-left" min="0" step="1"></label>
       </div>
       <label class="check"><input type="checkbox" id="rcol-show"><span>Show them on the canvas</span></label>
       <p class="hint" id="rcol-hint"></p>
@@ -259,10 +259,8 @@
         <p class="status" id="gf-status"></p>
       </details>
       <h3 class="sub-head">Scale</h3>
-      <label class="field grow"><span>Paragraph <b id="type-para-px"></b></span>
-        <input type="range" id="type-para-range"></label>
       <div class="row">
-        <label class="field"><span>Size</span>
+        <label class="field"><span>Paragraph <b id="type-para-px"></b></span>
           <input type="number" id="type-para"></label>
         <label class="field unit"><span>Measured as</span>
           <select id="type-basis"></select></label>
@@ -284,11 +282,11 @@
       </div>
       <div class="row">
         <label class="field"><span>Line height <b id="type-lh-px"></b></span>
-          <input type="number" id="type-lh" min="0.5" step="0.05"></label>
+          <input type="number" id="type-lh" min="0.5" max="3" step="0.05"></label>
         <label class="field"><span>Align to</span><select id="type-snap"></select></label>
       </div>
       <div class="row">
-        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" step="0.005"></label>
+        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" min="-0.2" max="0.5" step="0.005"></label>
         <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
       </div>
       <div class="row">
@@ -461,8 +459,8 @@
             </label>
           </div>
           <div class="row">
-            <label class="field"><span>Move across</span><input type="number" id="pic-x" step="1"></label>
-            <label class="field"><span>Move down</span><input type="number" id="pic-y" step="1"></label>
+            <label class="field"><span>Move across</span><input type="number" id="pic-x" min="-4000" max="4000" step="1"></label>
+            <label class="field"><span>Move down</span><input type="number" id="pic-y" min="-4000" max="4000" step="1"></label>
             <button type="button" class="ghost" id="pic-reset">Reset</button>
           </div>
         </div>

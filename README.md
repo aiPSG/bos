@@ -4,6 +4,14 @@ A small design app: one **format** (the stage) with a **margin box**, a **solid*
 **logo circle** on it. Every value can be set two ways — numerically in the side panel, or by
 dragging on the canvas.
 
+**Every number is a slider and a field.** Sweep the slider to find a value, type in the field when
+you know it, and step it with the ↑ / ↓ arrow keys once the field has the focus — each press moves
+one step of that value, whatever its step happens to be. There are no spinner buttons: the slider
+took their place. The slider sweeps the part of the range worth sweeping — a margin as far as half
+the format, a radius as far as half the box, a column count to 48 — while the field stays as open as
+it ever was, and where a value is being computed rather than set (a width that fills the margins, a
+position a filled box does not use) both go quiet together.
+
 **The stage starts empty.** The solid and the five text roles wait in a **tray** above the
 canvas; drag one onto the format and it lands where you point, snapping to the grid and the columns
 as it goes. Let go outside the format and nothing is placed; a plain click drops it at the place it
@@ -54,6 +62,13 @@ its own values — so a scheme can be seen landing on all of them at once rather
 **Generate background** has three tabs of its own — *Image*, *Pattern*, *Gradient* — with a live
 view of the format beside them, showing the design over whatever is being made — with its own
 zoom: −, +, 1:1, Fit, ⌘/Ctrl + wheel, and a plain wheel to scroll when it is bigger than the view.
+
+**The colours come from the colour scheme.** Every colour a module starts from is a colour of the
+scheme rather than one of its own, so a background made in stage 3 is already in the palette built
+in stage 2 — and it follows that palette as it changes. Under each colour field the scheme is
+offered as a row of swatches: one click puts that colour in the field, and from then on that one
+colour is yours and stops following. The frames on the stage are offered the same, since they run
+the same modules.
 
 A pattern or a gradient is a **module**: a name, a few fields, and a routine that draws it as SVG at
 the size of the format. Each is shown as a card that draws its own preview, so the pickers are the

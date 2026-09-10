@@ -773,19 +773,19 @@
         note: "Lines on the baseline rows and down the columns. Linked to the design's own " +
           "grids, so it follows them as they change.",
         defaults: { rows: "grid1", rowStep: 40, cols: "format", colStep: 80, band: false,
-          extend: true, line: 1, color: "#ffffff", alpha: 20 },
+          extend: true, line: 1, color: "@0", alpha: 20 },
         fields: [
           { k: "rows", label: "Rows from", type: "select", options: [
             ["off", "Nothing"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"],
             ["custom", "A spacing of my own"]] },
-          { k: "rowStep", label: "Row spacing", type: "number", min: 2, step: 1, when: function (p) { return p.rows === "custom"; } },
+          { k: "rowStep", label: "Row spacing", type: "number", min: 2, max: 400, step: 1, when: function (p) { return p.rows === "custom"; } },
           { k: "cols", label: "Columns from", type: "select", options: [
             ["off", "Nothing"], ["format", "The format columns"], ["rect", "The solid's columns"],
             ["custom", "A spacing of my own"]] },
-          { k: "colStep", label: "Column spacing", type: "number", min: 2, step: 1, when: function (p) { return p.cols === "custom"; } },
+          { k: "colStep", label: "Column spacing", type: "number", min: 2, max: 400, step: 1, when: function (p) { return p.cols === "custom"; } },
           { k: "band", label: "Fill the columns instead of drawing their edges", type: "check" },
           { k: "extend", label: "Carry the rhythm past the margins, to the edges of the format", type: "check" },
-          { k: "line", label: "Line width", type: "number", min: 0.1, step: 0.5 },
+          { k: "line", label: "Line width", type: "number", min: 0.1, max: 24, step: 0.5 },
           { k: "color", label: "Colour", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
         ],
@@ -820,12 +820,12 @@
       {
         id: "dots", name: "Dots",
         note: "A lattice of dots. Its spacing can come from a baseline grid, so the dots sit on it.",
-        defaults: { link: "free", step: 48, r: 3, stagger: true, color: "#ffffff", alpha: 30 },
+        defaults: { link: "free", step: 48, r: 3, stagger: true, color: "@0", alpha: 30 },
         fields: [
           { k: "link", label: "Spacing from", type: "select", options: [
             ["free", "A spacing of my own"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"]] },
-          { k: "step", label: "Spacing", type: "number", min: 2, step: 1, when: function (p) { return p.link === "free"; } },
-          { k: "r", label: "Dot radius", type: "number", min: 0.2, step: 0.5 },
+          { k: "step", label: "Spacing", type: "number", min: 2, max: 400, step: 1, when: function (p) { return p.link === "free"; } },
+          { k: "r", label: "Dot radius", type: "number", min: 0.2, max: 80, step: 0.5 },
           { k: "stagger", label: "Offset every other row", type: "check" },
           { k: "color", label: "Colour", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
@@ -847,11 +847,11 @@
       {
         id: "stripes", name: "Stripes",
         note: "Bands at any angle, drawn as a repeating tile.",
-        defaults: { angle: 45, width: 24, gap: 24, color: "#ffffff", alpha: 18 },
+        defaults: { angle: 45, width: 24, gap: 24, color: "@0", alpha: 18 },
         fields: [
           { k: "angle", label: "Angle", type: "number", min: -180, max: 180, step: 1 },
-          { k: "width", label: "Band width", type: "number", min: 1, step: 1 },
-          { k: "gap", label: "Gap", type: "number", min: 0, step: 1 },
+          { k: "width", label: "Band width", type: "number", min: 1, max: 400, step: 1 },
+          { k: "gap", label: "Gap", type: "number", min: 0, max: 400, step: 1 },
           { k: "color", label: "Colour", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
         ],
@@ -867,11 +867,11 @@
       {
         id: "checker", name: "Checker",
         note: "A checkerboard of two colours; the cell can follow a baseline grid.",
-        defaults: { link: "free", cell: 64, a: "#ffffff", b: "#000000", alpha: 12 },
+        defaults: { link: "free", cell: 64, a: "@0", b: "@2", alpha: 12 },
         fields: [
           { k: "link", label: "Cell from", type: "select", options: [
             ["free", "A size of my own"], ["grid1", "Baseline grid 1"], ["grid2", "Baseline grid 2"]] },
-          { k: "cell", label: "Cell size", type: "number", min: 2, step: 1, when: function (p) { return p.link === "free"; } },
+          { k: "cell", label: "Cell size", type: "number", min: 2, max: 400, step: 1, when: function (p) { return p.link === "free"; } },
           { k: "a", label: "Colour A", type: "color" },
           { k: "b", label: "Colour B", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
@@ -892,12 +892,12 @@
       {
         id: "rings", name: "Rings",
         note: "Circles out from a point, evenly spaced.",
-        defaults: { cx: 50, cy: 50, step: 64, line: 1.5, color: "#ffffff", alpha: 26 },
+        defaults: { cx: 50, cy: 50, step: 64, line: 1.5, color: "@0", alpha: 26 },
         fields: [
           { k: "cx", label: "Centre across %", type: "number", min: -100, max: 200, step: 1 },
           { k: "cy", label: "Centre down %", type: "number", min: -100, max: 200, step: 1 },
-          { k: "step", label: "Spacing", type: "number", min: 2, step: 1 },
-          { k: "line", label: "Line width", type: "number", min: 0.1, step: 0.5 },
+          { k: "step", label: "Spacing", type: "number", min: 2, max: 400, step: 1 },
+          { k: "line", label: "Line width", type: "number", min: 0.1, max: 24, step: 0.5 },
           { k: "color", label: "Colour", type: "color" },
           { k: "alpha", label: "Opacity", type: "range", min: 0, max: 100 }
         ],
@@ -919,7 +919,7 @@
       {
         id: "linear", name: "Linear",
         note: "One colour to another along an angle, with the midpoint where you want it.",
-        defaults: { angle: 160, from: "#4f7cff", to: "#111318", mid: 50 },
+        defaults: { angle: 160, from: "@0", to: "@1", mid: 50 },
         fields: [
           { k: "angle", label: "Angle", type: "number", min: -180, max: 360, step: 1 },
           { k: "from", label: "From", type: "color" },
@@ -937,7 +937,7 @@
       {
         id: "radial", name: "Radial",
         note: "A light from a point, falling off to the far colour.",
-        defaults: { cx: 50, cy: 35, r: 70, from: "#4f7cff", to: "#111318" },
+        defaults: { cx: 50, cy: 35, r: 70, from: "@0", to: "@1" },
         fields: [
           { k: "cx", label: "Centre across %", type: "number", min: -50, max: 150, step: 1 },
           { k: "cy", label: "Centre down %", type: "number", min: -50, max: 150, step: 1 },
@@ -955,7 +955,7 @@
       {
         id: "conic", name: "Angular sweep",
         note: "A sweep around a point, drawn as a fan of sectors.",
-        defaults: { cx: 50, cy: 50, start: 0, from: "#4f7cff", to: "#111318", steps: 96 },
+        defaults: { cx: 50, cy: 50, start: 0, from: "@0", to: "@1", steps: 96 },
         fields: [
           { k: "cx", label: "Centre across %", type: "number", min: -50, max: 150, step: 1 },
           { k: "cy", label: "Centre down %", type: "number", min: -50, max: 150, step: 1 },
@@ -984,7 +984,7 @@
       {
         id: "mesh", name: "Mesh",
         note: "Three soft lights over a ground, the way a mesh gradient reads.",
-        defaults: { base: "#111318", a: "#4f7cff", b: "#e5484d", c: "#3ecf8e", spread: 70 },
+        defaults: { base: "@2", a: "@0", b: "@1", c: "@3", spread: 70 },
         fields: [
           { k: "base", label: "Ground", type: "color" },
           { k: "a", label: "Light one", type: "color" },
@@ -1010,7 +1010,7 @@
       {
         id: "bands", name: "Bands",
         note: "The same fade, stepped — a posterised gradient with hard edges.",
-        defaults: { angle: 180, steps: 6, from: "#4f7cff", to: "#111318" },
+        defaults: { angle: 180, steps: 6, from: "@0", to: "@1" },
         fields: [
           { k: "angle", label: "Angle", type: "number", min: -180, max: 360, step: 1 },
           { k: "steps", label: "Steps", type: "range", min: 2, max: 24 },
@@ -1079,7 +1079,7 @@
 
   function picParams(r) {
     var m = bgModule(r.content, r.module);
-    return Object.assign({}, m.defaults, r.params[r.content + ":" + m.id] || {});
+    return fromScheme(m, Object.assign({}, m.defaults, r.params[r.content + ":" + m.id] || {}));
   }
   function picSetParam(r, k, v) {
     var m = bgModule(r.content, r.module), key = r.content + ":" + m.id;
@@ -1096,7 +1096,22 @@
   // a module's settings: its defaults, with whatever has been changed on top
   function bgParams(kind, id) {
     var m = bgModule(kind, id), key = kind + ":" + m.id;
-    return Object.assign({}, m.defaults, state.bgGen.params[key] || {});
+    return fromScheme(m, Object.assign({}, m.defaults, state.bgGen.params[key] || {}));
+  }
+
+  /* A colour a module starts from is written "@2" — the third colour of the colour
+     scheme — rather than a colour of its own, so a background that is made but
+     never recoloured is in the scheme's colours and follows them as they change.
+     Picking a colour stores a hex there instead, and that one is yours. */
+  function fromScheme(m, p) {
+    var sw = null;
+    m.fields.forEach(function (f) {
+      var v = p[f.k];
+      if (f.type !== "color" || typeof v !== "string" || v.charAt(0) !== "@") return;
+      sw = sw || schemeSwatches();
+      p[f.k] = sw[(parseInt(v.slice(1), 10) || 0) % sw.length] || "#000000";
+    });
+    return p;
   }
   function bgSetParam(kind, id, k, v) {
     var key = kind + ":" + bgModule(kind, id).id;
@@ -2483,6 +2498,9 @@
       $("#pic-scale-val").textContent = fmt(r.scale) + "%";
       setValue($("#pic-x"), fmt(r.x));
       setValue($("#pic-y"), fmt(r.y));
+      var pb = box("rect");
+      bound("#pic-x", -Math.round(pb.w), Math.round(pb.w));
+      bound("#pic-y", -Math.round(pb.h), Math.round(pb.h));
       var b = box("rect"), pl = picLayout(r, b.w, b.h);
       $("#pic-hint").textContent = "The box is " + round(b.w, 1) + " × " + round(b.h, 1) +
         " and what fills it runs " + round(pl.w, 1) + " × " + round(pl.h, 1) + " at " +
@@ -2507,6 +2525,9 @@
       if (!el) return;
       if (f.type === "check") el.checked = !!pr[f.k];
       else setValue(el, pr[f.k]);
+      if (f.type === "color") {
+        fillChips(host.querySelector('[data-picsw="' + f.k + '"]'), schemeSwatches(), pr[f.k], "picc", f.k);
+      }
       var out = host.querySelector('[data-picv="' + f.k + '"]');
       if (out) out.textContent = fmt(pr[f.k]);
     });
@@ -2518,7 +2539,8 @@
       return '<label class="check wide"><input type="checkbox" data-picf="' + f.k + '"><span>' + lab + "</span></label>";
     }
     if (f.type === "color") {
-      return '<label class="field color"><span>' + lab + '</span><input type="color" data-picf="' + f.k + '"></label>';
+      return '<div class="field color"><span>' + lab + '</span><input type="color" data-picf="' + f.k + '">' +
+        '<span class="sw-row" data-picsw="' + f.k + '"></span></div>';
     }
     if (f.type === "range") {
       return '<label class="field wide"><span>' + lab + ' <b data-picv="' + f.k + '"></b></span>' +
@@ -2814,7 +2836,8 @@
           return '<label class="check wide"><input type="checkbox" data-bgf="' + f.k + '"><span>' + lab + "</span></label>";
         }
         if (f.type === "color") {
-          return '<label class="field color"><span>' + lab + '</span><input type="color" data-bgf="' + f.k + '"></label>';
+          return '<div class="field color"><span>' + lab + '</span><input type="color" data-bgf="' + f.k + '">' +
+            '<span class="sw-row" data-bgsw="' + f.k + '"></span></div>';
         }
         if (f.type === "range") {
           return '<label class="field wide"><span>' + lab + ' <b data-bgv="' + f.k + '"></b></span>' +
@@ -2838,6 +2861,9 @@
       if (!el) return;
       if (f.type === "check") el.checked = !!p[f.k];
       else setValue(el, p[f.k]);
+      if (f.type === "color") {
+        fillChips(host.querySelector('[data-bgsw="' + f.k + '"]'), schemeSwatches(), p[f.k], "bgc", f.k);
+      }
       var out = host.querySelector('[data-bgv="' + f.k + '"]');
       if (out) out.textContent = fmt(p[f.k]);
     });
@@ -3120,6 +3146,8 @@
       syncPanel();
       renderStage();
       renderCSS();
+      pairNumbers();          // anything built in this pass gets its slider
+      syncSliders();
       save();
       recordHistory();
     });
@@ -3315,7 +3343,7 @@
         "<span>" + esc(ROLE_NAMES[r]) + "</span>" +
         (r === "paragraph"
           ? '<span class="px anchor-note">anchor × 1</span>'
-          : '<input type="number" min="0.01" step="0.01" data-mult="' + r + '">') +
+          : '<input type="number" min="0.01" max="12" step="0.01" data-mult="' + r + '">') +
         '<span class="px" data-px="' + r + '"></span></div>';
     }).join("");
   }
@@ -3375,7 +3403,7 @@
       '<p class="hint" id="text-rows-hint"></p>' +
       '<details class="sub" id="ins-shared"' + (sharedOpen ? " open" : "") + "><summary><h3>Every block</h3></summary>" +
         '<label class="field grow"><span>Side padding \u2014 the column the blocks run in</span>' +
-          '<input type="number" id="text-padding" min="0" step="1"></label>' +
+          '<input type="number" id="text-padding" min="0" max="400" step="1"></label>' +
         '<label class="check"><input type="checkbox" id="text-margin-pad">' +
           "<span>Hang side-aligned text on the format margins when the box fills the format</span></label>" +
         '<p class="hint" id="text-pad-hint"></p>' +
@@ -3404,7 +3432,12 @@
     body.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
     setValue(body.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
     setValue(body.querySelector('[data-block="padR"]'), fmt(b.padR || 0));
-    var fw = blockFrame(b).w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
+    // the row runs the height of the grid it is counted in; the insets, the width it runs in
+    var frame = blockFrame(b), rows = Math.max(1, Math.round(content().h / blockUnit(b)));
+    bound(body.querySelector('[data-block="row"]'), 0, rows);
+    bound(body.querySelector('[data-block="padL"]'), 0, Math.round(frame.w));
+    bound(body.querySelector('[data-block="padR"]'), 0, Math.round(frame.w));
+    var fw = frame.w - state.text.padding * 2 - (b.padL || 0) - (b.padR || 0);
     body.querySelector("[data-fieldw]").textContent = fmt(Math.max(0, fw)) + " wide";
     Array.prototype.forEach.call(body.querySelectorAll("[data-align]"), function (btn) {
       btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
@@ -3519,8 +3552,88 @@
     }).join("");
   }
 
+  // the bounds a field's slider sweeps, where they depend on the design
+  function bound(sel, lo, hi) {
+    var el = typeof sel === "string" ? $(sel) : sel;
+    if (!el) return;
+    if (String(el.min) !== String(lo)) el.min = lo;
+    if (String(el.max) !== String(hi)) el.max = hi;
+  }
+
   function setValue(el, value) {
     if (el && document.activeElement !== el && el.value !== String(value)) el.value = value;
+  }
+
+  /* Every number in the app is set two ways: a slider to sweep it and a field to
+     type it in, with the arrow keys stepping the field. Rather than writing the
+     pair out forty times, each number field is given its slider here — the ones
+     built while the app runs included — and the slider works by writing the field
+     and telling it, so whatever the field was already bound to needs to know
+     nothing about it. */
+  function pairNumbers(root) {
+    var found = (root || document).querySelectorAll("input[type=number]:not([data-slider])");
+    Array.prototype.forEach.call(found, function (el) {
+      el.dataset.slider = "1";
+      var wrap = document.createElement("span");
+      wrap.className = "numf";
+      el.parentNode.insertBefore(wrap, el);
+      wrap.appendChild(el);
+      var sl = document.createElement("input");
+      sl.type = "range";
+      sl.tabIndex = -1;                       // the field is the keyboard control
+      sl.setAttribute("aria-hidden", "true");
+      wrap.appendChild(sl);
+      sl.addEventListener("input", function () {
+        if (el.disabled) { syncSliders(wrap); return; }
+        el.value = sl.value;
+        // whatever the field is bound to hears it as if it had been typed
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+  }
+
+  /* The bounds a slider sweeps: the field's own, unless the field takes more than
+     is worth sweeping — then data-slmin / data-slmax say how far the slider goes
+     and the field stays as open as it was. Something sane if it has neither. */
+  function numBounds(el) {
+    var lo = num(el.dataset.slmin, num(el.min, null));
+    var hi = num(el.dataset.slmax, num(el.max, null));
+    var v = num(el.value, 0);
+    if (lo === null) lo = Math.min(0, v);
+    if (hi === null) hi = Math.max(100, Math.abs(v) * 2);
+    return lo < hi ? [lo, hi] : [lo, lo + 1];
+  }
+
+  // the slider follows its field: same bounds, same step, same value
+  function syncSliders(root) {
+    var pairs = (root || document).querySelectorAll(".numf");
+    Array.prototype.forEach.call(pairs, function (w) {
+      var el = w.querySelector("input[type=number]"), sl = w.querySelector("input[type=range]");
+      if (!el || !sl) return;
+      var b = numBounds(el), step = num(el.step, 1) || 1;
+      if (String(sl.min) !== String(b[0])) sl.min = b[0];
+      if (String(sl.max) !== String(b[1])) sl.max = b[1];
+      if (String(sl.step) !== String(step)) sl.step = step;
+      sl.disabled = el.disabled;
+      // not while it is being dragged: the value it is sending is the truth then
+      if (document.activeElement !== sl) sl.value = clamp(num(el.value, b[0]), b[0], b[1]);
+    });
+  }
+
+  /* The colour scheme, offered wherever a colour is set: one click puts a scheme
+     colour in the field. Rebuilt only when the scheme or the choice changes. */
+  function fillChips(host, sw, cur, attr, k) {
+    if (!host) return;
+    var now = sw.join(",") + "|" + String(cur || "").toLowerCase();
+    if (host.dataset.sig === now) return;
+    host.dataset.sig = now;
+    host.innerHTML = sw.map(function (hex) {
+      return '<button type="button" class="sw-chip-btn' +
+        (hex.toLowerCase() === String(cur).toLowerCase() ? " on" : "") +
+        '" style="background:' + hex + '" data-' + attr + '="' + k + '" data-hex="' + hex +
+        '" title="' + hex.toUpperCase() + ' \u2014 from the colour scheme"></button>';
+    }).join("");
   }
 
   function syncGrid(id, el) {
@@ -3554,6 +3667,7 @@
     $("#bg-scale-val").textContent = fmt(state.bg.scale) + "%";
     setValue($("#bg-x"), fmt(state.bg.x));
     setValue($("#bg-y"), fmt(state.bg.y));
+    bound("#bg-x", -st.w, st.w); bound("#bg-y", -st.h, st.h);
     var bl = bgLayout(state.stage.w, state.stage.h);
     $("#bg-hint").textContent = state.bgGen.on
       ? "The background is being made: the " +
@@ -3585,6 +3699,7 @@
       // buffer each side adds to the shared base
       setValue($("#margin-" + s), fmt(derived ? buf(s) : mm[s]));
       $("#margin-" + s).disabled = false;
+      bound("#margin-" + s, 0, Math.round((s === "top" || s === "bottom" ? st.h : st.w) / 2));
       $('[data-mlabel="' + s + '"]').textContent =
         SIDE_NAMES[s] + (derived ? " + " + fmt(mm[s]) : "");
     });
@@ -3611,6 +3726,9 @@
       "box off the stage; the tray puts another one on.";
     syncGrid("#rect-anchor", r);
     var at = solidAt(), fixedW = r.wmode === "fixed" || r.wmode === "fit";
+    var rb = box("rect"), stg = state.stage;
+    bound("#rect-x", -Math.round(rb.w), Math.round(stg.w + rb.w));
+    bound("#rect-y", -Math.round(rb.h), Math.round(stg.h + rb.h));
     setValue($("#rect-x"), fmt(at.x));
     setValue($("#rect-y"), fmt(at.y));
     $("#rect-x").disabled = !fixedW;
@@ -3634,6 +3752,8 @@
     $("#rect-hmode").value = r.hmode;
     $("#rect-h").disabled = r.hmode !== "fixed";
     $("#rect-w").disabled = r.wmode !== "fixed";
+    bound("#rect-w", 1, Math.round(state.stage.w * 1.5));
+    bound("#rect-h", 1, Math.round(state.stage.h * 1.5));
     setValue($("#rect-w"), fmt(sizeOf("rect").w));
     $("#rect-cols").checked = !!r.cols;
     var rw = sizeOf("rect").w, floor = minRectW();
@@ -3674,10 +3794,13 @@
     $("#corners-linked").checked = r.linked;
     $("#corners-elliptical").checked = r.elliptical;
     document.body.classList.toggle("elliptical", r.elliptical);
+    var csz = sizeOf("rect");
     CORNERS.forEach(function (n) {
       var c = r.corners[n];
       setValue($('[data-radius="' + n + '"][data-axis="x"]'), fmt(c.x));
       setValue($('[data-radius="' + n + '"][data-axis="y"]'), fmt(c.y));
+      bound($('[data-radius="' + n + '"][data-axis="x"]'), 0, c.ux === "%" ? 100 : Math.round(csz.w / 2));
+      bound($('[data-radius="' + n + '"][data-axis="y"]'), 0, c.uy === "%" ? 100 : Math.round(csz.h / 2));
       $('[data-unit="' + n + '"][data-axis="x"]').value = c.ux;
       $('[data-unit="' + n + '"][data-axis="y"]').value = c.uy;
     });
@@ -3689,6 +3812,7 @@
 
     $("#logo-visible").checked = lg.visible;
     syncGrid("#logo-align", lg); syncGrid("#logo-anchor", lg);
+    bound("#logo-h", 0, lg.h.u === "%" ? 100 : Math.round(Math.max(st.w, st.h)));
     setValue($("#logo-h"), round(lg.h.v, 2));
     $("#logo-hu").value = lg.h.u;
     $("#logo-fill").value = lg.fill;
@@ -3715,13 +3839,10 @@
     var pv = round(ty.paragraph, byHand ? 2 : 3);
     setValue($("#type-para"), pv);
     $("#type-para").min = byHand ? PARAPX_MIN : PARA_MIN;
+    // by hand the field takes any size; its slider sweeps the part worth sweeping
     $("#type-para").max = byHand ? PARAPX_MAX : PARA_MAX;
+    $("#type-para").dataset.slmax = byHand ? PARAPX_SLIDER : PARA_MAX;
     $("#type-para").step = byHand ? 1 : 0.01;
-    var slider = $("#type-para-range");
-    slider.min = byHand ? PARAPX_MIN : PARA_MIN;
-    slider.max = byHand ? PARAPX_SLIDER : PARA_MAX;
-    slider.step = byHand ? 1 : 0.01;
-    setValue(slider, pv);
     $("#type-basis").value = ty.basis;
     $("#type-para-px").textContent = (paraByHand() ? "" : round(ty.paragraph, 3) + "% = ") +
       Math.round(paraPx()) + " px";
@@ -3790,7 +3911,11 @@
     var rc = state.rect.columns, rg = colGrid("rect");
     setValue($("#rcol-n"), rc.n);
     setValue($("#rcol-gutter"), fmt(rc.gutter));
-    SIDES.forEach(function (side) { setValue($("#rcol-" + side), fmt(rc.m[side] || 0)); });
+    var rsz = sizeOf("rect");
+    SIDES.forEach(function (side) {
+      setValue($("#rcol-" + side), fmt(rc.m[side] || 0));
+      bound("#rcol-" + side, 0, Math.round((side === "top" || side === "bottom" ? rsz.h : rsz.w) / 2));
+    });
     $("#rcol-show").checked = !!rc.show;
     var inset = SIDES.some(function (side) { return rc.m[side]; });
     $("#rcol-hint").textContent = state.solids.length
@@ -3960,6 +4085,12 @@
     }
     $("#pic-fields").addEventListener("input", picField);
     $("#pic-fields").addEventListener("change", picField);
+    $("#pic-fields").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-picc]");
+      if (!t) return;
+      picSetParam(state.rect, t.dataset.picc, t.dataset.hex);
+      render();
+    });
     onChange("#rect-wmode", function (el) {
       if (el.value === "fixed") state.rect.w = round(sizeOf("rect").w, 1);   // start from what is on screen
       state.rect.wmode = el.value;
@@ -4121,7 +4252,6 @@
         : clamp(round(v, 3), PARA_MIN, PARA_MAX);
     }
     numInput("#type-para", setPara);
-    onInput("#type-para-range", function (el) { setPara(num(el.value, state.type.paragraph)); });
     onChange("#type-basis", function (el) { state.type.basis = el.value; });
     onChange("#type-system", function (el) {
       if (el.value === "custom") { state.type.system = "custom"; return; }
@@ -4310,6 +4440,14 @@
     }
     $("#bg-fields").addEventListener("input", bgField);
     $("#bg-fields").addEventListener("change", bgField);
+    $("#bg-fields").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-bgc]");
+      if (!t) return;
+      var tab = state.bgGen.tab;
+      bgSetParam(tab, bgModule(tab, state.bgGen[tab]).id, t.dataset.bgc, t.dataset.hex);
+      bgTurnOn(tab);
+      render();
+    });
     $("#bg-use").addEventListener("click", function () {
       bgTurnOn(state.bgGen.tab);
       render();
