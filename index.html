@@ -242,6 +242,8 @@
         <button type="button" class="ghost" id="font-upload-btn">Upload…</button>
       </div>
       <input type="file" id="font-file" accept=".woff2,.woff,.ttf,.otf,font/*" hidden>
+      <!-- where a browser has no file handles: the key file, this session only -->
+      <input type="file" id="ai-file" accept=".txt,text/plain" hidden>
       <p class="status" id="font-status"></p>
       <details class="sub">
         <summary><h3>List every Google font</h3></summary>
@@ -303,53 +305,13 @@
         </label>
       </div>
       <p class="hint" id="type-style-hint"></p>
+
+      <div class="ask" id="ask-fonts"></div>
     </details>
 
     <details class="group">
-      <summary><h2>Ask Claude</h2></summary>
-      <p class="hint warn" id="ai-warning"></p>
-      <div class="row">
-        <button type="button" class="ghost grow" id="ai-pick">Choose key.txt…</button>
-        <button type="button" class="ghost" id="ai-forget">Forget</button>
-      </div>
-      <button type="button" class="ghost wide" id="ai-local" hidden>Use the key.txt beside the app</button>
-      <input type="file" id="ai-file" accept=".txt,text/plain" hidden>
-      <p class="status" id="ai-key-status"></p>
-
-      <details class="sub">
-        <summary><h3>Connection</h3></summary>
-        <label class="field grow"><span>Model</span><select id="ai-model"></select></label>
-        <label class="field grow"><span>Endpoint</span>
-          <input type="text" id="ai-endpoint" spellcheck="false" autocomplete="off"
-            placeholder="https://api.anthropic.com/v1/messages">
-        </label>
-        <p class="hint">Point this at a proxy of your own — a Worker holding the key server-side —
-          and no key is needed in the browser at all. Left empty it goes straight to Anthropic.</p>
-      </details>
-
-      <h3 class="sub-head">Ask for</h3>
-      <label class="field grow"><span>The brief — what this design is for</span>
-        <textarea id="ai-brief" rows="3" spellcheck="false"
-          placeholder="A record label's release announcement. Confident, a little severe, high contrast."></textarea>
-      </label>
-      <div class="row">
-        <button type="button" class="primary grow" id="ai-scheme">Colour scheme</button>
-        <button type="button" class="primary grow" id="ai-fonts">Fonts</button>
-      </div>
-      <button type="button" class="primary wide" id="ai-layout">Layout for this format</button>
-      <p class="status" id="ai-status"></p>
-      <div id="ai-result" hidden>
-        <p class="hint" id="ai-note"></p>
-        <pre id="ai-json" class="css-out"></pre>
-        <div class="row">
-          <button type="button" class="primary grow" id="ai-apply">Apply</button>
-          <button type="button" class="ghost grow" id="ai-discard">Discard</button>
-        </div>
-      </div>
-      <p class="hint">What comes back is <b>the app's own settings</b>, not pixels — the controls it
-        would have set by hand — so it lands on the grid and the columns by construction, and
-        <b>⌘/Ctrl + Z undoes the whole thing</b>. The design system goes with the question as design
-        tokens, so the answer is in terms of this system rather than a generic one.</p>
+      <summary><h2>Layout</h2></summary>
+      <div class="ask" id="ask-layout"></div>
     </details>
 
     <details class="group">
@@ -636,6 +598,8 @@
       <div id="col-targets"></div>
       <p class="hint">Click a swatch on a row to give it that colour, or open the picker on the left
         of the row for one of your own. The ratio is the WCAG contrast against the page.</p>
+
+      <div class="ask" id="ask-scheme"></div>
     </aside>
 
     <div class="bg-view">

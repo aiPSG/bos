@@ -134,6 +134,13 @@ body{
 }
 .sw-chip-btn:hover{border-color:var(--text)}
 .sw-chip-btn.on{box-shadow:0 0 0 2px var(--accent);border-color:transparent}
+/* asking Claude: the same box wherever a question belongs */
+.ask{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.ask .sub-head{margin-top:0}
+.ask textarea{min-height:56px}
+.ask .ai-conn{margin-top:10px}
+.ask .status{margin-bottom:8px}
+
 /* the scheme offered under a colour field */
 .sw-row{display:flex;gap:3px;margin-top:4px}
 .sw-row .sw-chip-btn{height:13px;border-radius:3px}

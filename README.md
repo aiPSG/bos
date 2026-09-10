@@ -541,9 +541,19 @@ the token file resolves.
 
 ## Ask Claude
 
-The system can be **asked for three things**, from the *Ask Claude* group: a **colour scheme**, a
-**font pairing**, and a **layout for the format that is open**. Type what the design is for in the
-brief and press one.
+The system can be **asked for three things**, and **each question sits where its subject is** rather
+than in a panel of its own:
+
+| Ask | Where it is |
+| --- | --- |
+| **A colour scheme** | *Create colour scheme*, under the scheme it would replace |
+| **The fonts** | *Typography*, under the roles it would set |
+| **A layout for this format** | *Layout*, in the design system's own panel |
+
+Each is the same box — a brief, a button, the answer, Apply or Discard — and the **key, the model
+and the endpoint are one setting shared between them**, folded into *Key and connection* at the foot
+of each box, so whichever question you are looking at can be set up without going anywhere else.
+Type what the design is for and press the button.
 
 What comes back is **the app's own settings** — the controls a designer would have set by hand, not
 pixels. A scheme comes back as *one colour, a relationship, a swatch count and where each swatch
@@ -557,9 +567,9 @@ press **Apply** — after which **⌘/Ctrl + Z** takes the whole thing back in o
 The design system travels with the question **as the token file above**, so the answer is in terms of
 this system — this format, these margins, this grid, this many columns — rather than a generic one.
 
-Model, and endpoint: **Claude Opus 5** by default, with Sonnet 5 and Haiku 4.5 in the list. A
-request is a few thousand tokens in and a few hundred out — a cent or three at Opus prices, and the
-panel reports the exact count and cost of each one.
+Model, and endpoint: **Claude Opus 5** by default, with Sonnet 5 and Haiku 4.5 in the list — set in
+any of the three boxes, the same for all. A request is a few thousand tokens in and a few hundred
+out — a cent or three at Opus prices, and the box reports the exact count and cost of each one.
 
 ### The key
 
@@ -587,8 +597,8 @@ way; the proxy is a separate 30-line deploy that Pages knows nothing about.
 
 Six groups, in the order the design comes together: **Format** (with background image inside it),
 **Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Typography**,
-**Ask Claude**, **Export** (the slides, then CSS, then the tokens). Neither text blocks nor solids
-are among them — both are set on the canvas, beside the thing they belong to, and a solid's panel
+**Layout** (asking Claude for one), **Export** (the slides, then CSS, then the tokens). Neither text
+blocks nor solids are among them — both are set on the canvas, beside the thing they belong to, and a solid's panel
 carries everything the group used to: where it sits and its anchor, width and height, snapping,
 fill, what fills it, and its corners.
 

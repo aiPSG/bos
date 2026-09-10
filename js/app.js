@@ -515,7 +515,7 @@
       bgGen: { tab: "pattern", on: "", pattern: "grid", gradient: "linear", params: {}, zoom: null },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // what to ask Claude, and where — the key is never part of the design
-      ai: { model: "claude-opus-5", endpoint: "", brief: "" },
+      ai: { model: "claude-opus-5", endpoint: "", briefs: { scheme: "", fonts: "", layout: "" } },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
       margin: { mode: "manual", factor: 1, linked: true, locked: true,
@@ -701,6 +701,10 @@
       s.rect = normaliseSolid(s.rect, d);
       if (!s.ai || typeof s.ai !== "object") s.ai = clone(d.ai);
       else s.ai = Object.assign(clone(d.ai), s.ai);
+      // the one brief became three, one per question
+      if (!s.ai.briefs || typeof s.ai.briefs !== "object") s.ai.briefs = clone(d.ai.briefs);
+      else s.ai.briefs = Object.assign(clone(d.ai.briefs), s.ai.briefs);
+      if (s.ai.brief) { s.ai.briefs.layout = s.ai.briefs.layout || s.ai.brief; delete s.ai.brief; }
       delete s.ai.key;                       // no key was ever stored; make sure of it
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
@@ -3960,10 +3964,12 @@
     setValue($("#cf-key"), comfyKey);
     setValue($("#cf-workflow"), state.comfy.workflow);
     setValue($("#cf-prompt"), state.comfy.prompt);
-    setValue($("#ai-endpoint"), state.ai.endpoint);
-    setValue($("#ai-brief"), state.ai.brief);
-    $("#ai-model").value = state.ai.model;
-    if ($("#ai-model").selectedIndex < 0) $("#ai-model").selectedIndex = 0;
+    aiEach('[data-ai="endpoint"]', function (el) { setValue(el, state.ai.endpoint); });
+    aiEach('[data-ai="model"]', function (el) {
+      el.value = state.ai.model;
+      if (el.selectedIndex < 0) el.selectedIndex = 0;
+    });
+    aiEach("[data-ai-brief]", function (el) { setValue(el, state.ai.briefs[el.dataset.aiBrief] || ""); });
     setValue($("#cf-negative"), state.comfy.negative);
     setValue($("#cf-seed"), state.comfy.seed);
     $("#cf-remember").checked = state.comfy.remember;
@@ -5904,6 +5910,29 @@
      (not its contents), so later visits are one click; served locally, a key.txt
      sitting beside index.html is read directly. */
 
+  /* Each question sits where its subject is: the colour scheme in the colour
+     stage, the fonts under the type scale, the layout with the design system. It
+     is the same box built three times — and the key, the model and the endpoint
+     are one setting shared between them, so whichever one you are looking at can
+     be set up without going anywhere else. */
+  var AI_ASKS = [
+    { kind: "scheme", host: "#ask-scheme", head: "Ask Claude for a scheme",
+      button: "Work out a scheme",
+      hint: "A colour, a relationship, how many swatches and which swatch goes where \u2014 " +
+        "the controls above, so the harmony and the contrast readouts still hold.",
+      place: "A record label's release announcement. Confident, a little severe." },
+    { kind: "fonts", host: "#ask-fonts", head: "Ask Claude for the fonts",
+      button: "Suggest fonts",
+      hint: "A family and a weight for each of the five roles, so the answer can be one face or " +
+        "five. Every name is checked against the families the app can load first.",
+      place: "A club night poster. Loud, cheap, a bit ugly on purpose." },
+    { kind: "layout", host: "#ask-layout", head: "Ask Claude for a layout",
+      button: "Lay out this format",
+      hint: "Blocks on rows of a named grid with real copy, and the solids to go under them \u2014 " +
+        "the app turns that into positions, so nothing it gives can land off the grid.",
+      place: "The cover of a report on water. Quiet, a lot of air, one image." }
+  ];
+
   var AI_MODELS = [
     ["claude-opus-5", "Claude Opus 5 — the default"],
     ["claude-sonnet-5", "Claude Sonnet 5 — cheaper"],
@@ -5913,18 +5942,58 @@
   var AI_DB = "bos.keyfile", AI_STORE = "handles", AI_HANDLE = "key.txt";
   var AI_LOCAL_FLAG = "bos.keyfile.local";     // not a secret: whether to look beside the app
   var aiKey = "", aiFrom = "", aiHandle = null, aiBusy = false, aiPending = null;
+  var aiLastKind = "layout";
 
-  function aiStatus(msg, kind) {
-    var el = $("#ai-status");
+  function aiBoxHTML(a) {
+    var id = function (part) { return 'id="ai-' + a.kind + "-" + part + '"'; };
+    return '<h3 class="sub-head">' + esc(a.head) + "</h3>" +
+      '<p class="hint">' + esc(a.hint) + "</p>" +
+      '<label class="field grow"><span>The brief \u2014 what this design is for</span>' +
+        "<textarea " + id("brief") + ' data-ai-brief="' + a.kind + '" rows="3" spellcheck="false" ' +
+        'placeholder="' + esc(a.place) + '"></textarea></label>' +
+      '<button type="button" class="primary wide" ' + id("go") + ' data-ai-go="' + a.kind + '">' +
+        esc(a.button) + "</button>" +
+      '<p class="status" ' + id("status") + "></p>" +
+      '<div ' + id("result") + ' hidden>' +
+        '<p class="hint" ' + id("note") + "></p>" +
+        '<pre class="css-out" ' + id("json") + "></pre>" +
+        '<div class="row">' +
+          '<button type="button" class="primary grow" data-ai-apply="' + a.kind + '">Apply</button>' +
+          '<button type="button" class="ghost grow" data-ai-discard="' + a.kind + '">Discard</button>' +
+        "</div>" +
+      "</div>" +
+      '<details class="sub ai-conn"><summary><h3>Key and connection</h3></summary>' +
+        '<p class="hint warn" data-ai="warning"></p>' +
+        '<div class="row">' +
+          '<button type="button" class="ghost grow" data-ai="pick">Choose key.txt\u2026</button>' +
+          '<button type="button" class="ghost" data-ai="forget">Forget</button>' +
+        "</div>" +
+        '<button type="button" class="ghost wide" data-ai="local" hidden>Use the key.txt beside the app</button>' +
+        '<p class="status" data-ai="keystatus"></p>' +
+        '<label class="field grow"><span>Model</span><select data-ai="model"></select></label>' +
+        '<label class="field grow"><span>Endpoint</span>' +
+          '<input type="text" data-ai="endpoint" spellcheck="false" autocomplete="off" ' +
+          'placeholder="https://api.anthropic.com/v1/messages"></label>' +
+        '<p class="hint">Point this at a proxy of your own \u2014 one that holds the key server-side \u2014 ' +
+          "and no key is needed in the browser at all. The three questions share these settings.</p>" +
+      "</details>";
+  }
+
+  // the boxes are three views of one thing: what is said, is said in all of them
+  function aiEach(sel, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll(sel), fn);
+  }
+  function aiStatus(msg, kind, which) {
+    var el = $("#ai-" + (which || aiLastKind) + "-status");
     if (!el) return;
     el.textContent = msg || "";
     el.className = "status" + (kind ? " " + kind : "");
   }
   function aiKeyStatus(msg, kind) {
-    var el = $("#ai-key-status");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = "status" + (kind ? " " + kind : "");
+    aiEach('[data-ai="keystatus"]', function (el) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    });
   }
 
   // the first whitespace-delimited token of the file, so a trailing newline is fine
@@ -6035,14 +6104,21 @@
   }
 
   function aiBoot() {
-    $("#ai-model").innerHTML = AI_MODELS.map(function (m) {
+    AI_ASKS.forEach(function (a) {
+      var host = $(a.host);
+      if (host) host.innerHTML = aiBoxHTML(a);
+    });
+    var models = AI_MODELS.map(function (m) {
       return '<option value="' + m[0] + '">' + esc(m[1]) + "</option>";
     }).join("");
-    $("#ai-warning").textContent =
-      "The key is read from a file you choose and held for this page only — it is never written to " +
-      "this browser's storage, never committed, and sent to nothing but the endpoint below. Keep a " +
-      "key just for bos, with a spend limit on it, so it can be revoked on its own.";
-    $("#ai-local").hidden = !aiLocalPossible();
+    aiEach('[data-ai="model"]', function (el) { el.innerHTML = models; });
+    aiEach('[data-ai="warning"]', function (el) {
+      el.textContent =
+        "The key is read from a file you choose and held for this page only — it is never written to " +
+        "this browser's storage, never committed, and sent to nothing but the endpoint below. Keep a " +
+        "key just for bos, with a spend limit on it, so it can be revoked on its own.";
+    });
+    aiEach('[data-ai="local"]', function (el) { el.hidden = !aiLocalPossible(); });
     aiKeyStatus("No key yet. Put it in a text file on its own line and choose it above." +
       (aiLocalPossible() ? " Running locally, a key.txt beside index.html can be read straight off." : ""));
     aiTryLocalFile(false).then(function (got) {
@@ -6069,8 +6145,10 @@
 
   function aiAsk(kind, label, schema, system, user) {
     if (aiBusy) return;
+    aiLastKind = kind;
     if (!aiKey && !state.ai.endpoint) {
-      return aiStatus("No key yet — choose your key.txt above, or point the endpoint at a proxy that holds one.", "err");
+      return aiStatus("No key yet — open Key and connection below and choose your key.txt, " +
+        "or point the endpoint at a proxy that holds one.", "err", kind);
     }
     var model = state.ai.model || AI_MODELS[0][0];
     var body = {
@@ -6094,10 +6172,10 @@
     }
 
     aiBusy = true;
-    aiSetBusy(true, label);
+    aiSetBusy(true, label, kind);
     aiPending = null;
-    $("#ai-result").hidden = true;
-    aiStatus("Asking " + model + "…");
+    $("#ai-" + kind + "-result").hidden = true;
+    aiStatus("Asking " + model + "…", null, kind);
     fetchTimeout(state.ai.endpoint || AI_ENDPOINT, {
       method: "POST", headers: headers, body: JSON.stringify(body)
     }, 180000).then(aiRead).then(function (data) {
@@ -6110,12 +6188,12 @@
       try { parsed = JSON.parse(text); }
       catch (e) { throw new Error("The answer was not the JSON the schema asked for: " + text.slice(0, 160)); }
       aiPending = { kind: kind, value: parsed };
-      $("#ai-result").hidden = false;
-      $("#ai-json").textContent = JSON.stringify(parsed, null, 2);
-      $("#ai-note").textContent = (parsed.note ? parsed.note + " " : "") + aiCost(data.usage, model);
-      aiStatus("Read it over, then Apply. Undo takes it back either way.", "ok");
+      $("#ai-" + kind + "-result").hidden = false;
+      $("#ai-" + kind + "-json").textContent = JSON.stringify(parsed, null, 2);
+      $("#ai-" + kind + "-note").textContent = (parsed.note ? parsed.note + " " : "") + aiCost(data.usage, model);
+      aiStatus("Read it over, then Apply. Undo takes it back either way.", "ok", kind);
     }).catch(function (err) {
-      aiStatus(aiExplain(err), "err");
+      aiStatus(aiExplain(err), "err", kind);
     }).then(function () {
       aiBusy = false;
       aiSetBusy(false);
@@ -6136,9 +6214,9 @@
     });
   }
 
-  function aiSetBusy(on, label) {
-    ["#ai-scheme", "#ai-fonts", "#ai-layout"].forEach(function (id) { $(id).disabled = on; });
-    if (on && label) aiStatus("Asking for " + label + "…");
+  function aiSetBusy(on, label, kind) {
+    aiEach("[data-ai-go]", function (el) { el.disabled = on; });
+    if (on && label) aiStatus("Asking for " + label + "…", null, kind);
   }
 
   function aiCost(u, model) {
@@ -6165,7 +6243,7 @@
   }
 
   // what every question carries: the system, in the format the app exports
-  function aiBrief() { return String(state.ai.brief || "").trim(); }
+  function aiBrief(kind) { return String((state.ai.briefs || {})[kind] || "").trim(); }
   function aiSystemText() {
     return "You are working inside bos, a design-system app, as the designer's hand on its own " +
       "controls. You are given the design system as W3C design tokens, with the app's own rules " +
@@ -6202,7 +6280,8 @@
     };
   }
   function aiAskScheme() {
-    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+    var KIND = "scheme";
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief(KIND) || "none given — read the system itself.") +
       "\n\nWork out a colour scheme for it. The app builds a scheme from one colour and one " +
       "relationship between hues, so give those rather than a list of colours: the techniques are " +
       TECHNIQUES.map(function (t) { return t.id; }).join(", ") + ". The first pass of swatches is the " +
@@ -6248,8 +6327,8 @@
     };
   }
   function aiAskFonts() {
-    var all = gfList();
-    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+    var KIND = "fonts", all = gfList();
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief(KIND) || "none given — read the system itself.") +
       "\n\nName the family and the weight for each of the five roles. Each role can run in a family " +
       "of its own, so this is not a choice between one font and one pairing: use as many faces as the " +
       "work wants — the usual answer is two, one for the headings and one for the text, but a display " +
@@ -6342,8 +6421,8 @@
     };
   }
   function aiAskLayout() {
-    var st = state.stage, u = baseline();
-    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+    var KIND = "layout", st = state.stage, u = baseline();
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief(KIND) || "none given — read the system itself.") +
       "\n\nLay this format out: " + fmt(st.w) + " × " + fmt(st.h) + ", margins " +
       SIDES.map(function (side) { return fmt(margins()[side]); }).join(" / ") + ", " + colCount() +
       " columns, grid 1 is " + round(u, 2) + " px a row and there are " + gridRows() +
@@ -6401,50 +6480,69 @@
       (state.solids.length === 1 ? " solid" : " solids") + " placed.";
   }
 
-  function aiApply() {
-    if (!aiPending) return;
-    var v = aiPending.value, kind = aiPending.kind;
+  function aiApply(kind) {
+    if (!aiPending || aiPending.kind !== kind) return;
+    var v = aiPending.value;
     try {
       var said = kind === "scheme" ? aiApplyScheme(v)
         : kind === "fonts" ? aiApplyFonts(v)
         : aiApplyLayout(v);
       aiPending = null;
-      $("#ai-result").hidden = true;
-      aiStatus(said + " ⌘/Ctrl + Z takes it back.", "ok");
+      $("#ai-" + kind + "-result").hidden = true;
+      aiStatus(said + " ⌘/Ctrl + Z takes it back.", "ok", kind);
     } catch (err) {
-      aiStatus(String(err.message || err), "err");
+      aiStatus(String(err.message || err), "err", kind);
     }
     render();
   }
 
+  /* Three boxes, one set of handlers: the click tells us which question it came
+     from, and the settings they share are written once and shown in all of them. */
   function bindClaude() {
     aiBoot();
-    $("#ai-pick").addEventListener("click", aiPickFile);
-    $("#ai-local").addEventListener("click", function () { aiTryLocalFile(true).then(render); });
+    var ASK = { scheme: aiAskScheme, fonts: aiAskFonts, layout: aiAskLayout };
+    document.addEventListener("click", function (e) {
+      var t = e.target.closest ? e.target.closest("[data-ai],[data-ai-go],[data-ai-apply],[data-ai-discard]") : null;
+      if (!t) return;
+      if (t.dataset.aiGo) return (ASK[t.dataset.aiGo] || function () {})();
+      if (t.dataset.aiApply) return aiApply(t.dataset.aiApply);
+      if (t.dataset.aiDiscard) {
+        aiPending = null;
+        $("#ai-" + t.dataset.aiDiscard + "-result").hidden = true;
+        return aiStatus("Discarded.", null, t.dataset.aiDiscard);
+      }
+      if (t.dataset.ai === "pick") return aiPickFile();
+      if (t.dataset.ai === "local") return void aiTryLocalFile(true).then(render);
+      if (t.dataset.ai === "forget") {
+        aiKey = ""; aiFrom = ""; aiHandle = null;
+        try { localStorage.removeItem(AI_LOCAL_FLAG); } catch (err) {}
+        return void aiForgetHandle().then(function () {
+          aiKeyStatus("Forgotten — the key was never stored, and the file is no longer remembered.");
+        });
+      }
+    });
+    document.addEventListener("input", function (e) {
+      var t = e.target;
+      if (t.dataset && t.dataset.aiBrief) {
+        state.ai.briefs[t.dataset.aiBrief] = t.value;
+        return render();
+      }
+      if (t.dataset && t.dataset.ai === "endpoint") {
+        state.ai.endpoint = t.value.trim();
+        return render();
+      }
+    });
+    document.addEventListener("change", function (e) {
+      if (e.target.dataset && e.target.dataset.ai === "model") {
+        state.ai.model = e.target.value;
+        render();
+      }
+    });
     $("#ai-file").addEventListener("change", function (e) {
       var f = e.target.files && e.target.files[0];
       e.target.value = "";
       if (!f) return;
       f.text().then(function (text) { aiTakeKey(text, f.name); });
-    });
-    $("#ai-forget").addEventListener("click", function () {
-      aiKey = ""; aiFrom = ""; aiHandle = null;
-      try { localStorage.removeItem(AI_LOCAL_FLAG); } catch (e) {}
-      aiForgetHandle().then(function () {
-        aiKeyStatus("Forgotten — the key was never stored, and the file is no longer remembered.");
-      });
-    });
-    onChange("#ai-model", function (el) { state.ai.model = el.value; });
-    onInput("#ai-endpoint", function (el) { state.ai.endpoint = el.value.trim(); });
-    onInput("#ai-brief", function (el) { state.ai.brief = el.value; });
-    $("#ai-scheme").addEventListener("click", aiAskScheme);
-    $("#ai-fonts").addEventListener("click", aiAskFonts);
-    $("#ai-layout").addEventListener("click", aiAskLayout);
-    $("#ai-apply").addEventListener("click", aiApply);
-    $("#ai-discard").addEventListener("click", function () {
-      aiPending = null;
-      $("#ai-result").hidden = true;
-      aiStatus("Discarded.");
     });
   }
 
