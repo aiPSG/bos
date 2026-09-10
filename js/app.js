@@ -502,6 +502,8 @@
       // a made background: which kind is switched on, and the module each kind is set to
       bgGen: { tab: "pattern", on: "", pattern: "grid", gradient: "linear", params: {}, zoom: null },
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
+      // what to ask Claude, and where — the key is never part of the design
+      ai: { model: "claude-opus-5", endpoint: "", brief: "" },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
       margin: { mode: "manual", factor: 1, linked: true, locked: true,
@@ -685,6 +687,9 @@
       if (!s.solids.length && s.rect && s.rect.placed) s.solids = [s.rect];
       s.solids = s.solids.map(function (r) { return normaliseSolid(r, d); });
       s.rect = normaliseSolid(s.rect, d);
+      if (!s.ai || typeof s.ai !== "object") s.ai = clone(d.ai);
+      else s.ai = Object.assign(clone(d.ai), s.ai);
+      delete s.ai.key;                       // no key was ever stored; make sure of it
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -1687,8 +1692,8 @@
 
   var FALLBACK = 'ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
 
-  function familyStack() {
-    var id = state.type.family || "sans";
+  function familyStack(which) {
+    var id = which || state.type.family || "sans";
     if (id.indexOf("g:") === 0 || id.indexOf("u:") === 0) {
       return '"' + id.slice(2).replace(/"/g, "") + '",' + FALLBACK;
     }
@@ -1696,8 +1701,25 @@
     return (f || FAMILIES[0]).stack;
   }
 
-  function familyLabel() {
-    var id = state.type.family || "sans";
+  /* A role runs in the design's family unless it holds one of its own — which is
+     what a pairing is: one family for the headings, another for the text. */
+  function roleFamilyId(role) {
+    var r = state.type.roles[role];
+    return (r && r.family) || state.type.family || "sans";
+  }
+  function roleStack(role) { return familyStack(roleFamilyId(role)); }
+  // every family the design uses, the shared one first
+  function familiesInUse() {
+    var out = [state.type.family || "sans"];
+    ROLES.forEach(function (r) {
+      var id = roleFamilyId(r);
+      if (out.indexOf(id) < 0) out.push(id);
+    });
+    return out;
+  }
+
+  function familyLabel(which) {
+    var id = which || state.type.family || "sans";
     if (id.indexOf("g:") === 0) return id.slice(2) + " (Google)";
     if (id.indexOf("u:") === 0) return id.slice(2) + " (uploaded)";
     var f = FAMILIES.filter(function (x) { return x.id === id; })[0];
@@ -2028,6 +2050,7 @@
            right edge less the side padding inside one. */
         whiteSpace: "pre-wrap",
         fontSize: rolePx(b.role) * s + "px",
+        fontFamily: roleStack(b.role),
         fontWeight: st.weight,
         lineHeight: roleLh(b.role),
         letterSpacing: st.ls + "em",
@@ -2916,6 +2939,232 @@
     els.readout.textContent = parts.join("   ·   ");
   }
 
+  /* ------------------------------------------------------- design tokens */
+
+  /* The design as a W3C / DTCG token file. The format holds values, not rules —
+     there is no arithmetic in it and no notion of a format — so the export says
+     the same thing three ways: the relationships in rem off the paragraph size
+     (which is what the scale already is), the anchor resolved per format in px,
+     and the rules themselves under $extensions, where the spec puts what it does
+     not model. A tool that only reads $value gets a working system; bos reading
+     its own extensions gets the design back. */
+  var TOKEN_NS = "com.cluster4000.bos";
+  var TOKEN_SLUG = function (v) {
+    return String(v).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "x";
+  };
+
+  function tokenAnchor() { return Math.max(0.0001, paraPx()); }
+  // every length is a share of the paragraph size, so one number per format resolves them all
+  function remOf(px, anchor) { return round(px / (anchor || tokenAnchor()), 4) + "rem"; }
+  function pxOf(v) { return round(v, 2) + "px"; }
+  function tok(value, note) {
+    var t = { $value: value };
+    if (note) t.$description = note;
+    return t;
+  }
+
+  // the formats the work runs in — or the one on the stage, when none were added
+  function tokenFormats() {
+    if (state.pages.length) {
+      return state.pages.map(function (pg, i) { return { i: i, name: pg.name, w: pg.w, h: pg.h, master: !!pg.master, links: pg.links }; });
+    }
+    var f = formatById(state.stage.preset);
+    return [{ i: -1, name: f ? f.name : "Format " + fmt(state.stage.w) + " × " + fmt(state.stage.h),
+      w: state.stage.w, h: state.stage.h, master: true, links: {} }];
+  }
+
+  function tokensJSON() {
+    var anchor = tokenAnchor(), m = margins(), c = content(), ty = state.type;
+    var sw = schemeSwatches(), out = {};
+
+    out.$description = "Design tokens for this system, in the W3C Design Tokens (DTCG) format. " +
+      "Lengths are held in rem off the paragraph size — 1rem is the anchor — so one number per " +
+      "format resolves the whole system. The anchor is under format.<name>.anchor, and the rules " +
+      "that produced these values are under $extensions." + " Exported by bos.";
+
+    // ---- colour
+    var colour = { $type: "color", scheme: {}, role: {} };
+    sw.forEach(function (hex, i) { colour.scheme[i + 1] = tok(hex, i === 0 ? "The colour the scheme is worked out from" : null); });
+    ROLES.forEach(function (r) { colour.role[TOKEN_SLUG(r)] = tok(ty.roles[r].color); });
+    colour.page = tok(state.stage.bg, "The ground the system sits on");
+    colour.guide = tok(guideColour(), "Margin guides and grids — read off the background");
+    if (state.solids.length) {
+      colour.solid = {};
+      state.solids.forEach(function (r, i) { colour.solid[i + 1] = tok(r.fill); });
+    }
+    out.colour = colour;
+
+    // ---- the scale: the multiples are the system, the sizes follow from the anchor
+    var scale = { $type: "number" };
+    ROLES.forEach(function (r) {
+      scale[TOKEN_SLUG(r)] = tok(r === "paragraph" ? 1 : round(ty.roles[r].mult, 4),
+        r === "paragraph" ? "The anchor of the scale" : "× the paragraph size");
+    });
+    out.scale = scale;
+
+    // ---- typography, one composite per role
+    var type = { $type: "typography" };
+    ROLES.forEach(function (r) {
+      var st = ty.roles[r], mult = r === "paragraph" ? 1 : st.mult;
+      type[TOKEN_SLUG(r)] = tok({
+        fontFamily: roleStack(r).split(",").map(function (x) { return x.trim().replace(/^"|"$/g, ""); }),
+        fontSize: remOf(rolePx(r), anchor),
+        fontWeight: st.weight,
+        // tracking is in em of its own size, and its own size is mult × the anchor
+        letterSpacing: round(st.ls * mult, 4) + "rem",
+        lineHeight: round(roleLh(r), 4)
+      }, st.transform !== "none" ? "Set in " + st.transform : null);
+    });
+    out.type = type;
+
+    // ---- the space the system is built on
+    var space = { $type: "dimension", margin: {} };
+    SIDES.forEach(function (side) { space.margin[side] = tok(remOf(m[side], anchor)); });
+    space.row = tok(remOf(baseline(), anchor), "Baseline grid 1 — one row");
+    space["row-half"] = tok(remOf(baseline() / 2, anchor), "Baseline grid 2");
+    space.column = tok(remOf(colWidth(), anchor), "One of " + colCount() + " columns");
+    space.gutter = tok(remOf(state.cols.gutter, anchor));
+    space["text-inset"] = tok(remOf(state.text.padding, anchor), "The side padding text runs in");
+    out.space = space;
+
+    var grid = { $type: "number", columns: tok(colCount()), rows: tok(gridRows(), "Rows of grid 1 between the margins") };
+    if (state.solids.length) grid["solid-columns"] = tok(Math.max(1, Math.round(state.rect.columns.n)));
+    out.grid = grid;
+
+    if (state.solids.length) {
+      var radius = { $type: "dimension" };
+      CORNERS.forEach(function (n) { radius[TOKEN_SLUG(CORNER_LABELS[n])] = tok(remOf(cornerPx(n, "x"), anchor)); });
+      out.radius = radius;
+      out.size = { $type: "dimension",
+        solid: { width: tok(remOf(sizeOf("rect").w, anchor)), height: tok(remOf(sizeOf("rect").h, anchor)) } };
+    }
+
+    /* ---- the formats, resolved. Everything above is relative; this is where the
+       pixels are, one anchor per format, plus the margins for a format that keeps
+       its own. Print has no viewport to work them out from. */
+    var formats = {};
+    tokenFormats().forEach(function (f) {
+      var one = { $type: "dimension", width: tok(pxOf(f.w)), height: tok(pxOf(f.h)) };
+      var paint = function (fn) { return f.i < 0 ? withFormat(f.w, f.h, fn) : withPage(f.i, fn); };
+      paint(function () {
+        one.anchor = tok(pxOf(paraPx()), "1rem on this format — " + paraRule());
+        var mm = margins();
+        one.margin = {};
+        SIDES.forEach(function (side) { one.margin[side] = tok(pxOf(mm[side])); });
+        one.row = tok(pxOf(baseline()));
+      });
+      one.$extensions = {};
+      one.$extensions[TOKEN_NS] = { master: f.master, links: f.links || {} };
+      formats[TOKEN_SLUG(f.name)] = one;
+    });
+    out.format = formats;
+
+    // ---- and the rules, which the format does not model
+    var ext = {
+      version: 1,
+      app: "bos",
+      anchor: { basis: ty.basis, percent: paraByHand() ? null : ty.paragraph, px: paraByHand() ? ty.paragraph : null,
+        rule: paraRule() },
+      css: {
+        root: ":root { " + tokenAnchorCSS(false) + " }",
+        perBox: ".format { container-type: size; " + tokenAnchorCSS(true) + " }",
+        note: "rem is root-relative, so the rem tokens resolve against the :root form — " +
+          "one format per document. For several formats in one document the per-box form " +
+          "hands descendants --u and every size is calc(var(--u) * <scale token>)."
+      },
+      baseline: { rows: ty.rows, from: ty.gridFrom, show: ty.grid },
+      margin: clone(state.margin),
+      columns: { format: clone(state.cols), solid: state.solids.map(function (r) { return clone(r.columns); }) },
+      scheme: clone(state.scheme),
+      solids: state.solids.map(function (r, i) {
+        return { pos: clone(r.pos), anchor: clone(r.anchor), wmode: r.wmode, hmode: r.hmode,
+          w: r.w, h: r.h, grid: r.grid, cols: r.cols, shape: r.shape, content: r.content,
+          module: r.module, fill: r.fill, params: clone(r.params || {}) };
+      }),
+      blocks: state.text.blocks.map(function (b) {
+        return { role: b.role, row: b.row, from: b.from, grid: b.grid, cols: b.cols,
+          align: b.align, padL: b.padL, padR: b.padR, text: b.text };
+      }),
+      background: { on: state.bgGen.on, pattern: state.bgGen.pattern, gradient: state.bgGen.gradient,
+        params: clone(state.bgGen.params) },
+      logo: { visible: state.logo.visible, h: clone(state.logo.h), align: clone(state.logo.align),
+        anchor: clone(state.logo.anchor), fill: state.logo.fill },
+      families: { shared: ty.family, roles: ROLES.reduce(function (a, r) {
+        if (ty.roles[r].family) a[r] = ty.roles[r].family;
+        return a;
+      }, {}) }
+    };
+    out.$extensions = {};
+    out.$extensions[TOKEN_NS] = ext;
+    return JSON.stringify(out, null, 2);
+  }
+
+  /* The anchor, computed rather than regenerated — measured in the browser, since
+     two things about it are easy to get wrong. rem is root-relative, so an anchor
+     on the format box does not move it: to work in rem the anchor goes on :root,
+     which means one format per document. And a container cannot query itself, so
+     the per-box form hands descendants a custom property instead of a font size.
+     Both are emitted: the first for a page that is one format, the second for
+     several formats on one page — a preview rail, a contact sheet. */
+  function tokenAnchorCSS(perBox) {
+    var basis = state.type.basis, v = round(state.type.paragraph, 4);
+    if (basis === "px") {
+      var px = round(v, 2) + "px";
+      return perBox ? "--u: " + px : "font-size: " + px;
+    }
+    var unit = perBox
+      ? (basis === "width" ? "cqw" : basis === "height" ? "cqh" : "cqmax")
+      : (basis === "width" ? "vw" : basis === "height" ? "vh" : "vmax");
+    var calc = "calc(" + v + " * 1" + unit + ")";
+    return perBox ? "--u: " + calc : "font-size: " + calc;
+  }
+
+  function tokensCSS() {
+    var anchor = tokenAnchor(), m = margins(), ty = state.type, sw = schemeSwatches();
+    var lines = ["/* The design as custom properties, with the anchor computed rather than",
+      "   written down — so the system holds in a format of any size.",
+      "",
+      "   One format per document: the anchor goes on the root, because rem is",
+      "   root-relative, and every size below is in rem. */",
+      ":root { " + tokenAnchorCSS(false) + " }   /* 1rem — " + paraRule() + " */",
+      "",
+      "/* Several formats in one document — a preview rail, a contact sheet — cannot",
+      "   share a root anchor, and a container cannot query itself: the box hands its",
+      "   descendants --u instead, and each size is calc(var(--u) * its scale). */",
+      ".format { container-type: size; " + tokenAnchorCSS(true) + " }",
+      "",
+      ".format {"];
+    sw.forEach(function (hex, i) { lines.push("  --colour-" + (i + 1) + ": " + hex + ";"); });
+    lines.push("  --colour-page: " + state.stage.bg + ";");
+    ROLES.forEach(function (r) { lines.push("  --colour-" + TOKEN_SLUG(r) + ": " + ty.roles[r].color + ";"); });
+    SIDES.forEach(function (side) { lines.push("  --margin-" + side + ": " + remOf(m[side], anchor) + ";"); });
+    lines.push("  --row: " + remOf(baseline(), anchor) + ";");
+    lines.push("  --row-half: " + remOf(baseline() / 2, anchor) + ";");
+    lines.push("  --column: " + remOf(colWidth(), anchor) + ";");
+    lines.push("  --gutter: " + remOf(state.cols.gutter, anchor) + ";");
+    ROLES.forEach(function (r) {
+      var mult = r === "paragraph" ? 1 : round(ty.roles[r].mult, 4);
+      // in rem under a root anchor, or off --u where the box is the anchor
+      lines.push("  --size-" + TOKEN_SLUG(r) + ": " + remOf(rolePx(r), anchor) +
+        ";   /* or calc(var(--u) * " + mult + ") */");
+    });
+    lines.push("}");
+    lines.push("");
+    ROLES.forEach(function (r) {
+      var st = ty.roles[r], mult = r === "paragraph" ? 1 : st.mult;
+      lines.push("." + TOKEN_SLUG(r) + " {");
+      lines.push("  font-family: " + roleStack(r) + ";");
+      lines.push("  font-size: var(--size-" + TOKEN_SLUG(r) + ");");
+      lines.push("  font-weight: " + st.weight + ";");
+      lines.push("  line-height: " + round(roleLh(r), 4) + ";");
+      lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
+      if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
+      lines.push("  color: var(--colour-" + TOKEN_SLUG(r) + ");");
+      lines.push("}");
+    });
+    return lines.join("\n");
+  }
+
   /* ------------------------------------------------------------ CSS output */
 
   function positionCSS(name, indent) {
@@ -3031,13 +3280,14 @@
     var t = state.text, used = t.blocks.filter(function (b) { return b.text.trim(); });
     if (used.length) {
       lines.push("");
-      if (state.type.family.indexOf("g:") === 0) {
-        var gname = state.type.family.slice(2);
-        lines.push("@import url(\"https://fonts.googleapis.com/css2?family=" +
-          gname.replace(/ /g, "+") + ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400&display=swap\");");
-      } else if (state.type.family.indexOf("u:") === 0) {
-        lines.push("/* @font-face for \"" + state.type.family.slice(2) + "\" — ship the uploaded file yourself */");
-      }
+      familiesInUse().forEach(function (id) {
+        if (id.indexOf("g:") === 0) {
+          lines.push("@import url(\"https://fonts.googleapis.com/css2?family=" +
+            id.slice(2).replace(/ /g, "+") + ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400&display=swap\");");
+        } else if (id.indexOf("u:") === 0) {
+          lines.push("/* @font-face for \"" + id.slice(2) + "\" — ship the uploaded file yourself */");
+        }
+      });
       var TX = ".stage .text";
       lines.push(TX + " {");
       lines.push("  position: absolute;");
@@ -3135,6 +3385,17 @@
     }
     if (state.logo.visible) inner.push('  <div class="logo"></div>');
     $("#markup-out").textContent = out.concat(inner, ["</div>"]).join("\n");
+    renderTokens();
+  }
+
+  function renderTokens() {
+    var json = tokensJSON();
+    $("#tokens-out").textContent = json;
+    $("#tokens-css").textContent = tokensCSS();
+    var fs = tokenFormats();
+    $("#tokens-hint").textContent = "W3C / DTCG format · " + fmt(json.length / 1024) + " kB · " +
+      fs.length + (fs.length === 1 ? " format" : " formats") + " · 1rem = " +
+      round(tokenAnchor(), 2) + " px on this one.";
   }
 
   var shorthandTyping = false;
@@ -3684,6 +3945,10 @@
     setValue($("#cf-key"), comfyKey);
     setValue($("#cf-workflow"), state.comfy.workflow);
     setValue($("#cf-prompt"), state.comfy.prompt);
+    setValue($("#ai-endpoint"), state.ai.endpoint);
+    setValue($("#ai-brief"), state.ai.brief);
+    $("#ai-model").value = state.ai.model;
+    if ($("#ai-model").selectedIndex < 0) $("#ai-model").selectedIndex = 0;
     setValue($("#cf-negative"), state.comfy.negative);
     setValue($("#cf-seed"), state.comfy.seed);
     $("#cf-remember").checked = state.comfy.remember;
@@ -4206,6 +4471,18 @@
     };
     copier("#copy-css", "#css-out", "Copy CSS");
     copier("#copy-markup", "#markup-out", "Copy markup");
+    copier("#copy-tokens", "#tokens-out", "Copy tokens");
+    copier("#copy-tokens-css", "#tokens-css", "Copy token CSS");
+    $("#save-tokens").addEventListener("click", function () {
+      var blob = new Blob([tokensJSON()], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tokens.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    });
     $("#reset").addEventListener("click", function () {
       state = defaults();
       frameFor = null;
@@ -5194,7 +5471,7 @@
       var snapName = (SNAPS.filter(function (x) { return x.id === st.snap; })[0] || {}).name || st.snap;
       return '<div class="spec">' +
         '<div class="spec-head"><span class="spec-name">' + esc(ROLE_NAMES[r]) + "</span>" +
-        '<span class="spec-meta">' + esc(familyLabel()) + " " + esc(weightName(st.weight)) +
+        '<span class="spec-meta">' + esc(familyLabel(roleFamilyId(r))) + " " + esc(weightName(st.weight)) +
         (st.transform !== "none" ? ", " + esc(st.transform) : "") +
         " · &lt;" + esc(st.tag) + "&gt; · " + round(px, 2) + " px = " +
         (r === "paragraph"
@@ -5204,7 +5481,7 @@
         (steps ? ", " + steps + " × grid " + (st.snap === "half" ? "2" : "1") : "") + ")" +
         " · tracking " + round(st.ls, 3) + "em · " + st.color.toUpperCase() +
         " · " + esc(snapName) + "</span></div>" +
-        '<div class="spec-line" style="font-family:' + esc(familyStack()) + ";font-size:" + round(px * k, 2) +
+        '<div class="spec-line" style="font-family:' + esc(roleStack(r)) + ";font-size:" + round(px * k, 2) +
         "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight + ";letter-spacing:" +
         round(st.ls, 3) + "em;text-transform:" + st.transform + ';color:#14171c">' +
         esc(blindText(SPECIMEN_WORDS[r] || 6)) + "</div></div>";
@@ -5234,7 +5511,12 @@
           " px between the top and bottom margins") + "</dd>" +
       "<dt>Grid 2</dt><dd>" + round(baseline() / 2, 3) + " px</dd>" +
       "<dt>Leading</dt><dd>every role snaps to a whole number of rows, and every baseline sits on a line</dd>" +
-      "<dt>Family</dt><dd>" + esc(familyStack()) + "</dd>" +
+      "<dt>Family</dt><dd>" + esc(familyStack()) +
+        (ROLES.some(function (r) { return state.type.roles[r].family; })
+          ? "; " + ROLES.filter(function (r) { return state.type.roles[r].family; }).map(function (r) {
+              return ROLE_NAMES[r].toLowerCase() + " in " + familyLabel(roleFamilyId(r));
+            }).join(", ")
+          : "") + "</dd>" +
       "</dl></div></div>" + sheetFoot("Typography");
   }
 
@@ -5582,6 +5864,551 @@
     });
   }
 
+  /* ------------------------------------------------------------- ask Claude */
+
+  /* The design system can be asked for three things: a colour scheme, a font
+     pairing, a layout for the format that is open. Claude answers in the app's own
+     vocabulary — the settings a designer would have set by hand — so the answer is
+     applied through the same state the panel writes to. It lands on the baseline
+     grid and the columns by construction, it cannot express a value the app does
+     not have, and one undo takes it all back.
+
+     The key is never in the repository and never in this browser's storage. It is
+     read from a key.txt handed to the page: Chromium remembers the file itself
+     (not its contents), so later visits are one click; served locally, a key.txt
+     sitting beside index.html is read directly. */
+
+  var AI_MODELS = [
+    ["claude-opus-5", "Claude Opus 5 — the default"],
+    ["claude-sonnet-5", "Claude Sonnet 5 — cheaper"],
+    ["claude-haiku-4-5", "Claude Haiku 4.5 — cheapest"]
+  ];
+  var AI_ENDPOINT = "https://api.anthropic.com/v1/messages";
+  var AI_DB = "bos.keyfile", AI_STORE = "handles", AI_HANDLE = "key.txt";
+  var AI_LOCAL_FLAG = "bos.keyfile.local";     // not a secret: whether to look beside the app
+  var aiKey = "", aiFrom = "", aiHandle = null, aiBusy = false, aiPending = null;
+
+  function aiStatus(msg, kind) {
+    var el = $("#ai-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+  function aiKeyStatus(msg, kind) {
+    var el = $("#ai-key-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  // the first whitespace-delimited token of the file, so a trailing newline is fine
+  function aiTakeKey(text, from) {
+    var k = String(text || "").trim().split(/\s+/)[0] || "";
+    if (!/^sk-ant-/.test(k)) {
+      aiKeyStatus("That file does not hold an Anthropic key — they start with sk-ant-.", "err");
+      return false;
+    }
+    aiKey = k;
+    aiFrom = from;
+    aiKeyStatus("Key read from " + from + " — " + k.slice(0, 11) + "… It is held for this page only, " +
+      "never stored and never sent anywhere but the endpoint above.", "ok");
+    return true;
+  }
+
+  /* The file handle — not the key — is remembered, so nothing secret is written to
+     this browser. A handle needs its permission asked again after a reload, which
+     is why reconnecting is a click rather than nothing. */
+  function aiIdb(mode, run) {
+    return new Promise(function (resolve) {
+      if (!window.indexedDB) return resolve(null);
+      var req;
+      try { req = indexedDB.open(AI_DB, 1); } catch (e) { return resolve(null); }
+      req.onupgradeneeded = function () {
+        try { req.result.createObjectStore(AI_STORE); } catch (e) {}
+      };
+      req.onerror = function () { resolve(null); };
+      req.onsuccess = function () {
+        var db = req.result, out = null;
+        try {
+          var tx = db.transaction(AI_STORE, mode);
+          out = run(tx.objectStore(AI_STORE));
+          tx.oncomplete = function () { db.close(); resolve(out ? out.result : null); };
+          tx.onerror = function () { db.close(); resolve(null); };
+        } catch (e) { resolve(null); }
+      };
+    });
+  }
+  function aiRemember(handle) {
+    return aiIdb("readwrite", function (st) { return st.put(handle, AI_HANDLE); });
+  }
+  function aiRecall() {
+    return aiIdb("readonly", function (st) { return st.get(AI_HANDLE); });
+  }
+  function aiForgetHandle() {
+    return aiIdb("readwrite", function (st) { return st.delete(AI_HANDLE); });
+  }
+
+  function aiReadHandle(handle, ask) {
+    if (!handle || !handle.getFile) return Promise.resolve(false);
+    var perm = handle.queryPermission
+      ? handle.queryPermission({ mode: "read" })
+      : Promise.resolve("granted");
+    return Promise.resolve(perm).then(function (state1) {
+      if (state1 === "granted") return "granted";
+      if (!ask || !handle.requestPermission) return state1;
+      return handle.requestPermission({ mode: "read" });
+    }).then(function (state2) {
+      if (state2 !== "granted") return false;
+      return handle.getFile().then(function (f) { return f.text(); }).then(function (text) {
+        aiHandle = handle;
+        return aiTakeKey(text, handle.name || "key.txt");
+      });
+    }).catch(function () { return false; });
+  }
+
+  /* A key.txt sitting beside index.html, for running the app locally. Asked for
+     only where it could exist, and only once you have said it is there — a page
+     that goes looking for a file nobody put there just logs a 404 at everyone. */
+  function aiLocalPossible() {
+    return location.protocol === "file:" ||
+      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  }
+  function aiLocalWanted() {
+    try { return localStorage.getItem(AI_LOCAL_FLAG) === "1"; } catch (e) { return false; }
+  }
+  function aiTryLocalFile(asked) {
+    if (aiKey || !aiLocalPossible() || (!asked && !aiLocalWanted())) return Promise.resolve(false);
+    return fetch("key.txt", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("There is no key.txt beside index.html (HTTP " + r.status + ").");
+      return r.text().then(function (text) {
+        if (!/^\s*sk-ant-/.test(text)) throw new Error("The key.txt beside the app does not hold a key.");
+        var ok = aiTakeKey(text, "key.txt beside the app");
+        if (ok) { try { localStorage.setItem(AI_LOCAL_FLAG, "1"); } catch (e) {} }
+        return ok;
+      });
+    }).catch(function (err) {
+      if (asked) aiKeyStatus(String(err.message || err), "err");
+      return false;
+    });
+  }
+
+  function aiPickFile() {
+    if (window.showOpenFilePicker) {
+      window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: "The key, on its own line", accept: { "text/plain": [".txt"] } }]
+      }).then(function (handles) {
+        var h = handles && handles[0];
+        return aiReadHandle(h, true).then(function (ok) {
+          if (ok) return aiRemember(h);
+        });
+      }).catch(function () {});
+      return;
+    }
+    $("#ai-file").click();       // no file handles here: this session only
+  }
+
+  function aiBoot() {
+    $("#ai-model").innerHTML = AI_MODELS.map(function (m) {
+      return '<option value="' + m[0] + '">' + esc(m[1]) + "</option>";
+    }).join("");
+    $("#ai-warning").textContent =
+      "The key is read from a file you choose and held for this page only — it is never written to " +
+      "this browser's storage, never committed, and sent to nothing but the endpoint below. Keep a " +
+      "key just for bos, with a spend limit on it, so it can be revoked on its own.";
+    $("#ai-local").hidden = !aiLocalPossible();
+    aiKeyStatus("No key yet. Put it in a text file on its own line and choose it above." +
+      (aiLocalPossible() ? " Running locally, a key.txt beside index.html can be read straight off." : ""));
+    aiTryLocalFile(false).then(function (got) {
+      if (got) return;
+      return aiRecall().then(function (h) {
+        if (!h) return;
+        aiHandle = h;
+        return aiReadHandle(h, false).then(function (ok) {
+          if (!ok) {
+            aiKeyStatus("A key file is remembered (" + (h.name || "key.txt") +
+              "). Choose it again to let this page read it — the browser asks once per visit.");
+          }
+        });
+      });
+    });
+  }
+
+  /* ---- the transport. One request, one JSON answer, shaped by a schema so what
+     comes back is the app's settings rather than prose about them. */
+  function aiModelOpts(model) {
+    // thinking and effort are on the models that take them; Haiku takes neither
+    return model.indexOf("haiku") >= 0 ? {} : { thinking: { type: "adaptive" }, effort: "medium" };
+  }
+
+  function aiAsk(kind, label, schema, system, user) {
+    if (aiBusy) return;
+    if (!aiKey && !state.ai.endpoint) {
+      return aiStatus("No key yet — choose your key.txt above, or point the endpoint at a proxy that holds one.", "err");
+    }
+    var model = state.ai.model || AI_MODELS[0][0];
+    var body = {
+      model: model,
+      max_tokens: 8000,
+      system: system,
+      messages: [{ role: "user", content: user }],
+      output_config: { format: { type: "json_schema", schema: schema } }
+    };
+    var opt = aiModelOpts(model);
+    if (opt.thinking) body.thinking = opt.thinking;
+    if (opt.effort) body.output_config.effort = opt.effort;
+
+    var headers = { "content-type": "application/json", "anthropic-version": "2023-06-01" };
+    if (aiKey) {
+      headers["x-api-key"] = aiKey;
+      /* The API refuses a call straight from a page unless it says so. The key is
+         exposed to whatever runs here either way — which is the whole reason it
+         lives in a file you hand over rather than in the repository. */
+      headers["anthropic-dangerous-direct-browser-access"] = "true";
+    }
+
+    aiBusy = true;
+    aiSetBusy(true, label);
+    aiPending = null;
+    $("#ai-result").hidden = true;
+    aiStatus("Asking " + model + "…");
+    fetchTimeout(state.ai.endpoint || AI_ENDPOINT, {
+      method: "POST", headers: headers, body: JSON.stringify(body)
+    }, 180000).then(aiRead).then(function (data) {
+      if (data.stop_reason === "refusal") throw new Error("Claude declined this one. Try a different brief.");
+      if (data.stop_reason === "max_tokens") throw new Error("The answer ran past its length. Ask for less.");
+      var text = (data.content || []).filter(function (b) { return b.type === "text"; })
+        .map(function (b) { return b.text; }).join("");
+      if (!text) throw new Error("Nothing came back to read.");
+      var parsed;
+      try { parsed = JSON.parse(text); }
+      catch (e) { throw new Error("The answer was not the JSON the schema asked for: " + text.slice(0, 160)); }
+      aiPending = { kind: kind, value: parsed };
+      $("#ai-result").hidden = false;
+      $("#ai-json").textContent = JSON.stringify(parsed, null, 2);
+      $("#ai-note").textContent = (parsed.note ? parsed.note + " " : "") + aiCost(data.usage, model);
+      aiStatus("Read it over, then Apply. Undo takes it back either way.", "ok");
+    }).catch(function (err) {
+      aiStatus(aiExplain(err), "err");
+    }).then(function () {
+      aiBusy = false;
+      aiSetBusy(false);
+      render();
+    });
+  }
+
+  // the API says what went wrong in the body, whatever the status
+  function aiRead(res) {
+    return res.text().then(function (text) {
+      var data = null;
+      try { data = JSON.parse(text); } catch (e) {}
+      var said = data && data.error && (data.error.message || data.error.type);
+      if (!res.ok) throw new Error("HTTP " + res.status + " — " + (said || text.slice(0, 200)));
+      if (!data) throw new Error("The response was not JSON: " + text.slice(0, 200));
+      if (said) throw new Error(said);
+      return data;
+    });
+  }
+
+  function aiSetBusy(on, label) {
+    ["#ai-scheme", "#ai-fonts", "#ai-layout"].forEach(function (id) { $(id).disabled = on; });
+    if (on && label) aiStatus("Asking for " + label + "…");
+  }
+
+  function aiCost(u, model) {
+    if (!u) return "";
+    var rates = { "claude-opus-5": [5, 25], "claude-sonnet-5": [2, 10], "claude-haiku-4-5": [1, 5] };
+    var r = rates[model] || rates["claude-opus-5"];
+    var inTok = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+    var usd = inTok / 1e6 * r[0] + (u.output_tokens || 0) / 1e6 * r[1];
+    return "(" + inTok + " in / " + (u.output_tokens || 0) + " out — about $" +
+      (usd < 0.01 ? usd.toFixed(4) : usd.toFixed(3)) + ")";
+  }
+
+  function aiExplain(err) {
+    var msg = String((err && err.message) || err);
+    if (/Failed to fetch|NetworkError|CORS/i.test(msg)) {
+      return "The browser could not reach the endpoint. Either the network is blocking it, or the " +
+        "API is refusing a call straight from a page — in which case run it through a proxy of your own " +
+        "and put that URL in Endpoint.";
+    }
+    if (/HTTP 401/.test(msg)) return "The key was refused (401). Check the file holds the whole key.";
+    if (/HTTP 400/.test(msg)) return "The request was rejected (400): " + msg;
+    if (/HTTP 429/.test(msg)) return "Rate limited (429). Wait a moment and ask again.";
+    return msg;
+  }
+
+  // what every question carries: the system, in the format the app exports
+  function aiBrief() { return String(state.ai.brief || "").trim(); }
+  function aiSystemText() {
+    return "You are working inside bos, a design-system app, as the designer's hand on its own " +
+      "controls. You are given the design system as W3C design tokens, with the app's own rules " +
+      "under $extensions. Answer only with settings the app has — the JSON schema is exactly its " +
+      "vocabulary, and every value you give will be applied to the live design. Never invent a " +
+      "field, never answer in prose. Reasons belong in the one 'note' field, in one sentence.";
+  }
+  function aiTokenPayload() {
+    return "The design system as it stands:\n\n" + tokensJSON();
+  }
+
+  /* ---- a colour scheme, given as the controls the colour stage has: one colour,
+     a relationship, how many swatches, and where each one goes. */
+  function aiSchemeSchema() {
+    var idx = [];
+    for (var i = 1; i <= 12; i++) idx.push(i);
+    var swatch = { type: "integer", enum: idx };
+    var places = ["page", "display", "headline", "subline", "paragraph", "smallprint", "solid"];
+    var assign = { type: "object", properties: {}, required: places.slice(), additionalProperties: false };
+    places.forEach(function (k) { assign.properties[k] = swatch; });
+    return {
+      type: "object",
+      properties: {
+        base: { type: "string", description: "The colour it is worked out from, as #rrggbb" },
+        technique: { type: "string", enum: TECHNIQUES.map(function (t) { return t.id; }) },
+        count: { type: "integer", enum: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+        spread: { type: "integer", enum: [10, 15, 20, 25, 30, 40, 50, 60, 75, 90],
+          description: "The angle between neighbouring hues — only used by analogous and split" },
+        assign: assign,
+        note: { type: "string" }
+      },
+      required: ["base", "technique", "count", "spread", "assign", "note"],
+      additionalProperties: false
+    };
+  }
+  function aiAskScheme() {
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+      "\n\nWork out a colour scheme for it. The app builds a scheme from one colour and one " +
+      "relationship between hues, so give those rather than a list of colours: the techniques are " +
+      TECHNIQUES.map(function (t) { return t.id; }).join(", ") + ". The first pass of swatches is the " +
+      "hues themselves and each pass after it steps the lightness, so a count of 6 on a two-hue " +
+      "technique is two hues, a lighter pair, a darker pair. Then place them: 'assign' names which " +
+      "swatch number goes to the page ground, to each of the five type roles, and to the solid. " +
+      "Type must clear 4.5:1 against the page it sits on, and the display role at least 3:1.";
+    aiAsk("scheme", "a colour scheme", aiSchemeSchema(), aiSystemText(), user);
+  }
+  function aiApplyScheme(v) {
+    state.scheme = {
+      base: /^#[0-9a-f]{6}$/i.test(v.base) ? v.base : state.scheme.base,
+      technique: TECHNIQUES.some(function (t) { return t.id === v.technique; }) ? v.technique : state.scheme.technique,
+      count: clamp(Math.round(v.count) || 6, 3, 12),
+      spread: clamp(Math.round(v.spread) || 30, 5, 90)
+    };
+    var sw = schemeSwatches(), pick = function (n) { return sw[clamp(Math.round(n) - 1, 0, sw.length - 1)]; };
+    var a = v.assign || {};
+    if (a.page) state.stage.bg = pick(a.page);
+    ROLES.forEach(function (r) { if (a[r]) state.type.roles[r].color = pick(a[r]); });
+    if (a.solid) state.solids.forEach(function (r) { if (r.content === "fill") r.fill = pick(a.solid); });
+    return "Scheme applied: " + v.technique + " from " + state.scheme.base + ".";
+  }
+
+  /* ---- a font pairing, from the families the app can actually load */
+  function aiFontsSchema() {
+    var weights = { type: "object", properties: {}, required: ROLES.slice(), additionalProperties: false };
+    ROLES.forEach(function (r) {
+      weights.properties[r] = { type: "integer", enum: [300, 400, 500, 600, 700, 900] };
+    });
+    return {
+      type: "object",
+      properties: {
+        heading: { type: "string", description: "Family for display, headline and subline — exactly as listed" },
+        body: { type: "string", description: "Family for paragraph and small print — exactly as listed" },
+        weights: weights,
+        note: { type: "string" }
+      },
+      required: ["heading", "body", "weights", "note"],
+      additionalProperties: false
+    };
+  }
+  function aiAskFonts() {
+    var all = gfList();
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+      "\n\nSuggest a pairing: one family for the headings (display, headline, subline) and one for the " +
+      "text (paragraph, small print) — they may be the same family if that is the better answer — and a " +
+      "weight for each of the five roles. Both names must be copied exactly from this list of Google " +
+      "families, which is all the app can load:\n\n" + all.join(", ");
+    aiAsk("fonts", "a font pairing", aiFontsSchema(), aiSystemText(), user);
+  }
+  function aiApplyFonts(v) {
+    var all = gfList();
+    var find = function (name) {
+      var want = String(name || "").trim().toLowerCase();
+      return all.filter(function (n) { return n.toLowerCase() === want; })[0] || null;
+    };
+    var head = find(v.heading), body = find(v.body);
+    if (!head || !body) {
+      throw new Error("Not in the catalogue: " + [!head && v.heading, !body && v.body].filter(Boolean).join(", ") +
+        ". Load the Google Fonts catalogue, or ask again.");
+    }
+    [head, body].forEach(function (n) {
+      if (state.type.google.indexOf(n) < 0) state.type.google.push(n);
+      loadGoogleFont(n);
+    });
+    state.type.family = "g:" + body;                    // the text is the design's family
+    ["display", "headline", "subline"].forEach(function (r) { state.type.roles[r].family = "g:" + head; });
+    ["paragraph", "smallprint"].forEach(function (r) { delete state.type.roles[r].family; });
+    ROLES.forEach(function (r) {
+      var w = v.weights && v.weights[r];
+      if (w) state.type.roles[r].weight = clamp(Math.round(w), 100, 900);
+    });
+    buildFamilySelect();
+    return head === body ? head + " throughout." : head + " for the headings, " + body + " for the text.";
+  }
+
+  /* ---- a layout: the blocks and the solids, in the app's own terms. Rows, not
+     pixels; column choices, not coordinates. */
+  function aiLayoutSchema() {
+    var block = {
+      type: "object",
+      properties: {
+        role: { type: "string", enum: ROLES.slice() },
+        text: { type: "string" },
+        row: { type: "integer", description: "Which line of its grid it sits on, counted from the margin it is measured from" },
+        from: { type: "string", enum: ["top", "bottom"] },
+        grid: { type: "string", enum: ["1", "2", "both"] },
+        cols: { type: "string", enum: ["auto", "format", "rect"] },
+        align: { type: "string", enum: ["left", "center", "right"] },
+        padL: { type: "integer", description: "Inset from the left of the area it runs in, in px" },
+        padR: { type: "integer" }
+      },
+      required: ["role", "text", "row", "from", "grid", "cols", "align", "padL", "padR"],
+      additionalProperties: false
+    };
+    var solid = {
+      type: "object",
+      properties: {
+        x: { type: "number", description: "Where its anchor point sits across the margin box, 0 at the left margin, 1 at the right" },
+        y: { type: "number", description: "And down: 0 at the top margin, 1 at the bottom" },
+        anchorH: { type: "string", enum: ["left", "center", "right"] },
+        anchorV: { type: "string", enum: ["top", "middle", "bottom"] },
+        wmode: { type: "string", enum: ["fixed", "full", "format", "fit"] },
+        hmode: { type: "string", enum: ["fixed", "full", "format"] },
+        w: { type: "integer" },
+        h: { type: "integer" },
+        content: { type: "string", enum: ["fill", "pattern", "gradient"] },
+        module: { type: "string", description: "When it is a pattern or a gradient, which module: grid, dots, stripes, checker, rings, linear, radial, conic, mesh, bands" },
+        note: { type: "string" }
+      },
+      required: ["x", "y", "anchorH", "anchorV", "wmode", "hmode", "w", "h", "content", "module", "note"],
+      additionalProperties: false
+    };
+    return {
+      type: "object",
+      properties: {
+        solids: { type: "array", items: solid },
+        blocks: { type: "array", items: block },
+        note: { type: "string" }
+      },
+      required: ["solids", "blocks", "note"],
+      additionalProperties: false
+    };
+  }
+  function aiAskLayout() {
+    var st = state.stage, u = baseline();
+    var user = aiTokenPayload() + "\n\nThe brief: " + (aiBrief() || "none given — read the system itself.") +
+      "\n\nLay this format out: " + fmt(st.w) + " × " + fmt(st.h) + ", margins " +
+      SIDES.map(function (side) { return fmt(margins()[side]); }).join(" / ") + ", " + colCount() +
+      " columns, grid 1 is " + round(u, 2) + " px a row and there are " + gridRows() +
+      " rows between the top and bottom margins (grid 2 is the half lines between them, so a block on " +
+      "'both' has " + gridRows() * 2 + " lines to sit on).\n\n" +
+      "Give the text blocks and the solids. A block sits on a line of its grid counted from the top " +
+      "or the bottom margin — that is 'row' and 'from' — and it is the app that turns that into a " +
+      "position, so nothing you give can land off the grid. Write real copy for each block in " +
+      "'text', in the brief's language, as long as the role deserves. Keep it to what the format can " +
+      "hold: a poster is not a paragraph of body text. A solid is a block of colour or a frame of " +
+      "pattern or gradient; give none at all if the layout is better without one.";
+    aiAsk("layout", "a layout", aiLayoutSchema(), aiSystemText(), user);
+  }
+  function aiApplyLayout(v) {
+    var blocks = (v.blocks || []).filter(function (b) { return ROLES.indexOf(b.role) >= 0; });
+    if (!blocks.length && !(v.solids || []).length) throw new Error("The answer held no layout.");
+    var d = defaults();
+    state.solids = (v.solids || []).slice(0, 6).map(function (r) {
+      var one = normaliseSolid({ placed: true }, d);
+      one.pos = { x: num(r.x, 0.5), y: num(r.y, 0.5) };
+      one.anchor = {
+        h: ["left", "center", "right"].indexOf(r.anchorH) >= 0 ? r.anchorH : "center",
+        v: ["top", "middle", "bottom"].indexOf(r.anchorV) >= 0 ? r.anchorV : "middle"
+      };
+      one.wmode = r.wmode || "fixed";
+      one.hmode = r.hmode || "fixed";
+      one.w = Math.max(MIN_SIZE, num(r.w, 520));
+      one.h = Math.max(MIN_SIZE, num(r.h, 360));
+      one.content = r.content === "pattern" || r.content === "gradient" ? r.content : "fill";
+      if (one.content !== "fill") {
+        one.module = bgModule(one.content, r.module).id;
+        one.fill = "#232834";
+      }
+      return one;
+    });
+    useSolid(0);
+    state.text.blocks = blocks.slice(0, 12).map(function (b) {
+      var one = newBlock(b.role);
+      one.text = String(b.text || one.text);
+      one.blind = 0;
+      one.row = Math.max(0, Math.round(num(b.row, one.row)));
+      one.from = b.from === "bottom" ? "bottom" : "top";
+      one.grid = b.grid === "1" ? 1 : b.grid === "2" ? 2 : "both";
+      one.cols = ["auto", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "auto";
+      one.align = ["left", "center", "right"].indexOf(b.align) >= 0 ? b.align : "left";
+      one.padL = Math.max(0, num(b.padL, 0));
+      one.padR = Math.max(0, num(b.padR, 0));
+      return one;
+    });
+    state.selBlock = -1;
+    inspectorFor = -1;
+    var stack = liveStack();
+    if (stack) stack.dataset.sig = "";
+    return state.text.blocks.length + " blocks and " + state.solids.length +
+      (state.solids.length === 1 ? " solid" : " solids") + " placed.";
+  }
+
+  function aiApply() {
+    if (!aiPending) return;
+    var v = aiPending.value, kind = aiPending.kind;
+    try {
+      var said = kind === "scheme" ? aiApplyScheme(v)
+        : kind === "fonts" ? aiApplyFonts(v)
+        : aiApplyLayout(v);
+      aiPending = null;
+      $("#ai-result").hidden = true;
+      aiStatus(said + " ⌘/Ctrl + Z takes it back.", "ok");
+    } catch (err) {
+      aiStatus(String(err.message || err), "err");
+    }
+    render();
+  }
+
+  function bindClaude() {
+    aiBoot();
+    $("#ai-pick").addEventListener("click", aiPickFile);
+    $("#ai-local").addEventListener("click", function () { aiTryLocalFile(true).then(render); });
+    $("#ai-file").addEventListener("change", function (e) {
+      var f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      f.text().then(function (text) { aiTakeKey(text, f.name); });
+    });
+    $("#ai-forget").addEventListener("click", function () {
+      aiKey = ""; aiFrom = ""; aiHandle = null;
+      try { localStorage.removeItem(AI_LOCAL_FLAG); } catch (e) {}
+      aiForgetHandle().then(function () {
+        aiKeyStatus("Forgotten — the key was never stored, and the file is no longer remembered.");
+      });
+    });
+    onChange("#ai-model", function (el) { state.ai.model = el.value; });
+    onInput("#ai-endpoint", function (el) { state.ai.endpoint = el.value.trim(); });
+    onInput("#ai-brief", function (el) { state.ai.brief = el.value; });
+    $("#ai-scheme").addEventListener("click", aiAskScheme);
+    $("#ai-fonts").addEventListener("click", aiAskFonts);
+    $("#ai-layout").addEventListener("click", aiAskLayout);
+    $("#ai-apply").addEventListener("click", aiApply);
+    $("#ai-discard").addEventListener("click", function () {
+      aiPending = null;
+      $("#ai-result").hidden = true;
+      aiStatus("Discarded.");
+    });
+  }
+
   /* ------------------------------------------------------------------ boot */
 
   cacheEls();
@@ -5601,9 +6428,12 @@
   }
   state.type.uploads.forEach(registerUpload);
   state.type.google.forEach(loadGoogleFont);
-  if (state.type.family.indexOf("g:") === 0) loadGoogleFont(state.type.family.slice(2));
+  familiesInUse().forEach(function (id) {
+    if (id.indexOf("g:") === 0) loadGoogleFont(id.slice(2));
+  });
   $("#gf-key").value = gfKey;
   bindPanel();
+  bindClaude();
   bindCanvas();
   render();
 })();

@@ -303,6 +303,53 @@
     </details>
 
     <details class="group">
+      <summary><h2>Ask Claude</h2></summary>
+      <p class="hint warn" id="ai-warning"></p>
+      <div class="row">
+        <button type="button" class="ghost grow" id="ai-pick">Choose key.txt…</button>
+        <button type="button" class="ghost" id="ai-forget">Forget</button>
+      </div>
+      <button type="button" class="ghost wide" id="ai-local" hidden>Use the key.txt beside the app</button>
+      <input type="file" id="ai-file" accept=".txt,text/plain" hidden>
+      <p class="status" id="ai-key-status"></p>
+
+      <details class="sub">
+        <summary><h3>Connection</h3></summary>
+        <label class="field grow"><span>Model</span><select id="ai-model"></select></label>
+        <label class="field grow"><span>Endpoint</span>
+          <input type="text" id="ai-endpoint" spellcheck="false" autocomplete="off"
+            placeholder="https://api.anthropic.com/v1/messages">
+        </label>
+        <p class="hint">Point this at a proxy of your own — a Worker holding the key server-side —
+          and no key is needed in the browser at all. Left empty it goes straight to Anthropic.</p>
+      </details>
+
+      <h3 class="sub-head">Ask for</h3>
+      <label class="field grow"><span>The brief — what this design is for</span>
+        <textarea id="ai-brief" rows="3" spellcheck="false"
+          placeholder="A record label's release announcement. Confident, a little severe, high contrast."></textarea>
+      </label>
+      <div class="row">
+        <button type="button" class="primary grow" id="ai-scheme">Colour scheme</button>
+        <button type="button" class="primary grow" id="ai-fonts">Fonts</button>
+      </div>
+      <button type="button" class="primary wide" id="ai-layout">Layout for this format</button>
+      <p class="status" id="ai-status"></p>
+      <div id="ai-result" hidden>
+        <p class="hint" id="ai-note"></p>
+        <pre id="ai-json" class="css-out"></pre>
+        <div class="row">
+          <button type="button" class="primary grow" id="ai-apply">Apply</button>
+          <button type="button" class="ghost grow" id="ai-discard">Discard</button>
+        </div>
+      </div>
+      <p class="hint">What comes back is <b>the app's own settings</b>, not pixels — the controls it
+        would have set by hand — so it lands on the grid and the columns by construction, and
+        <b>⌘/Ctrl + Z undoes the whole thing</b>. The design system goes with the question as design
+        tokens, so the answer is in terms of this system rather than a generic one.</p>
+    </details>
+
+    <details class="group">
       <summary><h2>Export</h2></summary>
       <div class="row">
         <button type="button" class="primary grow" id="sheet-type">Typography slide</button>
@@ -318,6 +365,24 @@
       <p class="hint">Markup</p>
       <pre id="markup-out" class="css-out"></pre>
       <button type="button" class="ghost wide" id="copy-markup">Copy markup</button>
+
+      <h3 class="sub-head">Design tokens</h3>
+      <p class="hint" id="tokens-hint"></p>
+      <pre id="tokens-out" class="css-out"></pre>
+      <div class="row">
+        <button type="button" class="ghost grow" id="copy-tokens">Copy tokens</button>
+        <button type="button" class="ghost grow" id="save-tokens">Save tokens.json</button>
+      </div>
+      <p class="hint">Lengths are held in <b>rem off the paragraph size</b> — the relationships travel,
+        and one anchor per format resolves them. The rules the format cannot model — the margin
+        source, where the grid comes from, the solids, the blocks, the background — are under
+        <code>$extensions</code>, so nothing is lost and a generic tool still reads a working system.</p>
+      <p class="hint">Tokens as CSS custom properties, with <b>the anchor computed rather than written
+        down</b> — <code>vmax</code> on the root for a document that is one format, or
+        <code>cqmax</code> handed to the box's descendants for several formats on one page. A format
+        of any size resolves the whole system with nothing regenerated.</p>
+      <pre id="tokens-css" class="css-out"></pre>
+      <button type="button" class="ghost wide" id="copy-tokens-css">Copy token CSS</button>
 
     </details>
   </aside>

@@ -488,15 +488,98 @@ background and against the solid fill, with the WCAG 2 ratio and whether it pass
 size. The CMYK is a plain conversion with no colour profile behind it: a starting point for print,
 not the separation a printer will make.
 
-Below them, the live **CSS and markup** output with copy buttons.
+Below them, the live **CSS and markup** output with copy buttons, and the design as **design
+tokens**.
+
+### Design tokens
+
+**Copy tokens** / **Save tokens.json** writes the system as a
+[W3C / DTCG](https://tr.designtokens.org/format/) token file. What maps, maps: colours as `color`,
+the multiples as `number`, each of the five roles as a `typography` composite, margins, gutters,
+baseline rows, columns and radii as `dimension`.
+
+The format holds values, not rules — there is no arithmetic in it and no notion of a format — so the
+export says the same thing three ways:
+
+1. **The relationships, in rem off the paragraph size.** The scale already *is* one anchor and its
+   multiples, so `1rem` is the anchor: paragraph `1rem`, display `4.236rem`, and every margin,
+   row, column and radius in rem too. That part is format-independent.
+2. **The anchor, resolved per format, in px.** `format.<name>.anchor` — 13.5px on a 1350 side,
+   35.08px on A4, 38.4px on 4K — alongside that format's width, height, margins and row height, and
+   which groups it links to the master. Print has no viewport to work them out from, so this is what
+   a print pipeline reads.
+3. **The rules, under `$extensions`** — where the spec puts what it does not model: the margin
+   source and its factor, where the baseline grid comes from, the paragraph basis and percentage,
+   both column grids, every solid and block, the background module and its parameters, the colour
+   scheme, the font pairing. A generic tool reads `$value` and gets a working system; bos reading
+   its own extensions gets the design back.
+
+**The anchor can set itself.** Under the tokens, the same system as **CSS custom properties** with
+the anchor computed rather than written down — so a format of any size resolves the whole thing with
+nothing regenerated:
+
+| | |
+| --- | --- |
+| **One format per document** | `:root { font-size: calc(1 * 1vmax) }` — `vmax` is 1% of the viewport's longest side, which is the paragraph rule exactly. Sizes in `rem`. |
+| **Several formats on one page** | `.format { container-type: size; --u: calc(1 * 1cqmax) }` and each size is `calc(var(--u) * <its scale>)`. |
+
+Two things make the second form necessary rather than decorative, both measured in a browser rather
+than assumed: **`rem` is root-relative**, so an anchor set on a format box does not move it, and **a
+container cannot query itself**, so the box hands `--u` to its descendants instead of taking a font
+size. On a 1080 × 1350 box that yields 13.5px, on 3840 × 2160 it yields 38.4px — the same numbers
+the token file resolves.
+
+## Ask Claude
+
+The system can be **asked for three things**, from the *Ask Claude* group: a **colour scheme**, a
+**font pairing**, and a **layout for the format that is open**. Type what the design is for in the
+brief and press one.
+
+What comes back is **the app's own settings** — the controls a designer would have set by hand, not
+pixels. A scheme comes back as *one colour, a relationship, a swatch count and where each swatch
+goes*, so the harmony maths and the contrast readouts still hold. A layout comes back as *blocks on
+rows of a named grid, with real copy*, so it cannot land off the grid or the columns. A pairing comes
+back as *two families copied out of the catalogue the app can load*, checked against it before
+anything is applied. Each answer is shown as JSON with what it cost, and nothing changes until you
+press **Apply** — after which **⌘/Ctrl + Z** takes the whole thing back in one step.
+
+The design system travels with the question **as the token file above**, so the answer is in terms of
+this system — this format, these margins, this grid, this many columns — rather than a generic one.
+
+Model, and endpoint: **Claude Opus 5** by default, with Sonnet 5 and Haiku 4.5 in the list. A
+request is a few thousand tokens in and a few hundred out — a cent or three at Opus prices, and the
+panel reports the exact count and cost of each one.
+
+### The key
+
+**The key is never in this repository and never in this browser's storage.** It is read from a text
+file holding nothing but the key:
+
+- **Choose key.txt…** opens a file picker. In Chromium the *file* is remembered — not its contents —
+  so later visits are one click to let the page read it again. Elsewhere it is that session only.
+- **Use the key.txt beside the app** appears when the page is served locally, and reads a `key.txt`
+  sitting next to `index.html`. Once you have said it is there it is read on every load. `key.txt`
+  is in `.gitignore`, and the app only looks for it on `localhost` — the deployed copy never asks
+  for a file that would have to be committed to exist.
+- **Forget** drops the key and the remembered file.
+
+The key is held for the life of the page, sent to nothing but the endpoint, and never written
+anywhere. Keep **a key just for bos** with a **spend limit** on it, so it can be revoked on its own.
+
+**Or hold no key at all:** put a proxy of your own in **Endpoint** — a Worker that keeps the key
+server-side — and the browser never sees one. That is also the answer if the API refuses a call
+made straight from a page: the request carries the header that asks for direct browser access, and
+if that is turned down for your account, a proxy sidesteps it. GitHub Pages serves the app either
+way; the proxy is a separate 30-line deploy that Pages knows nothing about.
 
 ## The panel
 
-Five groups, in the order the design comes together: **Format** (with background image inside it),
+Six groups, in the order the design comes together: **Format** (with background image inside it),
 **Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Typography**,
-**Export** (the slides, then CSS). Neither text blocks nor solids are among them — both are set on
-the canvas, beside the thing they belong to, and a solid's panel carries everything the group used
-to: where it sits and its anchor, width and height, snapping, fill, what fills it, and its corners.
+**Ask Claude**, **Export** (the slides, then CSS, then the tokens). Neither text blocks nor solids
+are among them — both are set on the canvas, beside the thing they belong to, and a solid's panel
+carries everything the group used to: where it sits and its anchor, width and height, snapping,
+fill, what fills it, and its corners.
 
 ## Layout
 
