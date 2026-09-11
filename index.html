@@ -578,6 +578,49 @@
     </div>
   </section>
 
+  <section class="bgseg" id="seg-lab" hidden>
+    <aside class="panel bg-panel">
+      <h3 class="sub-head">The combinations</h3>
+      <p class="hint">Up to six, side by side, each running the same specimen. Type any Google
+        family — the list suggests as you type — or leave a role empty to keep the design's own
+        family for it.</p>
+      <div id="lab-combos"></div>
+      <div class="row">
+        <button type="button" class="ghost grow" id="lab-add">Add a combination</button>
+        <button type="button" class="ghost" id="lab-reset">Reset</button>
+      </div>
+      <p class="status" id="lab-status"></p>
+
+      <h3 class="sub-head">The example text</h3>
+      <label class="field grow"><span>Blind text</span><select id="lab-sample"></select></label>
+      <label class="field grow" id="lab-own-field"><span>Your own text</span>
+        <textarea id="lab-own" rows="4" spellcheck="false"
+          placeholder="Paste or type the real copy — the blocks below take their lines from it."></textarea>
+      </label>
+      <p class="hint" id="lab-sample-hint"></p>
+
+      <h3 class="sub-head">The specimen</h3>
+      <label class="field grow"><span>Example layout</span><select id="lab-layout"></select></label>
+      <p class="hint">One block per type category out of the box. Each one takes its line from the
+        text above, or holds copy of its own, and carries its own size, weight, case, leading and
+        tracking — so a combination is judged on the setting you would actually use.</p>
+      <div id="lab-blocks"></div>
+      <button type="button" class="ghost wide" id="lab-block-add">Add a block</button>
+    </aside>
+
+    <div class="bg-view">
+      <div class="bg-view-head">
+        <span id="lab-head"></span>
+        <span class="zoom">
+          <button type="button" class="ghost" id="labz-out" title="Narrower cards">−</button>
+          <button type="button" class="ghost" id="labz-value">100%</button>
+          <button type="button" class="ghost" id="labz-in" title="Wider cards">+</button>
+        </span>
+      </div>
+      <div class="lab-grid" id="lab-grid"></div>
+    </div>
+  </section>
+
   <section class="bgseg" id="seg-col" hidden>
     <aside class="panel bg-panel">
       <h3 class="sub-head">The scheme</h3>
@@ -595,6 +638,7 @@
       <p class="hint" id="col-note"></p>
 
       <h3 class="sub-head">Put it on</h3>
+      <p class="status" id="col-warn"></p>
       <div id="col-targets"></div>
       <p class="hint">Click a swatch on a row to give it that colour, or open the picker on the left
         of the row for one of your own. The ratio is the WCAG contrast against the page.</p>

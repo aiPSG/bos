@@ -348,6 +348,9 @@
     { id: "system", name: "Set design system", built: true,
       note: "The format, the logo, the margins and the columns, the solid, the type scale " +
         "and both baseline grids, and the text that sits on them." },
+    { id: "typelab", name: "Compare typography", built: true,
+      note: "Up to six font combinations side by side, each setting the same specimen, so a " +
+        "pairing is judged on the sizes and the leading it would actually run at." },
     { id: "colour", name: "Create colour scheme", built: true,
       note: "A scheme worked out the way colour is worked out — from one colour and a " +
         "relationship — and put on the type and the solids." },
@@ -516,6 +519,15 @@
       comfy: { endpoint: "", workflow: DEFAULT_WORKFLOW, prompt: "", negative: "", seed: 12345, remember: false },
       // what to ask Claude, and where — the key is never part of the design
       ai: { model: "claude-opus-5", endpoint: "", briefs: { scheme: "", fonts: "", layout: "" } },
+      // comparing typography: the combinations, the text they set, and how they set it
+      lab: {
+        combos: [
+          { name: "One face", fams: { display: "Inter", headline: "Inter", subline: "Inter", paragraph: "Inter", smallprint: "Inter" } },
+          { name: "Serif over sans", fams: { display: "Playfair Display", headline: "Playfair Display", subline: "Inter", paragraph: "Inter", smallprint: "Inter" } },
+          { name: "Grotesque and mono", fams: { display: "Archivo", headline: "Archivo", subline: "Archivo", paragraph: "Source Serif 4", smallprint: "Space Mono" } }
+        ],
+        sample: "lorem", own: "", layout: "stack", tile: 1, blocks: null    // blocks are built on first use
+      },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
       margin: { mode: "manual", factor: 1, linked: true, locked: true,
@@ -699,6 +711,17 @@
       if (!s.solids.length && s.rect && s.rect.placed) s.solids = [s.rect];
       s.solids = s.solids.map(function (r) { return normaliseSolid(r, d); });
       s.rect = normaliseSolid(s.rect, d);
+      if (!s.lab || typeof s.lab !== "object") s.lab = clone(d.lab);
+      else {
+        s.lab = Object.assign(clone(d.lab), s.lab);
+        if (!Array.isArray(s.lab.combos) || !s.lab.combos.length) s.lab.combos = clone(d.lab.combos);
+        s.lab.combos = s.lab.combos.slice(0, 6).map(function (c) {
+          var fams = {};
+          ROLES.forEach(function (r) { fams[r] = (c.fams && c.fams[r]) || ""; });
+          return { name: String(c.name || ""), fams: fams };
+        });
+        if (!Array.isArray(s.lab.blocks)) s.lab.blocks = null;
+      }
       if (!s.ai || typeof s.ai !== "object") s.ai = clone(d.ai);
       else s.ai = Object.assign(clone(d.ai), s.ai);
       // the one brief became three, one per question
@@ -2468,17 +2491,19 @@
     }).join("");
 
     var system = cur.id === "system", bg = cur.id === "background", fmt = cur.id === "formats";
-    var col = cur.id === "colour";
+    var col = cur.id === "colour", lab = cur.id === "typelab";
     $("#panel").hidden = !system;
     $("#canvas").hidden = !system;
     $("#seg-bg").hidden = !bg;
     $("#seg-fmt").hidden = !fmt;
     $("#seg-col").hidden = !col;
+    $("#seg-lab").hidden = !lab;
     $("#seg-stub").hidden = !!cur.built;
     document.body.classList.toggle("stub-on", !cur.built);
     if (bg) return renderBgSeg();
     if (fmt) return renderFmtSeg();
     if (col) return renderColSeg();
+    if (lab) return renderLabSeg();
     if (cur.built) return;
 
     $("#stub-name").textContent = cur.name;
@@ -2687,7 +2712,23 @@
     return TECHNIQUES.filter(function (t) { return t.id === id; })[0] || TECHNIQUES[0];
   }
 
-  function schemeSwatches() {
+  /* Two tones every scheme has, whatever the harmony says: an ink dark enough to
+     read on a light ground and a paper light enough to read on a dark one. They
+     carry the base hue so they belong to the scheme rather than being black and
+     white dropped in, and they are what the audit below reaches for when a colour
+     does not carry enough contrast. */
+  var INK_L = 0.07, PAPER_L = 0.965;
+  function schemeInk() {
+    var base = hexHsl(state.scheme.base);
+    return hslHex(base.h, Math.min(base.s, 0.35), INK_L);
+  }
+  function schemePaper() {
+    var base = hexHsl(state.scheme.base);
+    return hslHex(base.h, Math.min(base.s, 0.16), PAPER_L);
+  }
+
+  // the harmony itself: the hues, then a pass of lightness either side of them
+  function schemeHues() {
     var sc = state.scheme, t = techniqueOf(sc.technique), base = hexHsl(sc.base);
     var offs = t.offs(clamp(num(sc.spread, 30), 5, 90));
     var n = clamp(Math.round(num(sc.count, 6)), 3, 12), out = [], i;
@@ -2702,7 +2743,71 @@
     return out;
   }
 
+  // the scheme is the harmony and those two tones, in that order
+  function schemeSwatches() {
+    return schemeHues().concat([schemeInk(), schemePaper()]);
+  }
+  function schemeNames() {
+    var n = schemeHues().length, out = [], i;
+    for (i = 0; i < n; i++) out.push("");
+    return out.concat(["Ink", "Paper"]);
+  }
+
+  /* Whether the scheme reads. WCAG 2 asks 4.5:1 of body text and 3:1 of large
+     text — 24px, or 18.66px when it is bold — so the threshold is a property of
+     the role, not a constant. Text is checked against what it actually sits on:
+     the page, or the fill of the solid it is inside. */
+  function textNeeds(role) {
+    var px = rolePx(role), w = state.type.roles[role].weight;
+    return px >= 24 || (px >= 18.66 && w >= 700) ? 3 : 4.5;
+  }
+  function schemeAudit() {
+    var out = [], bg = state.stage.bg, ink = schemeInk(), paper = schemePaper();
+    var check = function (role, ground, where) {
+      var need = textNeeds(role), col = state.type.roles[role].color;
+      var got = contrastRatio(col, ground);
+      if (got >= need) return;
+      // whichever of the two tones reads on that ground is the way out
+      var best = contrastRatio(ink, ground) >= contrastRatio(paper, ground)
+        ? { hex: ink, name: "the ink" } : { hex: paper, name: "the paper" };
+      out.push({
+        role: role, ground: ground, where: where, got: got, need: need,
+        fix: best, fixRatio: contrastRatio(best.hex, ground)
+      });
+    };
+    ROLES.forEach(function (r) { check(r, bg, "the page"); });
+    // a block inside a solid reads against that fill, so check the pairs in use
+    var seen = {};
+    state.text.blocks.forEach(function (b) {
+      var o = blockOwner(b), sd = o >= 0 ? state.solids[o] : null;
+      if (!sd || sd.content !== "fill") return;
+      var key = b.role + "|" + sd.fill;
+      if (seen[key]) return;
+      seen[key] = 1;
+      check(b.role, sd.fill, "solid " + (o + 1));
+    });
+    return out;
+  }
+
   // everything a scheme colour can be put on
+  function renderColWarn() {
+    var bad = schemeAudit(), el = $("#col-warn");
+    if (!bad.length) {
+      el.className = "status ok";
+      el.textContent = "Every role carries enough contrast where it sits — " +
+        "4.5:1 for text, 3:1 where it is large enough to need less.";
+      return;
+    }
+    el.className = "status err";
+    el.innerHTML = "<b>" + bad.length + (bad.length === 1 ? " colour does not read where it sits."
+      : " colours do not read where they sit.") + "</b> WCAG 2 AA asks 4.5:1 of text, 3:1 once it is large. " +
+      bad.map(function (x) {
+        return esc(ROLE_NAMES[x.role]) + " on " + esc(x.where) + " is " + round(x.got, 2) +
+          ":1, short of " + x.need + ":1 — " + esc(x.fix.name) + " (" + x.fix.hex.toUpperCase() +
+          ") would give " + round(x.fixRatio, 1) + ":1.";
+      }).join(" ");
+  }
+
   function schemeTargets() {
     var out = [{ k: "bg", name: "Page background", get: function () { return state.stage.bg; },
       put: function (v) { state.stage.bg = v; } }];
@@ -2736,12 +2841,15 @@
     setValue($("#col-spread"), sc.spread);
     $("#col-spread-val").textContent = fmt(sc.spread) + "°";
     $("#col-spread-field").hidden = !techniqueOf(sc.technique).spread;
-    $("#col-note").textContent = techniqueOf(sc.technique).name + ". " + sw.length +
-      " swatches from " + sc.base.toUpperCase() + " — click one on a row below to put it there.";
+    $("#col-note").textContent = techniqueOf(sc.technique).name + ". " + schemeHues().length +
+      " swatches from " + sc.base.toUpperCase() + ", and the ink and the paper every scheme carries " +
+      "— click one on a row below to put it there.";
 
-    $("#col-swatches").innerHTML = sw.map(function (hex) {
-      return '<div class="sw-cell"><span class="sw-box" style="background:' + hex + '"></span>' +
-        "<span>" + hex.toUpperCase() + "</span></div>";
+    var names = schemeNames();
+    $("#col-swatches").innerHTML = sw.map(function (hex, i) {
+      return '<div class="sw-cell' + (names[i] ? " tone" : "") + '">' +
+        '<span class="sw-box" style="background:' + hex + '"></span>' +
+        "<span>" + (names[i] ? names[i] + " · " : "") + hex.toUpperCase() + "</span></div>";
     }).join("");
 
     $("#col-targets").innerHTML = schemeTargets().map(function (t) {
@@ -2758,6 +2866,8 @@
         (t.type ? '<span class="px">' + round(ratio, 2) + ":1 on the page</span>" : "") +
         "</div><div class=\"sw-row\">" + chips + "</div></div>";
     }).join("");
+
+    renderColWarn();
 
     // the formats the work runs in, painted with the scheme on them
     var host = $("#col-grid"), list = state.pages.length ? state.pages : null;
@@ -2953,6 +3063,276 @@
         " — " + lg.align.v + " " + lg.align.h);
     }
     els.readout.textContent = parts.join("   ·   ");
+  }
+
+  /* ------------------------------------------------ comparing typography */
+
+  /* A stage for choosing type rather than setting it: up to six combinations, all
+     setting the same specimen, so what is compared is the setting you would run —
+     these sizes, this leading, this tracking — and not a row of family names. The
+     text is a blind text or your own; every block can hold copy of its own and its
+     own treatment. "Use this one" writes the winner into the design system. */
+
+  var LAB_MAX = 6;
+  var labSaid = "";        // what the stage last said, kept across the repaint that follows
+  var LAB_SAMPLES = [
+    { id: "lorem", name: "Lorem ipsum — the printer's Latin",
+      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor " +
+        "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud " +
+        "exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure " +
+        "dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur." },
+    { id: "cicero", name: "Cicero — what the Latin was cut from",
+      text: "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, " +
+        "adipisci velit, sed quia non numquam eius modi tempora incidunt, ut labore et dolore " +
+        "magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem " +
+        "ullam corporis suscipit laboriosam." },
+    { id: "kafka", name: "Kafka — Die Verwandlung",
+      text: "Als Gregor Samsa eines Morgens aus unruhigen Träumen erwachte, fand er sich in " +
+        "seinem Bett zu einem ungeheueren Ungeziefer verwandelt. Er lag auf seinem panzerartig " +
+        "harten Rücken und sah, wenn er den Kopf ein wenig hob, seinen gewölbten, braunen, von " +
+        "bogenförmigen Versteifungen geteilten Bauch." },
+    { id: "pangram-en", name: "Pangrams — English",
+      text: "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor " +
+        "jugs. How vexingly quick daft zebras jump. Sphinx of black quartz, judge my vow. " +
+        "Jackdaws love my big sphinx of quartz." },
+    { id: "pangram-de", name: "Pangrams — German",
+      text: "Victor jagt zwölf Boxkämpfer quer über den großen Sylter Deich. Falsches Üben von " +
+        "Xylophonmusik quält jeden größeren Zwerg. Zwölf Boxkämpfer jagen Viktor quer über den " +
+        "großen Sylter Deich." },
+    { id: "hamburg", name: "Hamburgefonstiv — the setter's word",
+      text: "Hamburgefonstiv. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 " +
+        "&@?!£$€ “quotes” — dashes … ellipses. Handgloves, adhesion, nominal, cochineal." }
+  ];
+  var LAB_LAYOUTS = [
+    ["stack", "Stacked — one after another"],
+    ["title", "Title page — centred, with air"],
+    ["article", "Article — a headline and a column"],
+    ["poster", "Poster — the display line carries it"]
+  ];
+  function labLayout() {
+    var id = state.lab.layout;
+    return LAB_LAYOUTS.some(function (l) { return l[0] === id; }) ? id : "stack";
+  }
+
+  function labSample() {
+    return LAB_SAMPLES.filter(function (x) { return x.id === state.lab.sample; })[0] || LAB_SAMPLES[0];
+  }
+
+  /* What each role takes out of the text, and from where: a display line is two
+     words, a paragraph is a few sentences, and they start at different places so a
+     card is not the same sentence five times over. */
+  var LAB_TAKE = { display: 2, headline: 8, subline: 12, paragraph: 55, smallprint: 9 };
+  var LAB_FROM = { display: 0, headline: 2, subline: 10, paragraph: 22, smallprint: -1 };
+  function labText(b) {
+    if (b.src === "own") return b.text;
+    var src = state.lab.sample === "own" ? state.lab.own : labSample().text;
+    if (state.lab.sample === "own" && !src.trim()) src = labSample().text;
+    var words = src.trim().split(/\s+/), take = LAB_TAKE[b.role] || 10;
+    var at = LAB_FROM[b.role];
+    var start = at < 0 ? Math.max(0, words.length - take) : Math.min(at, Math.max(0, words.length - 1));
+    var out = words.slice(start, start + take).join(" ");
+    if (!out) out = words.slice(0, take).join(" ");
+    return b.role === "display" ? out.replace(/[,.;:]$/, "") : out;
+  }
+
+  /* A specimen is set at reading sizes, not at the format's own — a 57px display
+     line in a card is four wrapped lines and tells you nothing about the face.
+     "Back to the system" on a block pulls in what the design actually runs, for
+     when that is the question. */
+  var LAB_SIZE = { display: 44, headline: 26, subline: 18, paragraph: 15, smallprint: 11 };
+  var LAB_LH = { display: 1.05, headline: 1.15, subline: 1.3, paragraph: 1.5, smallprint: 1.4 };
+  function labBlock(role) {
+    var st = state.type.roles[role];
+    return { role: role, src: "sample", text: "", size: LAB_SIZE[role] || 15,
+      weight: st.weight, italic: false, transform: st.transform,
+      lh: LAB_LH[role] || 1.4, ls: st.ls };
+  }
+  function labBlocks() {
+    if (!state.lab.blocks) state.lab.blocks = ROLES.map(labBlock);
+    return state.lab.blocks;
+  }
+  function labResetBlocks() {
+    state.lab.blocks = null;
+    labBlocks();
+  }
+
+  // a role's family in a combination: the one it names, or the design's own
+  function labFamily(combo, role) {
+    var n = combo.fams[role];
+    return n ? familyStack("g:" + n) : roleStack(role);
+  }
+  function labFamilyLabel(combo, role) {
+    return combo.fams[role] || familyLabel(roleFamilyId(role));
+  }
+  function labFaces(combo) {
+    var out = [];
+    ROLES.forEach(function (r) {
+      var n = labFamilyLabel(combo, r);
+      if (out.indexOf(n) < 0) out.push(n);
+    });
+    return out;
+  }
+
+  function labLoadFonts() {
+    state.lab.combos.forEach(function (c) {
+      ROLES.forEach(function (r) { if (c.fams[r]) loadGoogleFont(c.fams[r]); });
+    });
+  }
+
+  function renderLabSeg() {
+    var lab = state.lab, blocks = labBlocks();
+    labLoadFonts();
+
+    if (!$("#lab-sample").options.length) {
+      $("#lab-sample").innerHTML = LAB_SAMPLES.map(function (x) {
+        return '<option value="' + x.id + '">' + esc(x.name) + "</option>";
+      }).join("") + '<option value="own">My own text</option>';
+    }
+    if (!$("#lab-layout").options.length) {
+      $("#lab-layout").innerHTML = LAB_LAYOUTS.map(function (l) {
+        return '<option value="' + l[0] + '">' + esc(l[1]) + "</option>";
+      }).join("");
+    }
+    $("#lab-layout").value = labLayout();
+    $("#lab-sample").value = lab.sample;
+    $("#lab-own-field").hidden = lab.sample !== "own";
+    setValue($("#lab-own"), lab.own);
+    $("#lab-sample-hint").textContent = lab.sample === "own"
+      ? "Each block takes its share of this: two words for the display, a line for the headline, " +
+        "a few sentences for the paragraph. Empty, it falls back to the Latin."
+      : labSample().text.slice(0, 90) + "…";
+
+    // ---- the combinations
+    var sig = lab.combos.length + "|" + lab.combos.map(function (c) { return c.name; }).join("|");
+    $("#lab-combos").innerHTML = lab.combos.map(function (c, i) {
+      return '<div class="lab-combo" data-combo="' + i + '">' +
+        '<div class="lab-combo-head">' +
+          '<input type="text" data-lab="name" data-i="' + i + '" value="' + esc(c.name) + '" ' +
+          'spellcheck="false" title="What to call this combination">' +
+          '<button type="button" class="x" data-lab="drop" data-i="' + i + '" ' +
+          'title="Take this combination off">✕</button>' +
+        "</div>" +
+        ROLES.map(function (r) {
+          return '<label class="lab-fam"><span>' + esc(ROLE_NAMES[r]) + "</span>" +
+            '<input type="text" list="gf-list" data-lab="fam" data-i="' + i + '" data-role="' + r +
+            '" value="' + esc(c.fams[r] || "") + '" spellcheck="false" placeholder="' +
+            esc(familyLabel(roleFamilyId(r))) + '"></label>';
+        }).join("") +
+        "</div>";
+    }).join("");
+    $("#lab-add").disabled = lab.combos.length >= LAB_MAX;
+    $("#lab-status").textContent = labSaid || (lab.combos.length + " of " + LAB_MAX +
+      " combinations. " + (lab.combos.length >= LAB_MAX ? "Take one off to add another." : ""));
+    $("#lab-status").className = "status" + (labSaid ? " ok" : "");
+
+    // ---- the specimen's blocks
+    $("#lab-blocks").innerHTML = blocks.map(function (b, i) {
+      var open = b.open ? " open" : "";
+      return '<details class="lab-block"' + open + ' data-block="' + i + '"><summary>' +
+        "<b>" + esc(ROLE_NAMES[b.role]) + "</b>" +
+        '<span class="px">' + fmt(b.size) + " px · " + round(b.lh, 2) + " · " +
+        round(b.ls, 3) + "em</span></summary>" +
+        '<div class="row"><label class="field"><span>Role</span><select data-lb="role" data-i="' + i + '">' +
+          ROLES.map(function (r) {
+            return '<option value="' + r + '"' + (r === b.role ? " selected" : "") + ">" +
+              esc(ROLE_NAMES[r]) + "</option>";
+          }).join("") + "</select></label>" +
+        '<label class="field"><span>Text</span><select data-lb="src" data-i="' + i + '">' +
+          '<option value="sample"' + (b.src === "sample" ? " selected" : "") + ">From the text above</option>" +
+          '<option value="own"' + (b.src === "own" ? " selected" : "") + ">Its own</option>" +
+        "</select></label></div>" +
+        (b.src === "own"
+          ? '<label class="field grow"><span>Copy</span><textarea data-lb="text" data-i="' + i +
+            '" rows="2" spellcheck="false">' + esc(b.text) + "</textarea></label>"
+          : "") +
+        '<div class="row"><label class="field"><span>Size</span>' +
+          '<input type="number" data-lb="size" data-i="' + i + '" min="4" max="400" step="1" value="' + fmt(b.size) + '"></label>' +
+        '<label class="field"><span>Weight</span><select data-lb="weight" data-i="' + i + '">' +
+          [100, 200, 300, 400, 500, 600, 700, 800, 900].map(function (w) {
+            return '<option value="' + w + '"' + (+b.weight === w ? " selected" : "") + ">" + w + "</option>";
+          }).join("") + "</select></label></div>" +
+        '<div class="row"><label class="field"><span>Leading</span>' +
+          '<input type="number" data-lb="lh" data-i="' + i + '" min="0.7" max="3" step="0.01" value="' + round(b.lh, 3) + '"></label>' +
+        '<label class="field"><span>Tracking (em)</span>' +
+          '<input type="number" data-lb="ls" data-i="' + i + '" min="-0.2" max="0.5" step="0.005" value="' + round(b.ls, 3) + '"></label></div>' +
+        '<div class="row"><label class="field"><span>Case</span><select data-lb="transform" data-i="' + i + '">' +
+          [["none", "As typed"], ["uppercase", "UPPERCASE"], ["lowercase", "lowercase"], ["capitalize", "Capitalise"]]
+            .map(function (o) {
+              return '<option value="' + o[0] + '"' + (b.transform === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+            }).join("") + "</select></label>" +
+        '<label class="check"><input type="checkbox" data-lb="italic" data-i="' + i + '"' +
+          (b.italic ? " checked" : "") + "><span>Italic</span></label></div>" +
+        '<div class="row"><button type="button" class="ghost grow" data-lb="reset" data-i="' + i +
+          '">Back to the system</button>' +
+          '<button type="button" class="ghost" data-lb="drop" data-i="' + i + '">Remove</button></div>' +
+        "</details>";
+    }).join("");
+
+    // ---- the cards
+    var wide = Math.round(380 * lab.tile);
+    var grid = $("#lab-grid");
+    grid.style.gridTemplateColumns = "repeat(auto-fill,minmax(" + wide + "px,1fr))";
+    grid.innerHTML = lab.combos.map(function (c, i) {
+      var spec = blocks.map(function (b) {
+        var style = "font-family:" + esc(labFamily(c, b.role)) + ";font-size:" + fmt(b.size) +
+          "px;font-weight:" + b.weight + ";line-height:" + round(b.lh, 3) + ";letter-spacing:" +
+          round(b.ls, 3) + "em;text-transform:" + b.transform +
+          (b.italic ? ";font-style:italic" : "") + ";color:" + state.type.roles[b.role].color;
+        return '<p class="lab-spec" style="' + style + '">' + esc(labText(b)) + "</p>";
+      }).join("");
+      return '<div class="lab-card lay-' + labLayout() + '" data-card="' + i +
+        '" style="background:' + state.stage.bg + '">' +
+        '<div class="lab-head"><b>' + esc(c.name || "Combination " + (i + 1)) + "</b>" +
+        '<span class="px">' + esc(labFaces(c).join(" · ")) + "</span></div>" +
+        spec +
+        '<div class="lab-foot">' +
+          '<button type="button" class="primary" data-lab="use" data-i="' + i + '">Use this one</button>' +
+          '<button type="button" class="ghost" data-lab="copy" data-i="' + i + '">Duplicate</button>' +
+          '<button type="button" class="ghost x" data-lab="drop" data-i="' + i + '" title="Take it off">✕</button>' +
+        "</div></div>";
+    }).join("");
+
+    $("#lab-head").textContent = lab.combos.length + " combinations · " + blocks.length +
+      " blocks · " + LAB_LAYOUTS.filter(function (l) { return l[0] === labLayout(); })[0][1] +
+      " · " + (lab.sample === "own" ? "your own text" : labSample().name);
+    $("#labz-value").textContent = Math.round(lab.tile * 100) + "%";
+  }
+
+  /* Taking a combination: the families go into the design system, and so does the
+     treatment the specimen was judged at — weight, case, leading, tracking. Not the
+     sizes: those come from the scale and its anchor, which is the whole point of
+     having one. */
+  function labUse(i) {
+    var c = state.lab.combos[i];
+    if (!c) return;
+    var blocks = labBlocks(), used = [];
+    ROLES.forEach(function (r) {
+      var name = c.fams[r], st = state.type.roles[r];
+      if (name) {
+        if (state.type.google.indexOf(name) < 0) state.type.google.push(name);
+        loadGoogleFont(name);
+        st.family = "g:" + name;
+        if (used.indexOf(name) < 0) used.push(name);
+      }
+      var b = blocks.filter(function (x) { return x.role === r; })[0];
+      if (!b) return;
+      st.weight = clamp(Math.round(b.weight), 100, 900);
+      st.transform = b.transform;
+      st.ls = round(b.ls, 4);
+      if (r !== "paragraph") st.lh = clamp(round(b.lh, 3), 0.5, 3);
+    });
+    // the text face is the design's family, so a role that matches it needs no override
+    var shared = c.fams.paragraph;
+    if (shared) {
+      state.type.family = "g:" + shared;
+      ROLES.forEach(function (r) {
+        if (state.type.roles[r].family === "g:" + shared) delete state.type.roles[r].family;
+      });
+    }
+    buildFamilySelect();
+    labSaid = "Using " + (c.name || "combination " + (i + 1)) + " — " +
+      (used.length ? used.join(", ") : "the design's own families") +
+      ", with the weights, case, leading and tracking from the specimen. The sizes stay with the scale.";
   }
 
   /* ------------------------------------------------------- design tokens */
@@ -4787,6 +5167,80 @@
       usePage(+t.dataset.page);
       render();
     });
+    // ---- comparing typography
+    $("#labz-in").addEventListener("click", function () { state.lab.tile = clamp(state.lab.tile * 1.2, .6, 3); render(); });
+    $("#labz-out").addEventListener("click", function () { state.lab.tile = clamp(state.lab.tile / 1.2, .6, 3); render(); });
+    $("#labz-value").addEventListener("click", function () { state.lab.tile = 1; render(); });
+    onChange("#lab-sample", function (el) { state.lab.sample = el.value; });
+    onChange("#lab-layout", function (el) { state.lab.layout = el.value; });
+    onInput("#lab-own", function (el) { state.lab.own = el.value; });
+    $("#lab-add").addEventListener("click", function () {
+      if (state.lab.combos.length >= LAB_MAX) return;
+      var last = state.lab.combos[state.lab.combos.length - 1];
+      state.lab.combos.push({
+        name: "Combination " + (state.lab.combos.length + 1),
+        fams: last ? clone(last.fams) : { display: "", headline: "", subline: "", paragraph: "", smallprint: "" }
+      });
+      render();
+    });
+    $("#lab-reset").addEventListener("click", function () {
+      state.lab = clone(defaults().lab);
+      labBlocks();
+      render();
+    });
+    $("#lab-block-add").addEventListener("click", function () {
+      var b = labBlocks();
+      b.push({ role: "paragraph", src: "sample", text: "", size: Math.round(rolePx("paragraph")),
+        weight: state.type.roles.paragraph.weight, italic: false, transform: "none",
+        lh: round(roleLh("paragraph"), 3), ls: state.type.roles.paragraph.ls, open: true });
+      render();
+    });
+    // the combinations and the cards
+    $("#seg-lab").addEventListener("click", function (e) {
+      var lb = e.target.closest("[data-lb]");
+      if (lb && (lb.dataset.lb === "reset" || lb.dataset.lb === "drop")) return labBlockField(lb);
+      var t = e.target.closest("[data-lab]");
+      if (!t) return;
+      var i = +t.dataset.i, kind = t.dataset.lab;
+      if (kind === "use") return labUse(i), render();
+      if (kind === "copy") {
+        if (state.lab.combos.length >= LAB_MAX || !state.lab.combos[i]) return;
+        var c = clone(state.lab.combos[i]);
+        c.name = (c.name || "Combination") + " again";
+        state.lab.combos.splice(i + 1, 0, c);
+        return render();
+      }
+      if (kind === "drop") {
+        if (state.lab.combos.length < 2) return;
+        state.lab.combos.splice(i, 1);
+        return render();
+      }
+    });
+    $("#seg-lab").addEventListener("input", function (e) {
+      var t = e.target;
+      if (!t.dataset) return;
+      var i = +t.dataset.i;
+      labSaid = "";
+      if (t.dataset.lab === "name" && state.lab.combos[i]) {
+        state.lab.combos[i].name = t.value;
+        return render();
+      }
+      if (t.dataset.lab === "fam" && state.lab.combos[i]) {
+        var name = t.value.trim();
+        state.lab.combos[i].fams[t.dataset.role] = name;
+        if (name) loadGoogleFont(name);
+        return render();
+      }
+      labBlockField(t);
+    });
+    $("#seg-lab").addEventListener("change", function (e) { labBlockField(e.target); });
+    $("#seg-lab").addEventListener("toggle", function (e) {
+      var d = e.target.closest ? e.target.closest("[data-block]") : null;
+      if (!d) return;
+      var b = labBlocks()[+d.dataset.block];
+      if (b) b.open = d.open;
+    }, true);
+
     $("#colz-in").addEventListener("click", function () { colZoom = clamp(colZoom * 1.25, .3, 4); render(); });
     $("#colz-out").addEventListener("click", function () { colZoom = clamp(colZoom / 1.25, .3, 4); render(); });
     $("#colz-value").addEventListener("click", function () { colZoom = 1; render(); });
@@ -6562,6 +7016,44 @@
 
   /* Three boxes, one set of handlers: the click tells us which question it came
      from, and the settings they share are written once and shown in all of them. */
+  // one block of the specimen, whichever field was touched
+  function labBlockField(t) {
+    labSaid = "";
+    if (!t || !t.dataset || !t.dataset.lb) return;
+    var b = labBlocks()[+t.dataset.i];
+    if (!b) return;
+    var k = t.dataset.lb;
+    if (k === "drop") {
+      if (labBlocks().length < 2) return;
+      state.lab.blocks.splice(+t.dataset.i, 1);
+      return render();
+    }
+    if (k === "reset") {
+      var st = state.type.roles[b.role];
+      b.size = Math.round(rolePx(b.role));
+      b.weight = st.weight;
+      b.transform = st.transform;
+      b.lh = round(roleLh(b.role), 3);
+      b.ls = st.ls;
+      b.italic = false;
+      return render();
+    }
+    if (k === "role") {
+      b.role = t.value;
+      return render();
+    }
+    if (k === "src") { b.src = t.value; return render(); }
+    if (k === "text") { b.text = t.value; return render(); }
+    if (k === "italic") { b.italic = t.checked; return render(); }
+    if (k === "transform") { b.transform = t.value; return render(); }
+    if (k === "weight") { b.weight = +t.value; return render(); }
+    if (t.value === "") return;
+    if (k === "size") b.size = clamp(num(t.value, b.size), 1, 800);
+    if (k === "lh") b.lh = clamp(num(t.value, b.lh), 0.5, 4);
+    if (k === "ls") b.ls = clamp(num(t.value, b.ls), -0.5, 1);
+    render();
+  }
+
   function bindClaude() {
     aiBoot();
     var ASK = { scheme: aiAskScheme, fonts: aiAskFonts, layout: aiAskLayout };

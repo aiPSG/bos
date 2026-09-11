@@ -23,21 +23,62 @@ toolbar clears the stage back to empty.
 
 **Live:** https://aipsg.github.io/bos/
 
-## The five stages
+## The six stages
 
 The work runs in stages, and the tabs across the top are those stages in order:
 
 | | Stage | What it is |
 | --- | --- | --- |
 | 1 | **Set design system** | The format, the logo, the margins and columns, the solid, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
-| 2 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — and put on the type and the solids. |
-| 3 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
-| 4 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
-| 5 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
+| 2 | **Compare typography** | Up to six font combinations side by side, each setting the same specimen, so a pairing is judged on the sizes and the leading it would run at. |
+| 3 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — and put on the type and the solids. |
+| 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
+| 5 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
+| 6 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-The first four are built. *Dummies* carries an **under construction** placeholder that names what
+The first five are built. *Dummies* carries an **under construction** placeholder that names what
 will live there, as does the *Image* tab inside *Generate background*. The tab you were last on is
 remembered.
+
+## Comparing typography
+
+**Compare typography** is for *choosing* type rather than setting it. Up to **six combinations** sit
+side by side, and every one of them sets the same specimen — so what is compared is the setting you
+would actually run, not a row of family names.
+
+A combination names a family for each of the five roles. Type any **Google family** — the field
+suggests as you type, from the catalogue if you have loaded it — or leave a role empty and it keeps
+the design's own family for that one. Combinations can be named, duplicated and taken off.
+
+**The example text** is a blind text or your own:
+
+| | |
+| --- | --- |
+| **Lorem ipsum** | the printer's Latin, as it is usually met |
+| **Cicero** | the passage of *De finibus* the Latin was cut from |
+| **Kafka** | *Die Verwandlung*, for German with its diacritics and its long words |
+| **Pangrams** | English and German — every letter, in a sentence |
+| **Hamburgefonstiv** | the setter's word, the full alphabet, figures and punctuation |
+| **My own text** | paste the real copy, and the blocks take their share of it |
+
+Each block takes a different share of it — two words for the display, a line for the headline, a few
+sentences for the paragraph — so a card reads as a page rather than the same sentence five times.
+
+**The specimen** is a block per role out of the box, and **every block is yours**: which role it
+shows, whether it takes the text above or holds copy of its own, its **size, weight, case, leading
+and tracking**. Blocks can be added and removed. Sizes start at reading sizes rather than the
+format's own — a 57px display line in a card is four wrapped lines and tells you nothing about the
+face — and **Back to the system** on any block pulls in what the design actually runs, for when that
+is the question.
+
+**Four example layouts** arrange the same blocks the way the work would: *stacked*, a *title page*
+centred with air, an *article* with the paragraph in two columns, and a *poster* the display line
+carries. The cards are painted in the design's own page colour and type colours, and the zoom widens
+them.
+
+**Use this one** puts the winner into the design system: the families per role, and the treatment it
+was judged at — weight, case, leading, tracking. Not the sizes: those come from the scale and its
+anchor, which is the point of having one.
 
 ## The colour scheme
 
@@ -48,6 +89,21 @@ relationship between hues**. Pick the colour it starts from, then the relationsh
 is the hues themselves; each pass after it steps the lightness, so a six-swatch complementary scheme
 is the two hues, then a lighter pair, then a darker pair. Analogous and split complementary also take
 a **spread**, the angle between neighbours.
+
+**Every scheme also carries an ink and a paper** — one tone dark enough to read on a light ground,
+one light enough to read on a dark one — whatever the harmony says. They are not black and white
+dropped in: they take the base hue at the bottom and the top of its lightness range, so they belong
+to the scheme. Out of the box that is around **19:1 against white and against black**, and 17:1
+against each other, which is what the audit below reaches for when a colour does not carry enough
+contrast.
+
+**A warning when it does not read.** Under the swatches, every type colour is checked against what
+it actually sits on — the page, or the fill of the solid a block is inside — against **WCAG 2 AA**:
+4.5:1 for text, 3:1 once the text is large enough to need less (24px, or 18.66px when it is bold),
+so the threshold is a property of the role rather than a constant. When something falls short it
+says which role, on what, by how much, and **which of the two tones would fix it and at what
+ratio** — *"Paragraph on the page is 1.8:1, short of 4.5:1 — the paper (#F5F5F8) would give 17.1:1."*
+When nothing does, it says that instead.
 
 Underneath, every place a colour can go: the **page background**, each of the five **type roles**,
 and every **solid and frame** on the page. Click a swatch on a row to put it there, or open the
@@ -64,8 +120,8 @@ view of the format beside them, showing the design over whatever is being made �
 zoom: −, +, 1:1, Fit, ⌘/Ctrl + wheel, and a plain wheel to scroll when it is bigger than the view.
 
 **The colours come from the colour scheme.** Every colour a module starts from is a colour of the
-scheme rather than one of its own, so a background made in stage 3 is already in the palette built
-in stage 2 — and it follows that palette as it changes. Under each colour field the scheme is
+scheme rather than one of its own, so a background made in stage 4 is already in the palette built
+in stage 3 — and it follows that palette as it changes. Under each colour field the scheme is
 offered as a row of swatches: one click puts that colour in the field, and from then on that one
 colour is yours and stops following. The frames on the stage are offered the same, since they run
 the same modules.
