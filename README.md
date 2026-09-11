@@ -30,7 +30,7 @@ The work runs in stages, and the tabs across the top are those stages in order:
 | | Stage | What it is |
 | --- | --- | --- |
 | 1 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — with an ink, a paper, a contrast audit, and the share each colour takes of the whole. |
-| 2 | **Typography** | The whole type system — family, scale, every role — and up to six combinations side by side, each setting the same specimen. |
+| 2 | **Typography** | The whole type system — family, scale, every role — and up to six font combinations side by side, each painting the master format itself. |
 | 3 | **Layout system** | The format, the logo, the margins and the columns, the solid, both baseline grids, and the text that sits on them. The canvas. |
 | 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a pattern or a gradient. Images are not built yet. |
 | 5 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
@@ -47,51 +47,39 @@ remembered.
 used to sit in the layout panel — the family and where it comes from (the system stacks, any Google
 family, an uploaded font file), the scale with its anchor and its ratios, and every role's tag,
 family, weight, leading, tracking, case and colour. *Comparing combinations* is below it, and the
-two work together: change the scale on the left and the specimens redraw.
+two work together: change the scale on the left and every card redraws.
 
-**Up to six combinations** sit side by side, and every one of them sets the same specimen — so what
-is compared is the setting you would actually run, not a row of family names.
+**Up to six combinations** sit side by side, and **each one paints the master format itself** — the
+real layout, the real copy, the real solids, background and logo, at the master's own size and in
+that combination's faces. Nothing is a specimen standing in for the design: what you are comparing
+is *this* design in those faces, and every change to the type system redraws all of them at once.
 
 A combination names a family for each of the five roles. Type any **Google family** — the field
 suggests as you type, from the catalogue if you have loaded it — or leave a role empty and it keeps
 the design's own family for that one. Combinations can be named, duplicated and taken off.
 
-**The example text** is a blind text or your own:
+**The blocks on the master** are listed under the combinations, in the order they sit on it, each
+with the copy it holds. Every one carries its **size, leading, tracking, weight, case and family** —
+and those are the *role's*, because a role is what every block of it follows: set the display block
+here and every display block in the design follows, on every format. The size is given in pixels and
+written back as the multiple of the paragraph it comes to, so the scale stays whole; the paragraph
+block is the anchor, so changing its size moves every other role with it, and each panel says which
+of the two you are looking at.
 
-| | |
-| --- | --- |
-| **Lorem ipsum** | the printer's Latin, as it is usually met |
-| **Cicero** | the passage of *De finibus* the Latin was cut from |
-| **Kafka** | *Die Verwandlung*, for German with its diacritics and its long words |
-| **Pangrams** | English and German — every letter, in a sentence |
-| **Hamburgefonstiv** | the setter's word, the full alphabet, figures and punctuation |
-| **My own text** | paste the real copy, and the blocks take their share of it |
+**Filling them with blind text.** When the copy is a placeholder anyway, pour one in: Lorem ipsum,
+the Cicero passage it was cut from, Kafka's *Verwandlung* for German, English and German pangrams,
+Hamburgefonstiv, or your own pasted text. Each block takes a different share of it — two words for
+the display, a line for the headline, a few sentences for the paragraph — and **Undo** brings the old
+copy straight back.
 
-Each block takes a different share of it — two words for the display, a line for the headline, a few
-sentences for the paragraph — so a card reads as a page rather than the same sentence five times.
-
-**The specimen** is a block per role out of the box, and **every block is yours**: which role it
-shows, whether it takes the text above or holds copy of its own, its **size, weight, case, leading
-and tracking**. Blocks can be added and removed. Sizes start at reading sizes rather than the
-format's own — a 57px display line in a card is four wrapped lines and tells you nothing about the
-face — and **Back to the system** on any block pulls in what the design actually runs, for when that
-is the question.
-
-**Four example layouts** arrange the same blocks the way the work would: *stacked*, a *title page*
-centred with air, an *article* with the paragraph in two columns, and a *poster* the display line
-carries. The cards are painted in the design's own page colour and type colours, and the zoom widens
-them.
-
-**Work with this one** chooses the combination the work goes on with. The card is marked *in use*,
-its row in the panel is marked with it, and the view says which one you are working with — so the
-choice is a state of the design, not a click you have to remember making. Choosing it puts the
-families per role into the design system, along with the treatment it was judged at — weight, case,
-leading, tracking. Not the sizes: those come from the scale and its anchor, which is the point of
-having one.
+**Use this one** chooses the combination the work goes on with. The card is marked *in use*, its row
+in the panel is marked with it, and the view says which one you are working with — so the choice is
+a state of the design, not a click you have to remember making. It puts that combination's families
+into the roles; the sizes, leading and tracking are already the roles' own, set on the blocks below.
 
 **One note on how the panels repaint.** A panel that rebuilt its markup on every change would
 destroy whatever the pointer was on: a slider would stop dead after a pixel and a field would lose
-its caret after a keystroke. Every list that holds a control — the specimen blocks, the combinations,
+its caret after a keystroke. Every list that holds a control — the master's blocks, the combinations,
 the swatch shares, the colour rows — is built when its *shape* changes and has its values synced in
 place the rest of the time. That is why a size, a leading or a tracking can be dragged the whole way
 in one movement.

@@ -592,21 +592,20 @@
       </div>
       <p class="status" id="lab-status"></p>
 
-      <h3 class="sub-head">The example text</h3>
+      <h3 class="sub-head">The blocks on the master</h3>
+      <p class="hint">The master's own blocks, in the order they sit on it. Each one shows the copy
+        it holds and the size, leading and tracking of the role it runs in — a role is what every
+        block of it follows, so setting one here sets them all, and the card above redraws.</p>
+      <div id="lab-blocks"></div>
+
+      <h3 class="sub-head">Filling them with blind text</h3>
       <label class="field grow"><span>Blind text</span><select id="lab-sample"></select></label>
       <label class="field grow" id="lab-own-field"><span>Your own text</span>
         <textarea id="lab-own" rows="4" spellcheck="false"
-          placeholder="Paste or type the real copy — the blocks below take their lines from it."></textarea>
+          placeholder="Paste or type the real copy — each block takes its share of it."></textarea>
       </label>
+      <button type="button" class="ghost wide" id="lab-fill">Fill the blocks with this</button>
       <p class="hint" id="lab-sample-hint"></p>
-
-      <h3 class="sub-head">The specimen</h3>
-      <label class="field grow"><span>Example layout</span><select id="lab-layout"></select></label>
-      <p class="hint">One block per type category out of the box. Each one takes its line from the
-        text above, or holds copy of its own, and carries its own size, weight, case, leading and
-        tracking — so a combination is judged on the setting you would actually use.</p>
-      <div id="lab-blocks"></div>
-      <button type="button" class="ghost wide" id="lab-block-add">Add a block</button>
       </details>
 
       <div class="ask" id="ask-fonts"></div>

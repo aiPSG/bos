@@ -531,7 +531,7 @@
           { name: "Grotesque and mono", fams: { display: "Archivo", headline: "Archivo", subline: "Archivo", paragraph: "Source Serif 4", smallprint: "Space Mono" } }
         ],
         // pick: the combination the work goes on with, and the one the system runs
-        sample: "lorem", own: "", layout: "stack", tile: 1, pick: 0, blocks: null
+        sample: "lorem", own: "", tile: 1, pick: 0
       },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -725,7 +725,9 @@
           ROLES.forEach(function (r) { fams[r] = (c.fams && c.fams[r]) || ""; });
           return { name: String(c.name || ""), fams: fams };
         });
-        if (!Array.isArray(s.lab.blocks)) s.lab.blocks = null;
+        // the specimen it used to carry is gone: the blocks are the master's own
+        delete s.lab.blocks;
+        delete s.lab.layout;
       }
       if (!s.ai || typeof s.ai !== "object") s.ai = clone(d.ai);
       else s.ai = Object.assign(clone(d.ai), s.ai);
@@ -3187,15 +3189,32 @@
       text: "Hamburgefonstiv. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 " +
         "&@?!£$€ “quotes” — dashes … ellipses. Handgloves, adhesion, nominal, cochineal." }
   ];
-  var LAB_LAYOUTS = [
-    ["stack", "Stacked — one after another"],
-    ["title", "Title page — centred, with air"],
-    ["article", "Article — a headline and a column"],
-    ["poster", "Poster — the display line carries it"]
-  ];
-  function labLayout() {
-    var id = state.lab.layout;
-    return LAB_LAYOUTS.some(function (l) { return l[0] === id; }) ? id : "stack";
+  /* The stage shows the master format itself — the real layout, the real copy, the
+     real background — painted once per combination, so what is compared is this
+     design in those faces rather than a specimen standing in for it. */
+  function labMaster() {
+    var m = masterIndex();
+    if (state.pages.length && state.pages[m]) {
+      return { i: m, name: state.pages[m].name + " · master", w: state.pages[m].w, h: state.pages[m].h };
+    }
+    return { i: -1, name: formatName(), w: state.stage.w, h: state.stage.h };
+  }
+
+  // a combination, for the length of one paint
+  function withCombo(c, fn) {
+    var keepFamily = state.type.family, keep = {};
+    ROLES.forEach(function (r) { keep[r] = state.type.roles[r].family; });
+    ROLES.forEach(function (r) {
+      if (c.fams[r]) state.type.roles[r].family = "g:" + c.fams[r];
+    });
+    if (c.fams.paragraph) state.type.family = "g:" + c.fams.paragraph;
+    try { return fn(); } finally {
+      state.type.family = keepFamily;
+      ROLES.forEach(function (r) {
+        if (keep[r]) state.type.roles[r].family = keep[r];
+        else delete state.type.roles[r].family;
+      });
+    }
   }
 
   function labSample() {
@@ -3207,37 +3226,14 @@
      card is not the same sentence five times over. */
   var LAB_TAKE = { display: 2, headline: 8, subline: 12, paragraph: 55, smallprint: 9 };
   var LAB_FROM = { display: 0, headline: 2, subline: 10, paragraph: 22, smallprint: -1 };
-  function labText(b) {
-    if (b.src === "own") return b.text;
-    var src = state.lab.sample === "own" ? state.lab.own : labSample().text;
-    if (state.lab.sample === "own" && !src.trim()) src = labSample().text;
-    var words = src.trim().split(/\s+/), take = LAB_TAKE[b.role] || 10;
-    var at = LAB_FROM[b.role];
+  // the share of a text a role takes, each role reading from its own place in it
+  function labShare(src, role) {
+    var words = String(src).trim().split(/\s+/), take = LAB_TAKE[role] || 10;
+    var at = LAB_FROM[role];
     var start = at < 0 ? Math.max(0, words.length - take) : Math.min(at, Math.max(0, words.length - 1));
     var out = words.slice(start, start + take).join(" ");
     if (!out) out = words.slice(0, take).join(" ");
-    return b.role === "display" ? out.replace(/[,.;:]$/, "") : out;
-  }
-
-  /* A specimen is set at reading sizes, not at the format's own — a 57px display
-     line in a card is four wrapped lines and tells you nothing about the face.
-     "Back to the system" on a block pulls in what the design actually runs, for
-     when that is the question. */
-  var LAB_SIZE = { display: 44, headline: 26, subline: 18, paragraph: 15, smallprint: 11 };
-  var LAB_LH = { display: 1.05, headline: 1.15, subline: 1.3, paragraph: 1.5, smallprint: 1.4 };
-  function labBlock(role) {
-    var st = state.type.roles[role];
-    return { role: role, src: "sample", text: "", size: LAB_SIZE[role] || 15,
-      weight: st.weight, italic: false, transform: st.transform,
-      lh: LAB_LH[role] || 1.4, ls: st.ls };
-  }
-  function labBlocks() {
-    if (!state.lab.blocks) state.lab.blocks = ROLES.map(labBlock);
-    return state.lab.blocks;
-  }
-  function labResetBlocks() {
-    state.lab.blocks = null;
-    labBlocks();
+    return role === "display" ? out.replace(/[,.;:]$/, "") : out;
   }
 
   // a role's family in a combination: the one it names, or the design's own
@@ -3264,7 +3260,7 @@
   }
 
   function renderLabSeg() {
-    var lab = state.lab, blocks = labBlocks();
+    var lab = state.lab;
     labLoadFonts();
 
     if (!$("#lab-sample").options.length) {
@@ -3272,19 +3268,15 @@
         return '<option value="' + x.id + '">' + esc(x.name) + "</option>";
       }).join("") + '<option value="own">My own text</option>';
     }
-    if (!$("#lab-layout").options.length) {
-      $("#lab-layout").innerHTML = LAB_LAYOUTS.map(function (l) {
-        return '<option value="' + l[0] + '">' + esc(l[1]) + "</option>";
-      }).join("");
-    }
-    $("#lab-layout").value = labLayout();
     $("#lab-sample").value = lab.sample;
     $("#lab-own-field").hidden = lab.sample !== "own";
     setValue($("#lab-own"), lab.own);
-    $("#lab-sample-hint").textContent = lab.sample === "own"
-      ? "Each block takes its share of this: two words for the display, a line for the headline, " +
-        "a few sentences for the paragraph. Empty, it falls back to the Latin."
-      : labSample().text.slice(0, 90) + "…";
+    $("#lab-fill").disabled = !state.text.blocks.length;
+    $("#lab-sample-hint").textContent = state.text.blocks.length
+      ? "Fill pours this into the master's blocks — two words for the display, a line for the " +
+        "headline, a few sentences for the paragraph — over whatever copy is there now. Undo " +
+        "brings it back."
+      : "The master has no text on it yet.";
 
     // ---- the combinations. Built once per row, so a family typed in keeps its caret
     rebuilt($("#lab-combos"), "c:" + lab.combos.length, function () {
@@ -3319,26 +3311,24 @@
       " combinations. " + (lab.combos.length >= LAB_MAX ? "Take one off to add another." : ""));
     $("#lab-status").className = "status" + (labSaid ? " ok" : "");
 
-    /* ---- the specimen's blocks. Rows are built once each; the values are synced,
-       so a size, a leading or a tracking can be dragged or typed without the field
-       being pulled out from under it. */
-    rebuilt($("#lab-blocks"), "b:" + blocks.map(function (b) { return b.role + b.src; }).join(","),
+    /* ---- the blocks of the master itself. Each one shows which role it runs in,
+       and its size, leading and tracking are that role's — a design system has one
+       set of values per role, so editing a block here is editing the role every
+       block of it follows. The size is given in pixels and written back as the
+       multiple of the paragraph it is, so the scale stays whole. */
+    var mblocks = state.text.blocks;
+    rebuilt($("#lab-blocks"), "mb:" + mblocks.map(function (b) { return b.role; }).join(","),
       function () {
-        return blocks.map(function (b, i) {
+        if (!mblocks.length) {
+          return '<p class="hint">The master has no text on it yet — pull a role out of the tray ' +
+            "in the layout system and it appears here.</p>";
+        }
+        return mblocks.map(function (b, i) {
           return '<details class="lab-block" data-block="' + i + '"><summary>' +
             "<b></b>" + '<span class="px"></span></summary>' +
-            '<div class="row"><label class="field"><span>Role</span><select data-lb="role" data-i="' + i + '">' +
-              ROLES.map(function (r) {
-                return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>";
-              }).join("") + "</select></label>" +
-            '<label class="field"><span>Text</span><select data-lb="src" data-i="' + i + '">' +
-              '<option value="sample">From the text above</option>' +
-              '<option value="own">Its own</option>' +
-            "</select></label></div>" +
-            (b.src === "own"
-              ? '<label class="field grow"><span>Copy</span><textarea data-lb="text" data-i="' + i +
-                '" rows="2" spellcheck="false"></textarea></label>'
-              : "") +
+            '<p class="hint" data-lb-copy></p>' +
+            '<label class="field grow"><span>Family — this role\u2019s own, or the design\u2019s</span>' +
+              '<select data-lb="family" data-i="' + i + '"></select></label>' +
             '<div class="row"><label class="field"><span>Size (px)</span>' +
               '<input type="number" data-lb="size" data-i="' + i + '" min="4" max="400" step="1"></label>' +
             '<label class="field"><span>Weight</span><select data-lb="weight" data-i="' + i + '">' +
@@ -3349,68 +3339,99 @@
               '<input type="number" data-lb="lh" data-i="' + i + '" min="0.7" max="3" step="0.01"></label>' +
             '<label class="field"><span>Tracking (em)</span>' +
               '<input type="number" data-lb="ls" data-i="' + i + '" min="-0.2" max="0.5" step="0.005"></label></div>' +
-            '<div class="row"><label class="field"><span>Case</span><select data-lb="transform" data-i="' + i + '">' +
-              [["none", "As typed"], ["uppercase", "UPPERCASE"], ["lowercase", "lowercase"], ["capitalize", "Capitalise"]]
-                .map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>"; }).join("") +
-              "</select></label>" +
-            '<label class="check"><input type="checkbox" data-lb="italic" data-i="' + i + '">' +
-              "<span>Italic</span></label></div>" +
-            '<div class="row"><button type="button" class="ghost grow" data-lb="reset" data-i="' + i +
-              '">Back to the system</button>' +
-              '<button type="button" class="ghost" data-lb="drop" data-i="' + i + '">Remove</button></div>' +
+            '<label class="field grow"><span>Case</span><select data-lb="transform" data-i="' + i + '">' +
+              [["none", "As typed"], ["uppercase", "UPPERCASE"], ["lowercase", "lowercase"],
+               ["capitalize", "Capitalise"]].map(function (o) {
+                return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
+              }).join("") + "</select></label>" +
+            '<p class="hint" data-lb-note></p>' +
             "</details>";
         }).join("");
       });
     Array.prototype.forEach.call($("#lab-blocks").children, function (row, i) {
-      var b = blocks[i];
-      if (row.open !== !!b.open) row.open = !!b.open;
+      var b = mblocks[i];
+      if (!b || !row.querySelector) return;
+      var st = state.type.roles[b.role];
+      if (row.open !== !!b.labOpen) row.open = !!b.labOpen;
       row.querySelector("summary b").textContent = ROLE_NAMES[b.role];
-      row.querySelector("summary .px").textContent =
-        fmt(b.size) + " px · " + round(b.lh, 2) + " · " + round(b.ls, 3) + "em";
-      row.querySelector('[data-lb="role"]').value = b.role;
-      row.querySelector('[data-lb="src"]').value = b.src;
-      row.querySelector('[data-lb="weight"]').value = String(b.weight);
-      row.querySelector('[data-lb="transform"]').value = b.transform;
-      row.querySelector('[data-lb="italic"]').checked = !!b.italic;
-      setValue(row.querySelector('[data-lb="size"]'), fmt(b.size));
-      setValue(row.querySelector('[data-lb="lh"]'), round(b.lh, 3));
-      setValue(row.querySelector('[data-lb="ls"]'), round(b.ls, 3));
-      var own = row.querySelector('[data-lb="text"]');
-      if (own) setValue(own, b.text);
+      row.querySelector("summary .px").textContent = Math.round(rolePx(b.role)) + " px · " +
+        round(roleLh(b.role), 2) + " · " + round(st.ls, 3) + "em";
+      row.querySelector("[data-lb-copy]").textContent = "\u201c" +
+        b.text.replace(/\s+/g, " ").slice(0, 64) + (b.text.length > 64 ? "\u2026" : "") + "\u201d";
+      var fam = row.querySelector('[data-lb="family"]');
+      if (fam.dataset.built !== String(state.type.google.length + state.type.uploads.length)) {
+        fam.dataset.built = String(state.type.google.length + state.type.uploads.length);
+        fam.innerHTML = $("#type-role-family").innerHTML;
+      }
+      fam.value = st.family || "";
+      if (fam.selectedIndex < 0) fam.selectedIndex = 0;
+      row.querySelector('[data-lb="weight"]').value = String(st.weight);
+      row.querySelector('[data-lb="transform"]').value = st.transform;
+      /* The size sweeps what the role can actually take: the paragraph as far as its
+         basis allows, everything else as far as the scale's own ceiling of twelve
+         paragraphs — so the slider is not pinned at a limit halfway along. */
+      var sizeEl = row.querySelector('[data-lb="size"]');
+      if (b.role === "paragraph") {
+        bound(sizeEl, 1, paraByHand() ? PARAPX_SLIDER : Math.round(PARA_MAX / 100 * typeBasis()));
+      } else {
+        bound(sizeEl, Math.max(1, Math.round(0.05 * paraPx())), Math.round(12 * paraPx()));
+      }
+      setValue(sizeEl, Math.round(rolePx(b.role)));
+      setValue(row.querySelector('[data-lb="lh"]'), round(roleLh(b.role), 3));
+      setValue(row.querySelector('[data-lb="ls"]'), round(st.ls, 3));
+      row.querySelector("[data-lb-note]").textContent = b.role === "paragraph"
+        ? "The paragraph is the anchor of the scale: its size is " + paraRule() +
+          ", and changing it moves every other role with it."
+        : Math.round(rolePx(b.role)) + " px is " + round(st.mult, 3) +
+          " × the paragraph. These belong to the role, so every " +
+          ROLE_NAMES[b.role].toLowerCase() + " block follows them.";
     });
 
-    // ---- the cards
-    var wide = Math.round(380 * lab.tile);
+    /* ---- the cards: the master format painted once per combination. Built when
+       the row of them changes, then repainted in place, so nothing is destroyed
+       under the pointer and the paint is the app's own — background, solids, text,
+       logo, at the master's own size. */
+    var master = labMaster(), wide = Math.round(340 * lab.tile);
     var grid = $("#lab-grid");
     grid.style.gridTemplateColumns = "repeat(auto-fill,minmax(" + wide + "px,1fr))";
-    grid.innerHTML = lab.combos.map(function (c, i) {
-      var spec = blocks.map(function (b) {
-        var style = "font-family:" + esc(labFamily(c, b.role)) + ";font-size:" + fmt(b.size) +
-          "px;font-weight:" + b.weight + ";line-height:" + round(b.lh, 3) + ";letter-spacing:" +
-          round(b.ls, 3) + "em;text-transform:" + b.transform +
-          (b.italic ? ";font-style:italic" : "") + ";color:" + state.type.roles[b.role].color;
-        return '<p class="lab-spec" style="' + style + '">' + esc(labText(b)) + "</p>";
+    rebuilt(grid, "cards:" + lab.combos.length, function () {
+      return lab.combos.map(function (c, i) {
+        return '<div class="lab-card" data-card="' + i + '">' +
+          '<div class="lab-head"><b></b><span class="lab-badge" hidden>in use</span>' +
+            '<span class="px"></span></div>' +
+          '<span class="tile-box"><span class="tile-stage"></span></span>' +
+          '<div class="lab-foot">' +
+            '<button type="button" data-lab="use" data-i="' + i + '"></button>' +
+            '<button type="button" class="ghost" data-lab="copy" data-i="' + i + '">Duplicate</button>' +
+            '<button type="button" class="ghost x" data-lab="drop" data-i="' + i +
+              '" title="Take it off">✕</button>' +
+          "</div></div>";
       }).join("");
-      var on = i === labPick();
-      return '<div class="lab-card lay-' + labLayout() + (on ? " on" : "") + '" data-card="' + i +
-        '" style="background:' + state.stage.bg + '">' +
-        '<div class="lab-head"><b>' + esc(c.name || "Combination " + (i + 1)) + "</b>" +
-        (on ? '<span class="lab-badge">in use</span>' : "") +
-        '<span class="px">' + esc(labFaces(c).join(" · ")) + "</span></div>" +
-        spec +
-        '<div class="lab-foot">' +
-          '<button type="button" class="' + (on ? "ghost" : "primary") + '" data-lab="use" data-i="' + i +
-            '"' + (on ? " disabled" : "") + ">" + (on ? "Working with this" : "Work with this one") + "</button>" +
-          '<button type="button" class="ghost" data-lab="copy" data-i="' + i + '">Duplicate</button>' +
-          '<button type="button" class="ghost x" data-lab="drop" data-i="' + i + '" title="Take it off">✕</button>' +
-        "</div></div>";
-    }).join("");
+    });
+    Array.prototype.forEach.call(grid.children, function (card, i) {
+      var c = lab.combos[i], on = i === labPick();
+      card.classList.toggle("on", on);
+      card.querySelector(".lab-head b").textContent = c.name || "Combination " + (i + 1);
+      card.querySelector(".lab-badge").hidden = !on;
+      card.querySelector(".lab-head .px").textContent = labFaces(c).join(" · ");
+      var use = card.querySelector('[data-lab="use"]');
+      use.textContent = on ? "In use" : "Use this one";
+      use.className = on ? "ghost" : "primary";
+      use.disabled = on;
+
+      var box = card.querySelector(".tile-box"), sc = wide / master.w;
+      box.style.width = Math.round(master.w * sc) + "px";
+      box.style.height = Math.round(master.h * sc) + "px";
+      var paint = function () {
+        withCombo(c, function () { paintInto(card.querySelector(".tile-stage"), master.w, master.h, sc); });
+      };
+      if (master.i >= 0) withPage(master.i, paint); else paint();
+    });
 
     $("#lab-head").textContent = "Working with " +
       ((lab.combos[labPick()] || {}).name || "combination " + (labPick() + 1)) + " · " +
-      lab.combos.length + " combinations · " + blocks.length +
-      " blocks · " + LAB_LAYOUTS.filter(function (l) { return l[0] === labLayout(); })[0][1] +
-      " · " + (lab.sample === "own" ? "your own text" : labSample().name);
+      lab.combos.length + " combinations on " + master.name + " · " +
+      state.text.blocks.length + (state.text.blocks.length === 1 ? " block" : " blocks");
     $("#labz-value").textContent = Math.round(lab.tile * 100) + "%";
   }
 
@@ -3422,7 +3443,7 @@
     var c = state.lab.combos[i];
     if (!c) return;
     state.lab.pick = i;                  // the one the work goes on with
-    var blocks = labBlocks(), used = [];
+    var used = [];
     ROLES.forEach(function (r) {
       var name = c.fams[r], st = state.type.roles[r];
       if (name) {
@@ -3431,12 +3452,6 @@
         st.family = "g:" + name;
         if (used.indexOf(name) < 0) used.push(name);
       }
-      var b = blocks.filter(function (x) { return x.role === r; })[0];
-      if (!b) return;
-      st.weight = clamp(Math.round(b.weight), 100, 900);
-      st.transform = b.transform;
-      st.ls = round(b.ls, 4);
-      if (r !== "paragraph") st.lh = clamp(round(b.lh, 3), 0.5, 3);
     });
     // the text face is the design's family, so a role that matches it needs no override
     var shared = c.fams.paragraph;
@@ -3449,7 +3464,7 @@
     buildFamilySelect();
     labSaid = "Working with " + (c.name || "combination " + (i + 1)) + " — " +
       (used.length ? used.join(", ") : "the design's own families") +
-      ", with the weights, case, leading and tracking from the specimen. The sizes stay with the scale.";
+      ". The sizes, leading and tracking are the roles' own, set on the blocks below.";
   }
 
   /* ------------------------------------------------------- design tokens */
@@ -5320,7 +5335,6 @@
     $("#labz-out").addEventListener("click", function () { state.lab.tile = clamp(state.lab.tile / 1.2, .6, 3); render(); });
     $("#labz-value").addEventListener("click", function () { state.lab.tile = 1; render(); });
     onChange("#lab-sample", function (el) { state.lab.sample = el.value; });
-    onChange("#lab-layout", function (el) { state.lab.layout = el.value; });
     onInput("#lab-own", function (el) { state.lab.own = el.value; });
     $("#lab-add").addEventListener("click", function () {
       if (state.lab.combos.length >= LAB_MAX) return;
@@ -5333,20 +5347,25 @@
     });
     $("#lab-reset").addEventListener("click", function () {
       state.lab = clone(defaults().lab);
-      labBlocks();
       render();
     });
-    $("#lab-block-add").addEventListener("click", function () {
-      var b = labBlocks();
-      b.push({ role: "paragraph", src: "sample", text: "", size: Math.round(rolePx("paragraph")),
-        weight: state.type.roles.paragraph.weight, italic: false, transform: "none",
-        lh: round(roleLh("paragraph"), 3), ls: state.type.roles.paragraph.ls, open: true });
+    $("#lab-fill").addEventListener("click", function () {
+      var src = state.lab.sample === "own" ? state.lab.own : labSample().text;
+      if (!String(src).trim()) src = labSample().text;
+      state.text.blocks.forEach(function (b) {
+        b.text = labShare(src, b.role);
+        b.blind = 0;
+      });
+      var stack = liveStack();
+      if (stack) stack.dataset.sig = "";
+      labSaid = "Poured " + (state.lab.sample === "own" ? "your own text" : labSample().name) +
+        " into " + state.text.blocks.length + " blocks. Undo brings the old copy back.";
       render();
     });
     // the combinations and the cards
     $("#seg-lab").addEventListener("click", function (e) {
       var lb = e.target.closest("[data-lb]");
-      if (lb && (lb.dataset.lb === "reset" || lb.dataset.lb === "drop")) return labBlockField(lb);
+      if (lb && lb.tagName === "BUTTON") return labBlockField(lb);
       var t = e.target.closest("[data-lab]");
       if (!t) return;
       var i = +t.dataset.i, kind = t.dataset.lab;
@@ -5387,8 +5406,8 @@
     $("#seg-lab").addEventListener("toggle", function (e) {
       var d = e.target.closest ? e.target.closest("[data-block]") : null;
       if (!d) return;
-      var b = labBlocks()[+d.dataset.block];
-      if (b) b.open = d.open;
+      var b = state.text.blocks[+d.dataset.block];
+      if (b) b.labOpen = d.open;
     }, true);
 
     /* Dragging a join moves the share between the two colours it sits between and
@@ -7194,42 +7213,50 @@
 
   /* Three boxes, one set of handlers: the click tells us which question it came
      from, and the settings they share are written once and shown in all of them. */
-  // one block of the specimen, whichever field was touched
+  /* One of the master's blocks, whichever field was touched. What is written is
+     the role's own value — the size as the multiple of the paragraph it comes to,
+     so the scale holds — since a role is what every block of it follows. */
   function labBlockField(t) {
     labSaid = "";
     if (!t || !t.dataset || !t.dataset.lb) return;
-    var b = labBlocks()[+t.dataset.i];
+    var b = state.text.blocks[+t.dataset.i];
     if (!b) return;
-    var k = t.dataset.lb;
-    if (k === "drop") {
-      if (labBlocks().length < 2) return;
-      state.lab.blocks.splice(+t.dataset.i, 1);
+    var st = state.type.roles[b.role], k = t.dataset.lb;
+    if (k === "family") {
+      if (t.value) {
+        st.family = t.value;
+        if (t.value.indexOf("g:") === 0) loadGoogleFont(t.value.slice(2));
+      } else delete st.family;
       return render();
     }
-    if (k === "reset") {
-      var st = state.type.roles[b.role];
-      b.size = Math.round(rolePx(b.role));
-      b.weight = st.weight;
-      b.transform = st.transform;
-      b.lh = round(roleLh(b.role), 3);
-      b.ls = st.ls;
-      b.italic = false;
-      return render();
-    }
-    if (k === "role") {
-      b.role = t.value;
-      return render();
-    }
-    if (k === "src") { b.src = t.value; return render(); }
-    if (k === "text") { b.text = t.value; return render(); }
-    if (k === "italic") { b.italic = t.checked; return render(); }
-    if (k === "transform") { b.transform = t.value; return render(); }
-    if (k === "weight") { b.weight = +t.value; return render(); }
+    if (k === "weight") { st.weight = +t.value; return render(); }
+    if (k === "transform") { st.transform = t.value; return render(); }
     if (t.value === "") return;
-    if (k === "size") b.size = clamp(num(t.value, b.size), 1, 800);
-    if (k === "lh") b.lh = clamp(num(t.value, b.lh), 0.5, 4);
-    if (k === "ls") b.ls = clamp(num(t.value, b.ls), -0.5, 1);
-    render();
+    if (k === "size") {
+      var px = clamp(num(t.value, rolePx(b.role)), 1, 800);
+      // the paragraph is the anchor; everything else is a multiple of it
+      if (b.role === "paragraph") {
+        state.type.paragraph = paraByHand()
+          ? clamp(round(px, 2), PARAPX_MIN, PARAPX_MAX)
+          : clamp(round(px / Math.max(1, typeBasis()) * 100, 3), PARA_MIN, PARA_MAX);
+      } else {
+        st.mult = clamp(round(px / Math.max(1, paraPx()), 4), 0.01, 12);
+        state.type.system = "custom";
+      }
+      return render();
+    }
+    if (k === "lh") {
+      var v = clamp(num(t.value, roleLh(b.role)), 0.5, 4);
+      // in the fit mode the paragraph's leading is the row, so it picks the row count
+      if (b.role === "paragraph" && !fromLeading() && st.snap !== "free") {
+        setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      } else st.lh = round(v, 3);
+      return render();
+    }
+    if (k === "ls") {
+      st.ls = round(clamp(num(t.value, st.ls), -0.5, 1), 4);
+      return render();
+    }
   }
 
   function bindClaude() {
