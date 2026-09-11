@@ -29,22 +29,28 @@ The work runs in stages, and the tabs across the top are those stages in order:
 
 | | Stage | What it is |
 | --- | --- | --- |
-| 1 | **Set design system** | The format, the logo, the margins and columns, the solid, the type scale and both baseline grids, and the text that sits on them. This is the app below. |
-| 2 | **Compare typography** | Up to six font combinations side by side, each setting the same specimen, so a pairing is judged on the sizes and the leading it would run at. |
-| 3 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — and put on the type and the solids. |
-| 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a generated image, a pattern, or a gradient. Patterns and gradients are built; images are not yet. |
+| 1 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — with an ink, a paper, a contrast audit, and the share each colour takes of the whole. |
+| 2 | **Typography** | The whole type system — family, scale, every role — and up to six combinations side by side, each setting the same specimen. |
+| 3 | **Layout system** | The format, the logo, the margins and the columns, the solid, both baseline grids, and the text that sits on them. The canvas. |
+| 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a pattern or a gradient. Images are not built yet. |
 | 5 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
 | 6 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-The first five are built. *Dummies* carries an **under construction** placeholder that names what
+The colour, then the type, then the layout they are put to work in — that is the order the work
+goes, and the tabs are in it. The first five are built. *Dummies* carries an **under construction** placeholder that names what
 will live there, as does the *Image* tab inside *Generate background*. The tab you were last on is
 remembered.
 
-## Comparing typography
+## Typography
 
-**Compare typography** is for *choosing* type rather than setting it. Up to **six combinations** sit
-side by side, and every one of them sets the same specimen — so what is compared is the setting you
-would actually run, not a row of family names.
+**The whole type system lives in this stage**, in two sections. *The type system* is everything that
+used to sit in the layout panel — the family and where it comes from (the system stacks, any Google
+family, an uploaded font file), the scale with its anchor and its ratios, and every role's tag,
+family, weight, leading, tracking, case and colour. *Comparing combinations* is below it, and the
+two work together: change the scale on the left and the specimens redraw.
+
+**Up to six combinations** sit side by side, and every one of them sets the same specimen — so what
+is compared is the setting you would actually run, not a row of family names.
 
 A combination names a family for each of the five roles. Type any **Google family** — the field
 suggests as you type, from the catalogue if you have loaded it — or leave a role empty and it keeps
@@ -82,7 +88,8 @@ anchor, which is the point of having one.
 
 ## The colour scheme
 
-**Create colour scheme** builds a palette the way colour is usually worked out: **one colour and a
+**Create colour scheme** is the first stage: the palette comes before the type and the layout that
+wear it. It builds a palette the way colour is usually worked out: **one colour and a
 relationship between hues**. Pick the colour it starts from, then the relationship —
 **monochromatic**, **analogous**, **complementary**, **split complementary**, **triadic**,
 **tetradic**, or **tints and shades** — and set how many swatches you want (3 to 12). The first pass
@@ -96,6 +103,14 @@ dropped in: they take the base hue at the bottom and the top of its lightness ra
 to the scheme. Out of the box that is around **19:1 against white and against black**, and 17:1
 against each other, which is what the audit below reaches for when a colour does not carry enough
 contrast.
+
+**The mix — what share of the whole each colour makes up.** A palette is not a list of colours in
+equal measure; it is a ground, a lot of one thing, a little of another. So every swatch carries a
+**percentage**, and the strip above them draws the palette at those proportions — each colour at the
+width of its share, labelled where there is room. Set a percentage on any swatch and **the others
+keep their proportions to each other** in what is left, so the total is always a hundred and you are
+never left adding up. A share of nothing is allowed, and the strip closes over it. The mix travels
+in the token file.
 
 **A warning when it does not read.** Under the swatches, every type colour is checked against what
 it actually sits on — the page, or the fill of the solid a block is inside — against **WCAG 2 AA**:
@@ -337,7 +352,7 @@ solved together in one step rather than chasing each other. Resize handles keep 
 write back in whatever unit is set. Its size is what the margin rule multiplies, so a percentage
 logo gives margins that scale with the format too.
 
-**Typography** — the type scale has five roles: **display, headline, subline, paragraph and small
+**Typography** (in the *Typography* stage, not the layout panel) — the type scale has five roles: **display, headline, subline, paragraph and small
 print**. Display is the biggest of them, one ratio step past the headline (4.236 × paragraph out of
 the box, against the headline's 2.618).
 
@@ -667,12 +682,14 @@ way; the proxy is a separate 30-line deploy that Pages knows nothing about.
 
 ## The panel
 
-Six groups, in the order the design comes together: **Format** (with background image inside it),
-**Logo**, **Page setup** (the margins, the baseline grid and both column grids), **Typography**,
-**Layout** (asking Claude for one), **Export** (the slides, then CSS, then the tokens). Neither text
-blocks nor solids are among them — both are set on the canvas, beside the thing they belong to, and a solid's panel
-carries everything the group used to: where it sits and its anchor, width and height, snapping,
-fill, what fills it, and its corners.
+The layout system's panel has five groups, in the order the design comes together: **Format** (with
+background image inside it), **Logo**, **Page setup** (the margins, the baseline grid and both column
+grids), **Layout** (asking Claude for one), **Export** (the slides, then CSS, then the tokens).
+
+**Typography is not among them** — the whole type system is a stage of its own now, with the
+comparison. Neither are text blocks or solids: both are set on the canvas, beside the thing they
+belong to, and a solid's panel carries everything the group used to — where it sits and its anchor,
+width and height, snapping, fill, what fills it, and its corners.
 
 ## Layout
 

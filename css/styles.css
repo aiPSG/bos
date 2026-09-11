@@ -115,6 +115,13 @@ body{
 
 /* ---------- comparing typography ---------- */
 
+/* the whole type system lives in this stage, so the panel is sectioned like the
+   design system's own */
+.bg-panel>.lab-group{margin:0 -16px;padding:0 16px 14px}
+.bg-panel>.lab-group>summary{padding:12px 0 10px}
+.bg-panel>.lab-group:first-child>summary{padding-top:14px}
+
+
 .lab-grid{
   flex:1;min-height:0;overflow:auto;padding:22px;
   display:grid;align-content:start;gap:20px;
@@ -192,7 +199,19 @@ body{
 .ask .status{margin-bottom:8px}
 
 /* the scheme offered under a colour field */
-.sw-cell.tone>span:last-child{color:var(--text)}
+.sw-cell.tone>span:nth-child(2){color:var(--text)}
+.sw-cell input[type=number]{padding:3px 5px;font-size:11px;text-align:center}
+.sw-cell .numf>input[type=range]{height:11px}
+
+/* the mix: every colour at the width of its share of the whole */
+.col-mix{
+  display:flex;height:46px;border-radius:7px;overflow:hidden;
+  border:1px solid var(--line);margin:6px 0 8px;
+}
+.mix-block{
+  display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;
+  font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;
+}
 .sw-row{display:flex;gap:3px;margin-top:4px}
 .sw-row .sw-chip-btn{height:13px;border-radius:3px}
 

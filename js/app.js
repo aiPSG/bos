@@ -344,16 +344,19 @@
   /* The work runs in stages, and each is a segment of the interface: the design
      system first, then the background it sits on, then the formats it is laid
      into, then the dummies it is shown in. Only the first is built. */
+  /* The run, in the order the work goes: the colour and the type are the system,
+     the layout is where they are put to work, the background sits under it, the
+     formats carry it, the dummies show it. */
   var SEGMENTS = [
-    { id: "system", name: "Set design system", built: true,
-      note: "The format, the logo, the margins and the columns, the solid, the type scale " +
-        "and both baseline grids, and the text that sits on them." },
-    { id: "typelab", name: "Compare typography", built: true,
-      note: "Up to six font combinations side by side, each setting the same specimen, so a " +
-        "pairing is judged on the sizes and the leading it would actually run at." },
     { id: "colour", name: "Create colour scheme", built: true,
       note: "A scheme worked out the way colour is worked out — from one colour and a " +
-        "relationship — and put on the type and the solids." },
+        "relationship — with the share each colour takes of the whole." },
+    { id: "typelab", name: "Typography", built: true,
+      note: "The whole type system — the family, the scale, every role — and up to six " +
+        "combinations side by side, each setting the same specimen." },
+    { id: "system", name: "Layout system", built: true,
+      note: "The format, the logo, the margins and the columns, the solid, both baseline " +
+        "grids, and the text that sits on them." },
     { id: "background", name: "Generate background", built: true,
       note: "One ground for the system to sit on, made rather than found." },
     { id: "formats", name: "Design formats", built: true,
@@ -508,7 +511,8 @@
       v: 21,
       seg: "system",
       // a scheme built from one colour and a relationship between hues
-      scheme: { base: "#4f7cff", technique: "complement", count: 6, spread: 30 },
+      // shares: what proportion of the whole each colour makes up, in per cent
+      scheme: { base: "#4f7cff", technique: "complement", count: 6, spread: 30, shares: null },
       // the formats the work runs in; one of them is the master
       pages: [], page: 0, pageKey: 1,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
@@ -2753,6 +2757,39 @@
     return out.concat(["Ink", "Paper"]);
   }
 
+  /* What share of the whole each colour makes up. A palette is not a list of
+     colours in equal measure — it is a ground, a lot of one thing, a little of
+     another — so every swatch carries a percentage, and they always come to a
+     hundred. Setting one scales the others to fit around it rather than leaving
+     the total adrift. */
+  function schemeShares() {
+    var n = schemeSwatches().length;
+    var raw = state.scheme.shares;
+    if (!Array.isArray(raw) || raw.length !== n) {
+      var had = Array.isArray(raw) ? raw.slice(0, n) : [];
+      raw = [];
+      // a share set to nothing is a decision; only a missing one is filled in
+      for (var i = 0; i < n; i++) raw.push(isFinite(had[i]) && had[i] >= 0 ? had[i] : 100 / n);
+      state.scheme.shares = raw;
+    }
+    var sum = raw.reduce(function (a, b) { return a + Math.max(0, b); }, 0);
+    if (sum <= 0) return raw.map(function () { return 100 / n; });
+    return raw.map(function (v) { return Math.max(0, v) / sum * 100; });
+  }
+
+  function setSchemeShare(i, pct) {
+    var now = schemeShares(), n = now.length;
+    if (i < 0 || i >= n) return;
+    var mine = clamp(num(pct, now[i]), 0, 100), rest = 100 - mine;
+    var others = now.reduce(function (a, v, k) { return k === i ? a : a + v; }, 0);
+    var out = now.map(function (v, k) {
+      if (k === i) return mine;
+      // the others keep their proportions to each other, in what is left over
+      return others > 0 ? v / others * rest : rest / Math.max(1, n - 1);
+    });
+    state.scheme.shares = out;
+  }
+
   /* Whether the scheme reads. WCAG 2 asks 4.5:1 of body text and 3:1 of large
      text — 24px, or 18.66px when it is bold — so the threshold is a property of
      the role, not a constant. Text is checked against what it actually sits on:
@@ -2845,12 +2882,27 @@
       " swatches from " + sc.base.toUpperCase() + ", and the ink and the paper every scheme carries " +
       "— click one on a row below to put it there.";
 
-    var names = schemeNames();
+    var names = schemeNames(), shares = schemeShares();
     $("#col-swatches").innerHTML = sw.map(function (hex, i) {
       return '<div class="sw-cell' + (names[i] ? " tone" : "") + '">' +
         '<span class="sw-box" style="background:' + hex + '"></span>' +
-        "<span>" + (names[i] ? names[i] + " · " : "") + hex.toUpperCase() + "</span></div>";
+        "<span>" + (names[i] ? names[i] + " · " : "") + hex.toUpperCase() + "</span>" +
+        '<input type="number" data-share="' + i + '" min="0" max="100" step="1" value="' +
+        round(shares[i], 1) + '" title="What share of the whole this colour makes up"></div>';
     }).join("");
+
+    // the mix itself: every colour at the width of its share
+    $("#col-mix").innerHTML = sw.map(function (hex, i) {
+      var pct = shares[i];
+      var ink = luminance(hexRgb(hex)) > 0.4 ? "#111318" : "#f2f4f8";
+      return '<span class="mix-block" style="background:' + hex + ";flex:" + round(pct, 3) +
+        " 1 0;color:" + ink + '" title="' + (names[i] ? esc(names[i]) + " — " : "") +
+        hex.toUpperCase() + ", " + round(pct, 1) + '%">' +
+        (pct >= 6 ? round(pct, 0) + "%" : "") + "</span>";
+    }).join("");
+    $("#col-mix-hint").textContent = "What each colour makes up of the whole — set a percentage on " +
+      "any swatch and the others keep their proportions to each other in what is left. " +
+      (names.length ? "The ink and the paper are usually most of it: a page and its text." : "");
 
     $("#col-targets").innerHTML = schemeTargets().map(function (t) {
       var cur = (t.get() || "").toLowerCase();
@@ -3471,7 +3523,10 @@
       baseline: { rows: ty.rows, from: ty.gridFrom, show: ty.grid },
       margin: clone(state.margin),
       columns: { format: clone(state.cols), solid: state.solids.map(function (r) { return clone(r.columns); }) },
-      scheme: clone(state.scheme),
+      // the shares as they read, not the weights behind them
+      scheme: Object.assign(clone(state.scheme), {
+        shares: schemeShares().map(function (v) { return round(v, 2); })
+      }),
       solids: state.solids.map(function (r, i) {
         return { pos: clone(r.pos), anchor: clone(r.anchor), wmode: r.wmode, hmode: r.hmode,
           w: r.w, h: r.h, grid: r.grid, cols: r.cols, shape: r.shape, content: r.content,
@@ -5240,6 +5295,14 @@
       var b = labBlocks()[+d.dataset.block];
       if (b) b.open = d.open;
     }, true);
+
+    // a share typed on a swatch, and the rest keep their proportions
+    $("#col-swatches").addEventListener("input", function (e) {
+      var t = e.target;
+      if (!t.dataset || t.dataset.share === undefined || t.value === "") return;
+      setSchemeShare(+t.dataset.share, num(t.value, 0));
+      render();
+    });
 
     $("#colz-in").addEventListener("click", function () { colZoom = clamp(colZoom * 1.25, .3, 4); render(); });
     $("#colz-out").addEventListener("click", function () { colZoom = clamp(colZoom / 1.25, .3, 4); render(); });

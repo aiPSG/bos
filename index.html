@@ -228,87 +228,6 @@
       <p class="hint" id="rcol-hint"></p>
     </details>
 
-    <details class="group" open>
-      <summary><h2>Typography</h2></summary>
-      <label class="field grow"><span>Font family</span><select id="type-family"></select></label>
-      <div class="row">
-        <label class="field grow"><span>Add a Google font</span>
-          <input type="text" id="gf-input" list="gf-list" spellcheck="false" autocomplete="off" placeholder="Start typing — Inter, Lora, Oswald…">
-        </label>
-      </div>
-      <datalist id="gf-list"></datalist>
-      <div class="row">
-        <button type="button" class="ghost grow" id="gf-add">Use this Google font</button>
-        <button type="button" class="ghost" id="font-upload-btn">Upload…</button>
-      </div>
-      <input type="file" id="font-file" accept=".woff2,.woff,.ttf,.otf,font/*" hidden>
-      <!-- where a browser has no file handles: the key file, this session only -->
-      <input type="file" id="ai-file" accept=".txt,text/plain" hidden>
-      <p class="status" id="font-status"></p>
-      <details class="sub">
-        <summary><h3>List every Google font</h3></summary>
-        <p class="hint" id="gf-count"></p>
-        <label class="field grow"><span>Google Fonts API key</span>
-          <input type="password" id="gf-key" spellcheck="false" autocomplete="off" placeholder="AIza…">
-        </label>
-        <div class="row">
-          <button type="button" class="ghost grow" id="gf-load">Load the full catalogue</button>
-          <button type="button" class="ghost" id="gf-forget">Forget key</button>
-        </div>
-        <p class="hint">A free key from <b>developers.google.com/fonts/docs/developer_api</b> lets the
-          app list every family Google publishes. The key is kept in this browser only, and the
-          catalogue is cached here after the first load.</p>
-        <p class="status" id="gf-status"></p>
-      </details>
-      <h3 class="sub-head">Scale</h3>
-      <div class="row">
-        <label class="field"><span>Paragraph <b id="type-para-px"></b></span>
-          <input type="number" id="type-para"></label>
-        <label class="field unit"><span>Measured as</span>
-          <select id="type-basis"></select></label>
-      </div>
-      <label class="field grow"><span>Size relations</span><select id="type-system"></select></label>
-      <div id="type-scale"></div>
-      <p class="hint" id="type-scale-hint"></p>
-
-      <h3 class="sub-head">Style</h3>
-      <label class="field grow"><span>Role</span><select id="type-level"></select></label>
-      <label class="field grow"><span>Family — this role's own, or the design's</span>
-        <select id="type-role-family"></select>
-      </label>
-      <div class="row">
-        <label class="field"><span>HTML tag</span><select id="type-tag"></select></label>
-        <label class="field"><span>Weight</span>
-          <select id="type-weight">
-            <option>100</option><option>200</option><option>300</option><option>400</option>
-            <option>500</option><option>600</option><option>700</option><option>800</option><option>900</option>
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <label class="field"><span>Line height <b id="type-lh-px"></b></span>
-          <input type="number" id="type-lh" min="0.5" max="3" step="0.05"></label>
-        <label class="field"><span>Align to</span><select id="type-snap"></select></label>
-      </div>
-      <div class="row">
-        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" min="-0.2" max="0.5" step="0.005"></label>
-        <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
-      </div>
-      <div class="row">
-        <label class="field grow"><span>Case</span>
-          <select id="type-transform">
-            <option value="none">As typed</option>
-            <option value="uppercase">UPPERCASE</option>
-            <option value="lowercase">lowercase</option>
-            <option value="capitalize">Capitalise</option>
-          </select>
-        </label>
-      </div>
-      <p class="hint" id="type-style-hint"></p>
-
-      <div class="ask" id="ask-fonts"></div>
-    </details>
-
     <details class="group">
       <summary><h2>Layout</h2></summary>
       <div class="ask" id="ask-layout"></div>
@@ -580,6 +499,88 @@
 
   <section class="bgseg" id="seg-lab" hidden>
     <aside class="panel bg-panel">
+      <details class="group lab-group" open>
+        <summary><h2>The type system</h2></summary>
+      <label class="field grow"><span>Font family</span><select id="type-family"></select></label>
+      <div class="row">
+        <label class="field grow"><span>Add a Google font</span>
+          <input type="text" id="gf-input" list="gf-list" spellcheck="false" autocomplete="off" placeholder="Start typing — Inter, Lora, Oswald…">
+        </label>
+      </div>
+      <datalist id="gf-list"></datalist>
+      <div class="row">
+        <button type="button" class="ghost grow" id="gf-add">Use this Google font</button>
+        <button type="button" class="ghost" id="font-upload-btn">Upload…</button>
+      </div>
+      <input type="file" id="font-file" accept=".woff2,.woff,.ttf,.otf,font/*" hidden>
+      <!-- where a browser has no file handles: the key file, this session only -->
+      <input type="file" id="ai-file" accept=".txt,text/plain" hidden>
+      <p class="status" id="font-status"></p>
+      <details class="sub">
+        <summary><h3>List every Google font</h3></summary>
+        <p class="hint" id="gf-count"></p>
+        <label class="field grow"><span>Google Fonts API key</span>
+          <input type="password" id="gf-key" spellcheck="false" autocomplete="off" placeholder="AIza…">
+        </label>
+        <div class="row">
+          <button type="button" class="ghost grow" id="gf-load">Load the full catalogue</button>
+          <button type="button" class="ghost" id="gf-forget">Forget key</button>
+        </div>
+        <p class="hint">A free key from <b>developers.google.com/fonts/docs/developer_api</b> lets the
+          app list every family Google publishes. The key is kept in this browser only, and the
+          catalogue is cached here after the first load.</p>
+        <p class="status" id="gf-status"></p>
+      </details>
+      <h3 class="sub-head">Scale</h3>
+      <div class="row">
+        <label class="field"><span>Paragraph <b id="type-para-px"></b></span>
+          <input type="number" id="type-para"></label>
+        <label class="field unit"><span>Measured as</span>
+          <select id="type-basis"></select></label>
+      </div>
+      <label class="field grow"><span>Size relations</span><select id="type-system"></select></label>
+      <div id="type-scale"></div>
+      <p class="hint" id="type-scale-hint"></p>
+
+      <h3 class="sub-head">Style</h3>
+      <label class="field grow"><span>Role</span><select id="type-level"></select></label>
+      <label class="field grow"><span>Family — this role's own, or the design's</span>
+        <select id="type-role-family"></select>
+      </label>
+      <div class="row">
+        <label class="field"><span>HTML tag</span><select id="type-tag"></select></label>
+        <label class="field"><span>Weight</span>
+          <select id="type-weight">
+            <option>100</option><option>200</option><option>300</option><option>400</option>
+            <option>500</option><option>600</option><option>700</option><option>800</option><option>900</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Line height <b id="type-lh-px"></b></span>
+          <input type="number" id="type-lh" min="0.5" max="3" step="0.05"></label>
+        <label class="field"><span>Align to</span><select id="type-snap"></select></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Letter spacing (em)</span><input type="number" id="type-ls" min="-0.2" max="0.5" step="0.005"></label>
+        <label class="field color"><span>Colour</span><input type="color" id="type-color"></label>
+      </div>
+      <div class="row">
+        <label class="field grow"><span>Case</span>
+          <select id="type-transform">
+            <option value="none">As typed</option>
+            <option value="uppercase">UPPERCASE</option>
+            <option value="lowercase">lowercase</option>
+            <option value="capitalize">Capitalise</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" id="type-style-hint"></p>
+
+      </details>
+
+      <details class="group lab-group" open>
+        <summary><h2>Comparing combinations</h2></summary>
       <h3 class="sub-head">The combinations</h3>
       <p class="hint">Up to six, side by side, each running the same specimen. Type any Google
         family — the list suggests as you type — or leave a role empty to keep the design's own
@@ -606,6 +607,9 @@
         tracking — so a combination is judged on the setting you would actually use.</p>
       <div id="lab-blocks"></div>
       <button type="button" class="ghost wide" id="lab-block-add">Add a block</button>
+      </details>
+
+      <div class="ask" id="ask-fonts"></div>
     </aside>
 
     <div class="bg-view">
@@ -636,6 +640,10 @@
       </div>
       <div class="sw-grid" id="col-swatches"></div>
       <p class="hint" id="col-note"></p>
+
+      <h3 class="sub-head">The mix</h3>
+      <div class="col-mix" id="col-mix"></div>
+      <p class="hint" id="col-mix-hint"></p>
 
       <h3 class="sub-head">Put it on</h3>
       <p class="status" id="col-warn"></p>
