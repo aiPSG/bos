@@ -558,14 +558,30 @@ Type what the design is for and press the button.
 What comes back is **the app's own settings** — the controls a designer would have set by hand, not
 pixels. A scheme comes back as *one colour, a relationship, a swatch count and where each swatch
 goes*, so the harmony maths and the contrast readouts still hold. A layout comes back as *blocks on
-rows of a named grid, with real copy*, so it cannot land off the grid or the columns. A pairing comes
+rows of a named grid with real copy, the solids under them, and where the logo sits*, so it cannot
+land off the grid or the columns. A pairing comes
 back as *a family and a weight for each of the five roles*, every name copied out of the catalogue
 the app can load and checked against it before anything is applied — so the answer can be one face,
 two, or five. Each answer is shown as JSON with what it cost, and nothing changes until you
 press **Apply** — after which **⌘/Ctrl + Z** takes the whole thing back in one step.
 
-The design system travels with the question **as the token file above**, so the answer is in terms of
-this system — this format, these margins, this grid, this many columns — rather than a generic one.
+The design system travels with the question **as the token file above** — which carries the rules and
+the current design under `$extensions`, not only the values — plus this format's live numbers: the
+size, the four margins, the column count, grid 1's row height and how many rows fit between the
+margins. So the answer is in terms of this system rather than a generic one.
+
+**What the logo occupies is worked out here and said plainly**, because the answer is given in rows
+and columns and the app has the geometry exactly: *"The logo is on this format: 135 × 135 at 80 / 80,
+which is rows 0 to 4 of grid 1 (30.51 px a row) and column 1. Lay out around it, or move it."* Left
+to derive that from the state, a model has to take a percentage of the longest side, resolve it
+through an align and an anchor against the margin box, and convert the result into rows — three
+steps that get silently skipped exactly when the brief is interesting. With no logo on the format it
+says the opposite, so nothing leaves a polite gap at the top for nothing.
+
+**The layout may move the logo, but not resize it while the margins depend on it.** In a logo margin
+mode `margin = factor × logo size`, so a resize would move every margin the layout was just measured
+against: position always, height only when the margins are set by hand — and the question says which
+of the two it is, with the reason, rather than the answer being quietly ignored.
 
 Model, and endpoint: **Claude Opus 5** by default, with Sonnet 5 and Haiku 4.5 in the list — set in
 any of the three boxes, the same for all. A request is a few thousand tokens in and a few hundred
