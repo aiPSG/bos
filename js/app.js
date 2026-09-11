@@ -5928,8 +5928,8 @@
       place: "A club night poster. Loud, cheap, a bit ugly on purpose." },
     { kind: "layout", host: "#ask-layout", head: "Ask Claude for a layout",
       button: "Lay out this format",
-      hint: "Blocks on rows of a named grid with real copy, and the solids to go under them \u2014 " +
-        "the app turns that into positions, so nothing it gives can land off the grid.",
+      hint: "Blocks on rows of a named grid with real copy, the solids to go under them, and where " +
+        "the logo sits \u2014 the app turns that into positions, so nothing it gives can land off the grid.",
       place: "The cover of a report on water. Quiet, a lot of air, one image." }
   ];
 
@@ -6372,6 +6372,33 @@
       : ROLES.map(function (r) { return ROLE_NAMES[r].toLowerCase() + " in " + found[r]; }).join(", ") + ".";
   }
 
+  /* What the logo occupies, worked out here rather than left to be derived from
+     the state: the app has the geometry exactly, and the answer is given in rows
+     and columns, so the conclusion is handed over in rows and columns. */
+  function aiLogoNote() {
+    var lg = state.logo;
+    if (!lg.visible) {
+      return "There is no logo on this format — nothing is reserved at the top, so use the whole " +
+        "margin box. Switch it on in the answer if the design wants one.";
+    }
+    var b = box("logo"), c = content(), u = baseline(), step = colStep(), n = colCount();
+    var pseudo = { grid: 1, from: "top" };
+    var r0 = Math.max(0, rowAt(b.y, pseudo)), r1 = Math.max(r0, rowAt(b.y + b.h, pseudo));
+    var c0 = clamp(Math.floor((b.x - c.x) / step) + 1, 1, n);
+    var c1 = clamp(Math.ceil((b.x + b.w - c.x) / step), 1, n);
+    return "The logo is on this format: " + fmt(b.w) + " × " + fmt(b.h) + " at " + fmt(b.x) + " / " +
+      fmt(b.y) + ", which is rows " + r0 + " to " + r1 + " of grid 1 (" + round(u, 2) + " px a row) " +
+      "and column" + (c0 === c1 ? " " + c0 : "s " + c0 + " to " + c1) + ". Lay out around it, or " +
+      "move it — 'logo' in the answer says where it goes — and say in the note if something is " +
+      "meant to sit over it. Its height is " + (lg.h.u === "%" ? round(lg.h.v, 2) + "% of the longest side"
+        : lg.h.u === "col" ? round(lg.h.v, 2) + " columns wide" : fmt(lg.h.v) + " px") +
+      (state.margin.mode === "manual"
+        ? ", and you may change it: 'heightPercent' is a percentage of the format's longest side."
+        : ", and it is not yours to change here — the margins are worked out from it (" +
+          state.margin.factor + " × the logo " + (state.margin.mode === "logoH" ? "height" : "width") +
+          "), so resizing it would move every margin this layout is measured against.");
+  }
+
   /* ---- a layout: the blocks and the solids, in the app's own terms. Rows, not
      pixels; column choices, not coordinates. */
   function aiLayoutSchema() {
@@ -6409,14 +6436,28 @@
       required: ["x", "y", "anchorH", "anchorV", "wmode", "hmode", "w", "h", "content", "module", "note"],
       additionalProperties: false
     };
+    var logo = {
+      type: "object",
+      properties: {
+        visible: { type: "boolean", description: "Whether the logo is on this format at all" },
+        alignH: { type: "string", enum: H_KEYS.slice() },
+        alignV: { type: "string", enum: V_KEYS.slice() },
+        anchorH: { type: "string", enum: H_KEYS.slice(), description: "Which point of the logo lands on that place" },
+        anchorV: { type: "string", enum: V_KEYS.slice() },
+        heightPercent: { type: "number", description: "Its height as a percentage of the format's longest side. Ignored while the margins are worked out from the logo." }
+      },
+      required: ["visible", "alignH", "alignV", "anchorH", "anchorV", "heightPercent"],
+      additionalProperties: false
+    };
     return {
       type: "object",
       properties: {
+        logo: logo,
         solids: { type: "array", items: solid },
         blocks: { type: "array", items: block },
         note: { type: "string" }
       },
-      required: ["solids", "blocks", "note"],
+      required: ["logo", "solids", "blocks", "note"],
       additionalProperties: false
     };
   }
@@ -6433,7 +6474,8 @@
       "position, so nothing you give can land off the grid. Write real copy for each block in " +
       "'text', in the brief's language, as long as the role deserves. Keep it to what the format can " +
       "hold: a poster is not a paragraph of body text. A solid is a block of colour or a frame of " +
-      "pattern or gradient; give none at all if the layout is better without one.";
+      "pattern or gradient; give none at all if the layout is better without one.\n\n" +
+      aiLogoNote();
     aiAsk("layout", "a layout", aiLayoutSchema(), aiSystemText(), user);
   }
   function aiApplyLayout(v) {
@@ -6476,8 +6518,30 @@
     inspectorFor = -1;
     var stack = liveStack();
     if (stack) stack.dataset.sig = "";
+
+    var lg = v.logo, moved = "";
+    if (lg) {
+      state.logo.visible = !!lg.visible;
+      if (H_KEYS.indexOf(lg.alignH) >= 0 && V_KEYS.indexOf(lg.alignV) >= 0) setAlign("logo", lg.alignH, lg.alignV);
+      if (H_KEYS.indexOf(lg.anchorH) >= 0 && V_KEYS.indexOf(lg.anchorV) >= 0) {
+        state.logo.anchor = { h: lg.anchorH, v: lg.anchorV };
+      }
+      /* Its height is only the answer's to give while the margins are set by hand:
+         in a logo mode the margins are worked out from it, so resizing it here would
+         move the box this very layout was measured against. The unit it is held in
+         is the user's, so a percentage is written back in that unit. */
+      if (state.margin.mode === "manual" && isFinite(lg.heightPercent) && state.logo.h.u !== "col") {
+        var pct = clamp(num(lg.heightPercent, state.logo.h.v), 0.5, 100);
+        state.logo.h = state.logo.h.u === "px"
+          ? { v: snap(pct / 100 * longSide()), u: "px" }
+          : { v: round(pct, 2), u: "%" };
+      }
+      moved = state.logo.visible
+        ? ", logo " + state.logo.align.v + " " + state.logo.align.h
+        : ", no logo";
+    }
     return state.text.blocks.length + " blocks and " + state.solids.length +
-      (state.solids.length === 1 ? " solid" : " solids") + " placed.";
+      (state.solids.length === 1 ? " solid" : " solids") + " placed" + moved + ".";
   }
 
   function aiApply(kind) {
