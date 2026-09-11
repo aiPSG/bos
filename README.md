@@ -82,9 +82,19 @@ centred with air, an *article* with the paragraph in two columns, and a *poster*
 carries. The cards are painted in the design's own page colour and type colours, and the zoom widens
 them.
 
-**Use this one** puts the winner into the design system: the families per role, and the treatment it
-was judged at — weight, case, leading, tracking. Not the sizes: those come from the scale and its
-anchor, which is the point of having one.
+**Work with this one** chooses the combination the work goes on with. The card is marked *in use*,
+its row in the panel is marked with it, and the view says which one you are working with — so the
+choice is a state of the design, not a click you have to remember making. Choosing it puts the
+families per role into the design system, along with the treatment it was judged at — weight, case,
+leading, tracking. Not the sizes: those come from the scale and its anchor, which is the point of
+having one.
+
+**One note on how the panels repaint.** A panel that rebuilt its markup on every change would
+destroy whatever the pointer was on: a slider would stop dead after a pixel and a field would lose
+its caret after a keystroke. Every list that holds a control — the specimen blocks, the combinations,
+the swatch shares, the colour rows — is built when its *shape* changes and has its values synced in
+place the rest of the time. That is why a size, a leading or a tracking can be dragged the whole way
+in one movement.
 
 ## The colour scheme
 
@@ -105,12 +115,17 @@ against each other, which is what the audit below reaches for when a colour does
 contrast.
 
 **The mix — what share of the whole each colour makes up.** A palette is not a list of colours in
-equal measure; it is a ground, a lot of one thing, a little of another. So every swatch carries a
-**percentage**, and the strip above them draws the palette at those proportions — each colour at the
-width of its share, labelled where there is room. Set a percentage on any swatch and **the others
-keep their proportions to each other** in what is left, so the total is always a hundred and you are
-never left adding up. A share of nothing is allowed, and the strip closes over it. The mix travels
-in the token file.
+equal measure; it is a ground, a lot of one thing, a little of another. So every colour carries a
+**percentage**, and **the distribution is drawn on the stage** rather than in the panel: one strip,
+the full width of the view, every colour at the width of its share with its percentage and its hex
+on it.
+
+Two ways to set it. **Drag a join** — the strip has a grip at every boundary, and dragging one moves
+the share from the colour on one side to the colour on the other, leaving every other alone, so the
+total holds at a hundred by construction and the drag runs as long as the pointer is down. Or **type
+a percentage** on a swatch in the panel, and the others keep their proportions to each other in what
+is left. A share of nothing is allowed, and the strip closes over it. The mix travels in the token
+file as the percentages it reads.
 
 **A warning when it does not read.** Under the swatches, every type colour is checked against what
 it actually sits on — the page, or the fill of the solid a block is inside — against **WCAG 2 AA**:

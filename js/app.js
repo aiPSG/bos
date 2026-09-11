@@ -530,7 +530,8 @@
           { name: "Serif over sans", fams: { display: "Playfair Display", headline: "Playfair Display", subline: "Inter", paragraph: "Inter", smallprint: "Inter" } },
           { name: "Grotesque and mono", fams: { display: "Archivo", headline: "Archivo", subline: "Archivo", paragraph: "Source Serif 4", smallprint: "Space Mono" } }
         ],
-        sample: "lorem", own: "", layout: "stack", tile: 1, blocks: null    // blocks are built on first use
+        // pick: the combination the work goes on with, and the one the system runs
+        sample: "lorem", own: "", layout: "stack", tile: 1, pick: 0, blocks: null
       },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -2827,6 +2828,22 @@
   }
 
   // everything a scheme colour can be put on
+  // one target row: the colour it holds, what it reads at, and the scheme to click
+  function colRowHTML(t, sw) {
+    var cur = (t.get() || "").toLowerCase();
+    var chips = sw.map(function (hex) {
+      return '<button type="button" class="sw-chip-btn' + (hex.toLowerCase() === cur ? " on" : "") +
+        '" style="background:' + hex + '" data-put="' + t.k + '" data-hex="' + hex +
+        '" title="' + esc(t.name) + " \u2192 " + hex.toUpperCase() + '"></button>';
+    }).join("");
+    var ratio = t.type ? contrastRatio(t.get(), state.stage.bg) : 0;
+    return '<div class="col-row-head">' +
+      '<input type="color" data-col="' + t.k + '" value="' + t.get() + '">' +
+      "<b>" + esc(t.name) + "</b>" +
+      (t.type ? '<span class="px">' + round(ratio, 2) + ":1 on the page</span>" : "") +
+      "</div><div class=\"sw-row\">" + chips + "</div>";
+  }
+
   function renderColWarn() {
     var bad = schemeAudit(), el = $("#col-warn");
     if (!bad.length) {
@@ -2883,41 +2900,52 @@
       "— click one on a row below to put it there.";
 
     var names = schemeNames(), shares = schemeShares();
-    $("#col-swatches").innerHTML = sw.map(function (hex, i) {
-      return '<div class="sw-cell' + (names[i] ? " tone" : "") + '">' +
-        '<span class="sw-box" style="background:' + hex + '"></span>' +
-        "<span>" + (names[i] ? names[i] + " · " : "") + hex.toUpperCase() + "</span>" +
-        '<input type="number" data-share="' + i + '" min="0" max="100" step="1" value="' +
-        round(shares[i], 1) + '" title="What share of the whole this colour makes up"></div>';
-    }).join("");
-
-    // the mix itself: every colour at the width of its share
-    $("#col-mix").innerHTML = sw.map(function (hex, i) {
-      var pct = shares[i];
-      var ink = luminance(hexRgb(hex)) > 0.4 ? "#111318" : "#f2f4f8";
-      return '<span class="mix-block" style="background:' + hex + ";flex:" + round(pct, 3) +
-        " 1 0;color:" + ink + '" title="' + (names[i] ? esc(names[i]) + " — " : "") +
-        hex.toUpperCase() + ", " + round(pct, 1) + '%">' +
-        (pct >= 6 ? round(pct, 0) + "%" : "") + "</span>";
-    }).join("");
-    $("#col-mix-hint").textContent = "What each colour makes up of the whole — set a percentage on " +
-      "any swatch and the others keep their proportions to each other in what is left. " +
-      (names.length ? "The ink and the paper are usually most of it: a page and its text." : "");
-
-    $("#col-targets").innerHTML = schemeTargets().map(function (t) {
-      var cur = (t.get() || "").toLowerCase();
-      var chips = sw.map(function (hex) {
-        return '<button type="button" class="sw-chip-btn' + (hex.toLowerCase() === cur ? " on" : "") +
-          '" style="background:' + hex + '" data-put="' + t.k + '" data-hex="' + hex +
-          '" title="' + esc(t.name) + " \u2192 " + hex.toUpperCase() + '"></button>';
+    rebuilt($("#col-swatches"), "sw:" + sw.length, function () {
+      return sw.map(function (hex, i) {
+        return '<div class="sw-cell' + (names[i] ? " tone" : "") + '" data-cell="' + i + '">' +
+          '<span class="sw-box"></span><span class="sw-hex"></span>' +
+          '<input type="number" data-share="' + i + '" min="0" max="100" step="0.5" ' +
+          'title="What share of the whole this colour makes up"></div>';
       }).join("");
-      var ratio = t.type ? contrastRatio(t.get(), state.stage.bg) : 0;
-      return '<div class="col-row"><div class="col-row-head">' +
-        '<input type="color" data-col="' + t.k + '" value="' + t.get() + '">' +
-        "<b>" + esc(t.name) + "</b>" +
-        (t.type ? '<span class="px">' + round(ratio, 2) + ":1 on the page</span>" : "") +
-        "</div><div class=\"sw-row\">" + chips + "</div></div>";
-    }).join("");
+    });
+    Array.prototype.forEach.call($("#col-swatches").children, function (cell, i) {
+      cell.querySelector(".sw-box").style.background = sw[i];
+      cell.querySelector(".sw-hex").textContent = (names[i] ? names[i] + " · " : "") + sw[i].toUpperCase();
+      setValue(cell.querySelector("input"), round(shares[i], 1));
+    });
+
+    /* The mix is the palette itself, so it is drawn on the stage rather than in the
+       panel: every colour at the width of its share, with a grip between each pair
+       that moves the share from one to the other as it is dragged. */
+    rebuilt($("#col-mix"), "mix:" + sw.length, function () {
+      return sw.map(function (hex, i) {
+        return '<span class="mix-block" data-mix="' + i + '">' +
+          '<span class="mix-pct"></span>' + '<span class="mix-hex"></span>' +
+          (i < sw.length - 1 ? '<span class="mix-grip" data-grip="' + i +
+            '" title="Drag to move the share between these two"></span>' : "") +
+          "</span>";
+      }).join("");
+    });
+    Array.prototype.forEach.call($("#col-mix").children, function (el, i) {
+      var pct = shares[i];
+      el.style.background = sw[i];
+      el.style.flex = round(pct, 4) + " 1 0";
+      el.style.color = luminance(hexRgb(sw[i])) > 0.45 ? "#111318" : "#f2f4f8";
+      el.title = (names[i] ? names[i] + " — " : "") + sw[i].toUpperCase() + ", " + round(pct, 1) + "%";
+      el.querySelector(".mix-pct").textContent = pct >= 4 ? round(pct, pct < 10 ? 1 : 0) + "%" : "";
+      el.querySelector(".mix-hex").textContent = pct >= 11 ? sw[i].toUpperCase() : "";
+    });
+    $("#col-mix-hint").textContent = "What each colour makes up of the whole. Drag a join to move " +
+      "the share from one colour to its neighbour, or set a percentage on a swatch and the others " +
+      "keep their proportions in what is left. The ink and the paper are usually most of it: " +
+      "a page and its text.";
+
+    var targets = schemeTargets();
+    rebuilt($("#col-targets"), "t:" + targets.map(function (t) { return t.k; }).join(",") + "|" + sw.length,
+      function () { return targets.map(function () { return '<div class="col-row"></div>'; }).join(""); });
+    Array.prototype.forEach.call($("#col-targets").children, function (row, i) {
+      row.innerHTML = colRowHTML(targets[i], sw);
+    });
 
     renderColWarn();
 
@@ -3126,6 +3154,10 @@
      own treatment. "Use this one" writes the winner into the design system. */
 
   var LAB_MAX = 6;
+  // which combination the work goes on with — the one "Use this one" put in
+  function labPick() {
+    return clamp(Math.round(num(state.lab.pick, 0)), 0, Math.max(0, state.lab.combos.length - 1));
+  }
   var labSaid = "";        // what the stage last said, kept across the repaint that follows
   var LAB_SAMPLES = [
     { id: "lorem", name: "Lorem ipsum — the printer's Latin",
@@ -3254,71 +3286,98 @@
         "a few sentences for the paragraph. Empty, it falls back to the Latin."
       : labSample().text.slice(0, 90) + "…";
 
-    // ---- the combinations
-    var sig = lab.combos.length + "|" + lab.combos.map(function (c) { return c.name; }).join("|");
-    $("#lab-combos").innerHTML = lab.combos.map(function (c, i) {
-      return '<div class="lab-combo" data-combo="' + i + '">' +
-        '<div class="lab-combo-head">' +
-          '<input type="text" data-lab="name" data-i="' + i + '" value="' + esc(c.name) + '" ' +
-          'spellcheck="false" title="What to call this combination">' +
-          '<button type="button" class="x" data-lab="drop" data-i="' + i + '" ' +
-          'title="Take this combination off">✕</button>' +
-        "</div>" +
-        ROLES.map(function (r) {
-          return '<label class="lab-fam"><span>' + esc(ROLE_NAMES[r]) + "</span>" +
-            '<input type="text" list="gf-list" data-lab="fam" data-i="' + i + '" data-role="' + r +
-            '" value="' + esc(c.fams[r] || "") + '" spellcheck="false" placeholder="' +
-            esc(familyLabel(roleFamilyId(r))) + '"></label>';
-        }).join("") +
-        "</div>";
-    }).join("");
+    // ---- the combinations. Built once per row, so a family typed in keeps its caret
+    rebuilt($("#lab-combos"), "c:" + lab.combos.length, function () {
+      return lab.combos.map(function (c, i) {
+        return '<div class="lab-combo" data-combo="' + i + '">' +
+          '<div class="lab-combo-head">' +
+            '<input type="text" data-lab="name" data-i="' + i + '" ' +
+            'spellcheck="false" title="What to call this combination">' +
+            '<button type="button" class="x" data-lab="drop" data-i="' + i + '" ' +
+            'title="Take this combination off">✕</button>' +
+          "</div>" +
+          ROLES.map(function (r) {
+            return '<label class="lab-fam"><span>' + esc(ROLE_NAMES[r]) + "</span>" +
+              '<input type="text" list="gf-list" data-lab="fam" data-i="' + i + '" data-role="' + r +
+              '" spellcheck="false"></label>';
+          }).join("") +
+          "</div>";
+      }).join("");
+    });
+    Array.prototype.forEach.call($("#lab-combos").children, function (row, i) {
+      var c = lab.combos[i];
+      row.classList.toggle("on", i === labPick());
+      setValue(row.querySelector('[data-lab="name"]'), c.name || "");
+      ROLES.forEach(function (r) {
+        var el = row.querySelector('[data-role="' + r + '"]');
+        setValue(el, c.fams[r] || "");
+        el.placeholder = familyLabel(roleFamilyId(r));
+      });
+    });
     $("#lab-add").disabled = lab.combos.length >= LAB_MAX;
     $("#lab-status").textContent = labSaid || (lab.combos.length + " of " + LAB_MAX +
       " combinations. " + (lab.combos.length >= LAB_MAX ? "Take one off to add another." : ""));
     $("#lab-status").className = "status" + (labSaid ? " ok" : "");
 
-    // ---- the specimen's blocks
-    $("#lab-blocks").innerHTML = blocks.map(function (b, i) {
-      var open = b.open ? " open" : "";
-      return '<details class="lab-block"' + open + ' data-block="' + i + '"><summary>' +
-        "<b>" + esc(ROLE_NAMES[b.role]) + "</b>" +
-        '<span class="px">' + fmt(b.size) + " px · " + round(b.lh, 2) + " · " +
-        round(b.ls, 3) + "em</span></summary>" +
-        '<div class="row"><label class="field"><span>Role</span><select data-lb="role" data-i="' + i + '">' +
-          ROLES.map(function (r) {
-            return '<option value="' + r + '"' + (r === b.role ? " selected" : "") + ">" +
-              esc(ROLE_NAMES[r]) + "</option>";
-          }).join("") + "</select></label>" +
-        '<label class="field"><span>Text</span><select data-lb="src" data-i="' + i + '">' +
-          '<option value="sample"' + (b.src === "sample" ? " selected" : "") + ">From the text above</option>" +
-          '<option value="own"' + (b.src === "own" ? " selected" : "") + ">Its own</option>" +
-        "</select></label></div>" +
-        (b.src === "own"
-          ? '<label class="field grow"><span>Copy</span><textarea data-lb="text" data-i="' + i +
-            '" rows="2" spellcheck="false">' + esc(b.text) + "</textarea></label>"
-          : "") +
-        '<div class="row"><label class="field"><span>Size</span>' +
-          '<input type="number" data-lb="size" data-i="' + i + '" min="4" max="400" step="1" value="' + fmt(b.size) + '"></label>' +
-        '<label class="field"><span>Weight</span><select data-lb="weight" data-i="' + i + '">' +
-          [100, 200, 300, 400, 500, 600, 700, 800, 900].map(function (w) {
-            return '<option value="' + w + '"' + (+b.weight === w ? " selected" : "") + ">" + w + "</option>";
-          }).join("") + "</select></label></div>" +
-        '<div class="row"><label class="field"><span>Leading</span>' +
-          '<input type="number" data-lb="lh" data-i="' + i + '" min="0.7" max="3" step="0.01" value="' + round(b.lh, 3) + '"></label>' +
-        '<label class="field"><span>Tracking (em)</span>' +
-          '<input type="number" data-lb="ls" data-i="' + i + '" min="-0.2" max="0.5" step="0.005" value="' + round(b.ls, 3) + '"></label></div>' +
-        '<div class="row"><label class="field"><span>Case</span><select data-lb="transform" data-i="' + i + '">' +
-          [["none", "As typed"], ["uppercase", "UPPERCASE"], ["lowercase", "lowercase"], ["capitalize", "Capitalise"]]
-            .map(function (o) {
-              return '<option value="' + o[0] + '"' + (b.transform === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>";
-            }).join("") + "</select></label>" +
-        '<label class="check"><input type="checkbox" data-lb="italic" data-i="' + i + '"' +
-          (b.italic ? " checked" : "") + "><span>Italic</span></label></div>" +
-        '<div class="row"><button type="button" class="ghost grow" data-lb="reset" data-i="' + i +
-          '">Back to the system</button>' +
-          '<button type="button" class="ghost" data-lb="drop" data-i="' + i + '">Remove</button></div>' +
-        "</details>";
-    }).join("");
+    /* ---- the specimen's blocks. Rows are built once each; the values are synced,
+       so a size, a leading or a tracking can be dragged or typed without the field
+       being pulled out from under it. */
+    rebuilt($("#lab-blocks"), "b:" + blocks.map(function (b) { return b.role + b.src; }).join(","),
+      function () {
+        return blocks.map(function (b, i) {
+          return '<details class="lab-block" data-block="' + i + '"><summary>' +
+            "<b></b>" + '<span class="px"></span></summary>' +
+            '<div class="row"><label class="field"><span>Role</span><select data-lb="role" data-i="' + i + '">' +
+              ROLES.map(function (r) {
+                return '<option value="' + r + '">' + esc(ROLE_NAMES[r]) + "</option>";
+              }).join("") + "</select></label>" +
+            '<label class="field"><span>Text</span><select data-lb="src" data-i="' + i + '">' +
+              '<option value="sample">From the text above</option>' +
+              '<option value="own">Its own</option>' +
+            "</select></label></div>" +
+            (b.src === "own"
+              ? '<label class="field grow"><span>Copy</span><textarea data-lb="text" data-i="' + i +
+                '" rows="2" spellcheck="false"></textarea></label>'
+              : "") +
+            '<div class="row"><label class="field"><span>Size (px)</span>' +
+              '<input type="number" data-lb="size" data-i="' + i + '" min="4" max="400" step="1"></label>' +
+            '<label class="field"><span>Weight</span><select data-lb="weight" data-i="' + i + '">' +
+              [100, 200, 300, 400, 500, 600, 700, 800, 900].map(function (w) {
+                return '<option value="' + w + '">' + w + "</option>";
+              }).join("") + "</select></label></div>" +
+            '<div class="row"><label class="field"><span>Leading</span>' +
+              '<input type="number" data-lb="lh" data-i="' + i + '" min="0.7" max="3" step="0.01"></label>' +
+            '<label class="field"><span>Tracking (em)</span>' +
+              '<input type="number" data-lb="ls" data-i="' + i + '" min="-0.2" max="0.5" step="0.005"></label></div>' +
+            '<div class="row"><label class="field"><span>Case</span><select data-lb="transform" data-i="' + i + '">' +
+              [["none", "As typed"], ["uppercase", "UPPERCASE"], ["lowercase", "lowercase"], ["capitalize", "Capitalise"]]
+                .map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>"; }).join("") +
+              "</select></label>" +
+            '<label class="check"><input type="checkbox" data-lb="italic" data-i="' + i + '">' +
+              "<span>Italic</span></label></div>" +
+            '<div class="row"><button type="button" class="ghost grow" data-lb="reset" data-i="' + i +
+              '">Back to the system</button>' +
+              '<button type="button" class="ghost" data-lb="drop" data-i="' + i + '">Remove</button></div>' +
+            "</details>";
+        }).join("");
+      });
+    Array.prototype.forEach.call($("#lab-blocks").children, function (row, i) {
+      var b = blocks[i];
+      if (row.open !== !!b.open) row.open = !!b.open;
+      row.querySelector("summary b").textContent = ROLE_NAMES[b.role];
+      row.querySelector("summary .px").textContent =
+        fmt(b.size) + " px · " + round(b.lh, 2) + " · " + round(b.ls, 3) + "em";
+      row.querySelector('[data-lb="role"]').value = b.role;
+      row.querySelector('[data-lb="src"]').value = b.src;
+      row.querySelector('[data-lb="weight"]').value = String(b.weight);
+      row.querySelector('[data-lb="transform"]').value = b.transform;
+      row.querySelector('[data-lb="italic"]').checked = !!b.italic;
+      setValue(row.querySelector('[data-lb="size"]'), fmt(b.size));
+      setValue(row.querySelector('[data-lb="lh"]'), round(b.lh, 3));
+      setValue(row.querySelector('[data-lb="ls"]'), round(b.ls, 3));
+      var own = row.querySelector('[data-lb="text"]');
+      if (own) setValue(own, b.text);
+    });
 
     // ---- the cards
     var wide = Math.round(380 * lab.tile);
@@ -3332,19 +3391,24 @@
           (b.italic ? ";font-style:italic" : "") + ";color:" + state.type.roles[b.role].color;
         return '<p class="lab-spec" style="' + style + '">' + esc(labText(b)) + "</p>";
       }).join("");
-      return '<div class="lab-card lay-' + labLayout() + '" data-card="' + i +
+      var on = i === labPick();
+      return '<div class="lab-card lay-' + labLayout() + (on ? " on" : "") + '" data-card="' + i +
         '" style="background:' + state.stage.bg + '">' +
         '<div class="lab-head"><b>' + esc(c.name || "Combination " + (i + 1)) + "</b>" +
+        (on ? '<span class="lab-badge">in use</span>' : "") +
         '<span class="px">' + esc(labFaces(c).join(" · ")) + "</span></div>" +
         spec +
         '<div class="lab-foot">' +
-          '<button type="button" class="primary" data-lab="use" data-i="' + i + '">Use this one</button>' +
+          '<button type="button" class="' + (on ? "ghost" : "primary") + '" data-lab="use" data-i="' + i +
+            '"' + (on ? " disabled" : "") + ">" + (on ? "Working with this" : "Work with this one") + "</button>" +
           '<button type="button" class="ghost" data-lab="copy" data-i="' + i + '">Duplicate</button>' +
           '<button type="button" class="ghost x" data-lab="drop" data-i="' + i + '" title="Take it off">✕</button>' +
         "</div></div>";
     }).join("");
 
-    $("#lab-head").textContent = lab.combos.length + " combinations · " + blocks.length +
+    $("#lab-head").textContent = "Working with " +
+      ((lab.combos[labPick()] || {}).name || "combination " + (labPick() + 1)) + " · " +
+      lab.combos.length + " combinations · " + blocks.length +
       " blocks · " + LAB_LAYOUTS.filter(function (l) { return l[0] === labLayout(); })[0][1] +
       " · " + (lab.sample === "own" ? "your own text" : labSample().name);
     $("#labz-value").textContent = Math.round(lab.tile * 100) + "%";
@@ -3357,6 +3421,7 @@
   function labUse(i) {
     var c = state.lab.combos[i];
     if (!c) return;
+    state.lab.pick = i;                  // the one the work goes on with
     var blocks = labBlocks(), used = [];
     ROLES.forEach(function (r) {
       var name = c.fams[r], st = state.type.roles[r];
@@ -3382,7 +3447,7 @@
       });
     }
     buildFamilySelect();
-    labSaid = "Using " + (c.name || "combination " + (i + 1)) + " — " +
+    labSaid = "Working with " + (c.name || "combination " + (i + 1)) + " — " +
       (used.length ? used.join(", ") : "the design's own families") +
       ", with the weights, case, leading and tracking from the specimen. The sizes stay with the scale.";
   }
@@ -4273,6 +4338,34 @@
     if (!el) return;
     if (String(el.min) !== String(lo)) el.min = lo;
     if (String(el.max) !== String(hi)) el.max = hi;
+  }
+
+  /* A panel that rebuilds its markup on every repaint destroys whatever the
+     pointer is on: a slider being dragged stops dead after a pixel, a field being
+     typed into loses its caret. So a host is built when its *shape* changes — a
+     row added, a role swapped — and its values are synced in place the rest of
+     the time. The signature is whatever makes it a different shape. */
+  function rebuilt(host, sig, html) {
+    if (!host || host.dataset.sig === sig) return false;
+    host.dataset.sig = sig;
+    host.innerHTML = html();
+    return true;
+  }
+
+  // a drag that does not depend on the canvas being on screen
+  function grabDrag(e, onMove, onEnd) {
+    e.preventDefault();
+    var move = function (ev) { onMove(ev); render(); };
+    var up = function () {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      if (onEnd) onEnd();
+      render();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   function setValue(el, value) {
@@ -5268,6 +5361,8 @@
       if (kind === "drop") {
         if (state.lab.combos.length < 2) return;
         state.lab.combos.splice(i, 1);
+        var pick = labPick();
+        state.lab.pick = i < pick ? pick - 1 : Math.min(pick, state.lab.combos.length - 1);
         return render();
       }
     });
@@ -5295,6 +5390,26 @@
       var b = labBlocks()[+d.dataset.block];
       if (b) b.open = d.open;
     }, true);
+
+    /* Dragging a join moves the share between the two colours it sits between and
+       leaves every other alone, so the total holds at a hundred by construction and
+       the drag runs as long as the pointer is down. */
+    $("#col-mix").addEventListener("pointerdown", function (e) {
+      var g = e.target.closest("[data-grip]");
+      if (!g) return;
+      var i = +g.dataset.grip, now = schemeShares().slice();
+      if (now[i + 1] === undefined) return;
+      var w = $("#col-mix").getBoundingClientRect().width, x0 = e.clientX;
+      var a = now[i], b = now[i + 1];
+      document.body.classList.add("dragging-share");
+      grabDrag(e, function (ev) {
+        var d = clamp((ev.clientX - x0) / Math.max(1, w) * 100, -a, b);
+        var out = now.slice();
+        out[i] = a + d;
+        out[i + 1] = b - d;
+        state.scheme.shares = out;
+      }, function () { document.body.classList.remove("dragging-share"); });
+    });
 
     // a share typed on a swatch, and the rest keep their proportions
     $("#col-swatches").addEventListener("input", function (e) {
