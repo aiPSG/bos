@@ -366,6 +366,7 @@ any box to a line and back.
 
 | | What it sets |
 | --- | --- |
+| **Colour** | the box's own fill, offered again beside the stroke with the scheme's swatches under it |
 | **Width** | the thickness of the stroke, up to the height of the box it runs in |
 | **Cap** | flat, round or square — a round or square cap is pulled in by half the width so it stays inside the box |
 | **Stroke** | solid, or **dotted** |

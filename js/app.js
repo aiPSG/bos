@@ -2769,6 +2769,8 @@
       setValue($("#line-w"), r.line.w);
       $("#line-cap").value = r.line.cap;
       $("#line-dash").value = r.line.dash;
+      $("#line-color").value = r.fill;
+      fillChips($("#line-swatches"), schemeSwatches(), r.fill, "linec", "fill");
       $("#line-dots").hidden = r.line.dash !== "dotted";
       $("#pic-hint").textContent = "";
       setValue($("#line-dot"), r.line.dot);
@@ -2777,7 +2779,8 @@
       $("#line-hint").textContent = "The stroke runs down the middle of the box, along its longer " +
         "side \u2014 " + (run.horiz ? "across" : "down") + ", " + round(run.len, 1) + " long and " +
         round(r.line.w, 2) + " wide, in the box\u2019s own fill colour. Resize the box to set its " +
-        "length; a round or square cap is pulled in by half the width so it stays inside it." +
+        "length, and to give the stroke room: it runs no wider than the box\u2019s other side. " +
+        "A round or square cap is pulled in by half the width so it stays inside it." +
         (r.line.dash === "dotted"
           ? " Dots of " + round(r.line.dot, 2) + " with " + round(r.line.gap, 2) + " between them" +
             (r.line.cap === "round" ? ", rounded into circles." : ".")
@@ -5318,6 +5321,13 @@
       });
     });
 
+    onInput("#line-color", function (el) { state.rect.fill = el.value; });
+    $("#line-swatches").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-linec]");
+      if (!t) return;
+      state.rect.fill = t.dataset.hex;
+      render();
+    });
     onInput("#line-w", function (el) { state.rect.line.w = clamp(num(el.value, 4), 0.2, 400); });
     onInput("#line-dot", function (el) { state.rect.line.dot = clamp(num(el.value, 8), 0.2, 400); });
     onInput("#line-gap", function (el) { state.rect.line.gap = clamp(num(el.value, 8), 0.2, 400); });
