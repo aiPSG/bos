@@ -54,12 +54,23 @@ real layout, the real copy, the real solids, background and logo, at the master'
 that combination's faces. Nothing is a specimen standing in for the design: what you are comparing
 is *this* design in those faces, and every change to the type system redraws all of them at once.
 
-A combination names a family for each of the five roles. Type any **Google family** — the field
-suggests as you type, from the catalogue if you have loaded it — or leave a role empty and it keeps
-the design's own family for that one. Combinations can be named, duplicated and taken off.
+A combination names a **family and a style for each of the five roles**. Type any **Google family**
+— the field suggests as you type, from the catalogue if you have loaded it — or leave a role empty
+and it keeps the design's own family for that one. The style beside it is a weight, upright or
+**italic**, from Light to Black; leave it on *its own* and the role keeps the style the design system
+has it in. A comparison is rarely only of faces — the same two families read differently at
+Semibold than at Regular, and in italic differently again — so both are part of what a combination
+is, and **Use this one** takes the styles along with the families. Combinations can be named,
+duplicated and taken off.
+
+**The grids, on the cards.** *Show the margins, the baseline grid and the columns on the cards*
+draws them over every card in the guide colour — the same margin box, the same two baseline grids
+and the same columns the canvas shows, at the card's scale. It is **off by default**, because what
+is being judged is the type; turn it on to see what the type is standing on.
 
 **The blocks on the master** are listed under the combinations, in the order they sit on it, each
-with the copy it holds. Every one carries its **size, leading, tracking, weight, case and family** —
+with the copy it holds. Every one carries its **size, leading, tracking, weight, italic, case and
+family** —
 and those are the *role's*, because a role is what every block of it follows: set the display block
 here and every display block in the design follows, on every format. The size is given in pixels and
 written back as the multiple of the paragraph it comes to, so the scale stays whole; the paragraph
@@ -196,6 +207,18 @@ on a banner and it keeps its own while its type still comes from the master. The
 preview rail both paint each format at its own resolved values, so the differences are visible
 without switching between them.
 
+**What is on a format is always the format's own.** The solids, the lines and the text blocks are
+not in that table and cannot be linked: a format is *laid out*, not scaled, so **each one has its
+own elements put on it**. A format you add starts from a copy of the one that was open when you
+added it — so a new format is never a blank one — and from that moment the two go their own way:
+pull another solid out of the tray, move a box, take a block off, and only the format you are on
+changes. Type, margins, grids and the logo still travel from the master on their ticks, so the
+system stays one system while the layout is made for the format.
+
+The page holds the very arrays the app works in rather than a copy of them, so switching formats is
+a swap of two references: nothing is duplicated, nothing is copied per frame, and a drag half way
+through keeps hold of the box it started on.
+
 ## The model
 
 A shape's place on the format is measured, not free-floating. It comes from:
@@ -211,6 +234,15 @@ A shape's place on the format is measured, not free-floating. It comes from:
    corner of the format to the solid's anchor point. For the **logo**, one of the nine points of the
    margin box.
 3. **Anchor point** — which of the nine points *of the shape* lands on that place.
+
+**Changing the anchor never moves the shape.** The anchor is which handle of the shape you place
+it by, not where it goes: switch a solid from its top left to its centre and it stays exactly where
+it is, with the fields now reading the middle of the box rather than its corner. A solid holds its
+place in the state, so the new handle is simply put where the old one had left it. The logo goes to
+one of nine cells, which are far too coarse to say the same thing twice, so **it carries a nudge of
+its own**: what the change of anchor would have shifted it by is held against the cell, and spent
+the moment the logo is aligned afresh or dragged. The exported CSS writes a nudged logo out at the
+place it actually sits rather than off a margin.
 
 **A solid goes where you put it.** Drag it and it follows the pointer; the two fields beside the
 anchor grid say where it is and put it somewhere exact; the arrow keys step it by a column and a
@@ -288,6 +320,7 @@ machinery — *What fills it* in the panel switches any box between the two.
 | **An image** | uploaded or from a URL |
 | **A pattern** | any of the five pattern modules, drawn at the size of the box |
 | **A gradient** | any of the five gradient modules, the same |
+| **A line** | the box drawn as a stroke down the middle of it |
 
 Inside the frame the picture has a **fit** (cover, contain, stretch, tile), a **scale** from 10% to
 500% over it, and an offset — set by the fields, or by holding **⌥/Alt and dragging the box** on the
@@ -324,6 +357,24 @@ Text wraps inside the box rather than pushing it wider, so **the box is free to 
 columns allow** — narrow it and the copy simply takes more lines. *Fit the text* still measures the
 line as it would be if it did not wrap, so that mode gives the box the width its longest line asks
 for.
+
+**Lines** — a **Line** in the tray is the same box drawn as a **stroke down the middle of it**,
+along whichever side is longer: the box is its length and its reach, so it is moved, snapped,
+nudged by the arrow keys, dragged and taken off exactly like any other solid, and it keeps a place
+of its own on every format. It runs in the box's own **fill colour**, and *What fills it* switches
+any box to a line and back.
+
+| | What it sets |
+| --- | --- |
+| **Width** | the thickness of the stroke, up to the height of the box it runs in |
+| **Cap** | flat, round or square — a round or square cap is pulled in by half the width so it stays inside the box |
+| **Stroke** | solid, or **dotted** |
+| **Dot** and **Gap** | the length of a dot and the space between two, in format pixels |
+
+A dotted line with round caps is a row of circles, which is what a dotted rule usually is. The
+exported CSS writes the stroke as a bar down the middle of the box with the dots as a repeating
+gradient, and names the cap in a comment, since a cap is a property of a stroke and has no CSS of
+its own. In the tokens the stroke goes with the box it is drawn in.
 
 **Corners** — a **shape** dropdown in three families. *Rounded* is everything `border-radius` can
 make (sharp, rounded, squircle, pill, ellipse, four arches, leaf, teardrop, egg, blob, wave,
@@ -444,14 +495,15 @@ rest of the selection UI.
 **A text block is pinned to the page, not to a box.** Its row is counted from the top or the bottom
 margin, and **nothing a solid does moves it** — move a box, resize it, take it off the stage, and
 every block stays on the row it was given. What a block takes from the solid it sits inside is the
-box's *padding*, and only while its *Cols* is set to follow the box; set it to the format columns
+box's *padding*, and only while its *Cols* is set to the box padding; set it to the format columns
 and the box has no say at all. Anywhere else — above a box, below it, or with none on the stage — a
 block **lines up on the columns**, its edges landing on column lines.
 
-**Which column grid** a block lines up on is its own to set, in *Cols*: *follow the box* is the rule
-just described — the box padding while it is inside the solid, the format columns everywhere
-else — while *the format columns* and *the box's own columns* hold whichever you name, wherever the
-block sits. A block on the box's columns follows the box as that is resized or moved, even from
+**Which column grid** a block lines up on is its own to set, in *Cols*, and it is **named rather
+than guessed** — there is no *follow the box* to work out what you meant. *The box padding* holds
+the block to the box it is inside (and to the format columns when it is inside none); *the format
+columns* and *the box's own columns* hold it to whichever you name, wherever the block sits. A block
+on the box's columns follows the box as that is resized or moved, even from
 above or below it; one on the format columns never does. Switching between them carries the block's
 edges across, so it lands on the nearest lines of the new grid rather than jumping to the margin.
 

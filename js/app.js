@@ -124,6 +124,11 @@
 
   // the type scale is four roles; paragraph is the anchor and the rest are multiples of it
   var ROLES = ["display", "headline", "subline", "paragraph", "smallprint"];
+  /* The styles a font combination can name for a role — a weight, upright or in
+     italic. Empty means the role keeps the style the design system has it in.
+     It is read while a saved design is being loaded, so it is declared here. */
+  var LAB_STYLES = ["300", "300i", "400", "400i", "500", "500i",
+    "600", "600i", "700", "700i", "900", "900i"];
   /* Blind text, for filling a block or showing a specimen. Latin, so the shapes of
      the words carry the type rather than the meaning. */
   var LOREM = ("lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor " +
@@ -419,6 +424,28 @@
   ];
 
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
+
+  /* What is on a format — its solids, its lines and its text — is its own, never
+     the master's: a format is laid out, not scaled, so each one has its own
+     elements put on it. The page holds the very arrays the app works in rather
+     than a copy of them, so swapping formats is a swap of two references: nothing
+     is duplicated, and whatever holds one of these objects (the live alias of the
+     selected solid, a drag half way through) goes on holding it. */
+  function pageContent(pg) {
+    if (!pg.content || typeof pg.content !== "object") pg.content = { solids: [], blocks: [] };
+    if (!Array.isArray(pg.content.solids)) pg.content.solids = [];
+    if (!Array.isArray(pg.content.blocks)) pg.content.blocks = [];
+    return pg.content;
+  }
+  function takeContent(pg) {
+    pg.content = { solids: state.solids, blocks: state.text.blocks };
+  }
+  function putContent(pg) {
+    var c = pageContent(pg);
+    state.solids = c.solids;
+    state.text.blocks = c.blocks;
+    useSolid(state.solid);
+  }
   function groupOf(k) { return LINK_GROUPS.filter(function (g) { return g.k === k; })[0]; }
   function masterIndex() {
     var i = state.pages.findIndex(function (pg) { return pg.master; });
@@ -440,6 +467,7 @@
   function storePage(i) {
     var pg = state.pages[i], m = masterIndex();
     if (!pg) return;
+    takeContent(pg);                        // what is on it is what the app is holding
     pg.w = state.stage.w; pg.h = state.stage.h;
     // the format may have been changed from the Format panel while it was open
     var f = formatById(state.stage.preset);
@@ -460,10 +488,14 @@
     state.page = i;
     state.stage.w = pg.w; state.stage.h = pg.h;
     state.stage.preset = pg.id;
+    putContent(pg);                         // its own elements first: the margins land on them
     LINK_GROUPS.forEach(function (g) {
       var v = pageValue(i, g.k);
       if (v) g.put(v);
     });
+    // the selection was the other format's: the block it pointed at is not on this one
+    if (state.selBlock >= state.text.blocks.length) state.selBlock = -1;
+    inspectorFor = -1;
   }
 
   function usePage(i) {
@@ -479,13 +511,18 @@
     if (i === state.page) return withFormat(pg.w, pg.h, fn);
     var before = {};
     LINK_GROUPS.forEach(function (g) { before[g.k] = g.pick(); });
+    var held = { solids: state.solids, blocks: state.text.blocks, solid: state.solid };
     try {
+      putContent(pg);
       LINK_GROUPS.forEach(function (g) {
         var v = pageValue(i, g.k);
         if (v) g.put(v);
       });
       return withFormat(pg.w, pg.h, fn);
     } finally {
+      state.solids = held.solids;
+      state.text.blocks = held.blocks;
+      useSolid(held.solid);
       LINK_GROUPS.forEach(function (g) { g.put(before[g.k]); });
     }
   }
@@ -498,6 +535,8 @@
       master: !state.pages.length, links: links, own: {} };
     // it starts from whatever is on screen, so a new format is not a blank one
     LINK_GROUPS.forEach(function (g) { pg.own[g.k] = g.pick(); });
+    // its elements are copies: from here they are this format's own to move
+    pg.content = { solids: clone(state.solids), blocks: clone(state.text.blocks) };
     state.pages.push(pg);
     return pg;
   }
@@ -526,12 +565,14 @@
       // comparing typography: the combinations, the text they set, and how they set it
       lab: {
         combos: [
-          { name: "One face", fams: { display: "Inter", headline: "Inter", subline: "Inter", paragraph: "Inter", smallprint: "Inter" } },
-          { name: "Serif over sans", fams: { display: "Playfair Display", headline: "Playfair Display", subline: "Inter", paragraph: "Inter", smallprint: "Inter" } },
-          { name: "Grotesque and mono", fams: { display: "Archivo", headline: "Archivo", subline: "Archivo", paragraph: "Source Serif 4", smallprint: "Space Mono" } }
+          { name: "One face", fams: { display: "Inter", headline: "Inter", subline: "Inter", paragraph: "Inter", smallprint: "Inter" }, stys: {} },
+          { name: "Serif over sans", fams: { display: "Playfair Display", headline: "Playfair Display", subline: "Inter", paragraph: "Inter", smallprint: "Inter" },
+            stys: { display: "700", headline: "700", subline: "600", paragraph: "400", smallprint: "400" } },
+          { name: "Grotesque and mono", fams: { display: "Archivo", headline: "Archivo", subline: "Archivo", paragraph: "Source Serif 4", smallprint: "Space Mono" }, stys: {} }
         ],
         // pick: the combination the work goes on with, and the one the system runs
-        sample: "lorem", own: "", tile: 1, pick: 0
+        // guides: the margins and grids over the cards, off until they are asked for
+        sample: "lorem", own: "", tile: 1, pick: 0, guides: false
       },
       // in a logo mode every margin is factor × the logo size, plus a buffer of its own
       // on each side — so the four can differ while sharing the same base
@@ -549,8 +590,11 @@
         /* What the box is filled with. A frame is a solid whose fill is a picture
            rather than a colour: it is resized, snapped and masked by exactly the
            same machinery, and the corner shape is the mask. */
-        content: "fill",        // fill | image | pattern | gradient
+        content: "fill",        // fill | image | pattern | gradient | line
         src: "", fit: "cover", scale: 100, x: 0, y: 0,     // the picture inside it
+        /* A line is the same box drawn as a stroke down the middle of it, in the
+           box's own fill colour: the length is the box, the rest is here. */
+        line: { w: 4, cap: "butt", dash: "solid", dot: 8, gap: 8 },
         module: "linear", params: {},                      // when it is made rather than loaded
         // a column grid of its own, across the box — with margins of its own
         // inside it — that blocks can line up on
@@ -571,6 +615,10 @@
         h: { v: 10, u: "%" },
         src: "", aspect: 1,
         align: { h: "left", v: "top" }, anchor: { h: "left", v: "top" },
+        /* The nine cells are coarse, and changing which point of the logo lands on
+           one would otherwise shift it: this holds what that change took away, in
+           format pixels, so the logo stays put. Aligning it afresh clears it. */
+        off: { x: 0, y: 0 },
         fill: "#e6e9ef"
       },
       type: {
@@ -587,11 +635,11 @@
         // baseline grid unless a role is set free
         roles: {
           // display is the biggest of them: the golden ratio one step past the headline
-          display:    { mult: 4.236, tag: "h1", snap: "full", weight: 700, lh: 1, ls: -0.03, transform: "none", color: "#ffffff" },
-          headline:   { mult: 2.618, tag: "h2", snap: "full", weight: 700, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
-          subline:    { mult: 1.618, tag: "h3", snap: "half", weight: 600, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
-          paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
-          smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
+          display:    { mult: 4.236, tag: "h1", snap: "full", weight: 700, italic: false, lh: 1, ls: -0.03, transform: "none", color: "#ffffff" },
+          headline:   { mult: 2.618, tag: "h2", snap: "full", weight: 700, italic: false, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
+          subline:    { mult: 1.618, tag: "h3", snap: "half", weight: 600, italic: false, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
+          paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, italic: false, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
+          smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, italic: false, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
         },
         google: [], uploads: [],
         editing: "headline"
@@ -627,7 +675,13 @@
      go on reading state.rect and know nothing about there being several. */
   function normaliseSolid(r, d) {
     r = Object.assign({}, d.rect, r);
-    if (["fill", "image", "pattern", "gradient"].indexOf(r.content) < 0) r.content = "fill";
+    if (["fill", "image", "pattern", "gradient", "line"].indexOf(r.content) < 0) r.content = "fill";
+    r.line = Object.assign({}, d.rect.line, r.line);
+    r.line.w = clamp(num(r.line.w, 4), 0.2, 400);
+    if (["butt", "round", "square"].indexOf(r.line.cap) < 0) r.line.cap = "butt";
+    if (r.line.dash !== "dotted") r.line.dash = "solid";
+    r.line.dot = clamp(num(r.line.dot, 8), 0.2, 400);
+    r.line.gap = clamp(num(r.line.gap, 8), 0.2, 400);
     if (!r.params || typeof r.params !== "object") r.params = {};
     r.corners = Object.assign({}, d.rect.corners, r.corners);
     // solids used to be aligned to one of the nine cells: that cell is its position now
@@ -639,6 +693,11 @@
     if (!r.columns.m || typeof r.columns.m !== "object") r.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
     SIDES.forEach(function (side) { if (!isFinite(r.columns.m[side])) r.columns.m[side] = 0; });
     return r;
+  }
+
+  // what a box is: a colour, a picture, or a stroke
+  function solidKind(sd) {
+    return sd.content === "line" ? "Line" : sd.content === "fill" ? "Solid" : "Frame";
   }
 
   function useSolid(i) {
@@ -670,6 +729,9 @@
        of copy.solids — kept because with no solids on the page it is the prototype
        the next one is copied from. Loading rebuilds the alias either way. */
     if (/^data:/.test(copy.bg.src)) copy.bg.src = "";     // generated art is never worth the quota
+    /* The open format's content is state.solids and state.text.blocks themselves;
+       storing it under the page as well would put every uploaded picture in twice. */
+    if (copy.pages && copy.pages[copy.page]) copy.pages[copy.page].content = null;
     copy.view = { zoom: null, pan: { x: 0, y: 0 }, panned: false };
 
     var attempts = [
@@ -702,11 +764,16 @@
         s.type.paraPct = true;
       }
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
+      // a role saved before it could be set in italic keeps every other setting
+      ROLES.forEach(function (r) {
+        s.type.roles[r] = Object.assign({}, d.type.roles[r], s.type.roles[r]);
+        s.type.roles[r].italic = !!s.type.roles[r].italic;
+      });
       if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
       s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
       s.text.blocks.forEach(function (b) {
         if (b.grid !== 1 && b.grid !== 2 && b.grid !== "both") b.grid = "both";
-        if (["auto", "format", "rect"].indexOf(b.cols) < 0) b.cols = "auto";
+        if (["box", "format", "rect"].indexOf(b.cols) < 0) b.cols = "box";
         if (b.from !== "bottom") b.from = "top";
         if (!isFinite(b.padL)) b.padL = 0;
         if (!isFinite(b.padR)) b.padR = 0;
@@ -716,6 +783,26 @@
       if (!s.solids.length && s.rect && s.rect.placed) s.solids = [s.rect];
       s.solids = s.solids.map(function (r) { return normaliseSolid(r, d); });
       s.rect = normaliseSolid(s.rect, d);
+      if (!Array.isArray(s.pages)) s.pages = [];
+      s.page = clamp(Math.round(num(s.page, 0)), 0, Math.max(0, s.pages.length - 1));
+      /* Content used to be one set the whole project shared. Each format holds its
+         own now, so the design as it was saved becomes the content of every one of
+         them — the open format taking the live arrays themselves. */
+      s.pages.forEach(function (pg, i) {
+        if (!pg || typeof pg !== "object") return;
+        if (!pg.links || typeof pg.links !== "object") pg.links = {};
+        if (!pg.own || typeof pg.own !== "object") pg.own = {};
+        if (i === s.page || !pg.content) {
+          var solids = i === s.page ? s.solids : clone(s.solids);
+          var blocks = i === s.page ? s.text.blocks : clone(s.text.blocks);
+          pg.content = { solids: solids, blocks: blocks };
+        } else {
+          pg.content.solids = (pg.content.solids || []).map(function (r) { return normaliseSolid(r, d); });
+          pg.content.blocks = (pg.content.blocks || []).filter(function (b) {
+            return b && ROLES.indexOf(b.role) >= 0;
+          });
+        }
+      });
       if (!s.lab || typeof s.lab !== "object") s.lab = clone(d.lab);
       else {
         s.lab = Object.assign(clone(d.lab), s.lab);
@@ -723,7 +810,13 @@
         s.lab.combos = s.lab.combos.slice(0, 6).map(function (c) {
           var fams = {};
           ROLES.forEach(function (r) { fams[r] = (c.fams && c.fams[r]) || ""; });
-          return { name: String(c.name || ""), fams: fams };
+          var stys = {};
+          ROLES.forEach(function (r) {
+            var v = c.stys && c.stys[r];
+            stys[r] = LAB_STYLES.indexOf(String(v || "")) >= 0 ? String(v) : "";
+          });
+          c.stys = stys;
+          return { name: String(c.name || ""), fams: fams, stys: stys };
         });
         // the specimen it used to carry is gone: the blocks are the master's own
         delete s.lab.blocks;
@@ -740,6 +833,7 @@
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
       if (!isFinite(s.logo.aspect) || s.logo.aspect <= 0) s.logo.aspect = 1;
+      if (!s.logo.off || !isFinite(s.logo.off.x) || !isFinite(s.logo.off.y)) s.logo.off = { x: 0, y: 0 };
       var out = Object.assign(d, s);
       var keep = state;
       state = out; useSolid(out.solid); out = state; state = keep;
@@ -1459,8 +1553,9 @@
     // the logo goes to one of nine points of the margin box; a solid goes where it was put
     var pv = name === "rect" ? el.pos.y : fv(el.align.v);
     var ph = name === "rect" ? el.pos.x : fh(el.align.h);
-    var y = c.y + c.h * pv - s.h * fv(el.anchor.v);
-    var x = c.x + c.w * ph - s.w * fh(el.anchor.h);
+    var off = name === "rect" ? { x: 0, y: 0 } : elOff(el);
+    var y = c.y + c.h * pv - s.h * fv(el.anchor.v) + off.y;
+    var x = c.x + c.w * ph - s.w * fh(el.anchor.h) + off.x;
     // and its top edge sits on a grid line, its left edge on a column line
     if (name === "rect") {
       if (state.rect.hmode === "format") y = 0;
@@ -1477,6 +1572,29 @@
      dragging never touches it: it is only ever changed in the anchor grid. */
   function setAlign(name, h, v) {
     state[name].align = { h: h, v: v };
+    // aligning it is a move: whatever the anchor had nudged it by is spent
+    if (state[name].off) state[name].off = { x: 0, y: 0 };
+  }
+  function elOff(el) {
+    return el.off && isFinite(el.off.x) && isFinite(el.off.y) ? el.off : { x: 0, y: 0 };
+  }
+
+  /* Changing which point of a shape lands on its position is a change of handle,
+     not a move: the shape must not jump. A solid keeps its place in the state,
+     so the new anchor point is simply put where the old one had left the box; the
+     logo goes to one of nine cells, so what the change would have shifted it by is
+     held as a nudge instead. */
+  function setAnchor(name, h, v) {
+    var el = state[name], b = box(name);    // where it is now, nudge and all
+    el.anchor = { h: h, v: v };
+    if (name === "rect") {
+      var s = sizeOf("rect");
+      putSolidAt(b.x + s.w * fh(h), b.y + s.h * fv(v));
+      return;
+    }
+    el.off = { x: 0, y: 0 };
+    var at = box(name);                     // where the new anchor alone would put it
+    el.off = { x: round(b.x - at.x, 3), y: round(b.y - at.y, 3) };
   }
 
   // where the anchor point of the selected solid is, and putting it somewhere else,
@@ -1772,27 +1890,25 @@
     return (f || FAMILIES[0]).name;
   }
 
-  // Google fonts arrive as a stylesheet; ask for the usual weights and fall back
-  // to the family's default if it does not publish them
+  /* Google fonts arrive as a stylesheet: ask for the usual weights, and fall back
+     to the family's default if it does not publish them. The italics are a request
+     of their own — a family that has none answers 404 to an ital axis, and asking
+     for both together would lose the weights with it. */
   var googleLinks = {};
+  var WGHTS = "300;400;500;600;700;900";
   function loadGoogleFont(name) {
     if (googleLinks[name]) return;
-    var href = function (withWeights) {
-      return "https://fonts.googleapis.com/css2?family=" +
-        encodeURIComponent(name).replace(/%20/g, "+") +
-        (withWeights ? ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400" : "") +
-        "&display=swap";
+    var fam = encodeURIComponent(name).replace(/%20/g, "+");
+    var sheet = function (axis, onFail) {
+      var link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=" + fam + axis + "&display=swap";
+      if (onFail) link.onerror = onFail;
+      document.head.appendChild(link);
+      return link;
     };
-    var link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href(true);
-    link.onerror = function () {
-      var plain = document.createElement("link");
-      plain.rel = "stylesheet";
-      plain.href = href(false);
-      document.head.appendChild(plain);
-    };
-    document.head.appendChild(link);
+    var link = sheet(":wght@" + WGHTS, function () { sheet("", null); });
+    sheet(":ital,wght@1," + WGHTS.replace(/;/g, ";1,"), null);   // italics, if it has any
     googleLinks[name] = link;
   }
 
@@ -2005,13 +2121,19 @@
 
   function colLine(off) { return gridLine(colGrid("format"), off); }
 
-  /* Which grid a block lines up on. "auto" keeps the old rule — the box padding
-     while it is inside the solid, the format columns anywhere else. */
+  /* Which grid a block lines up on, named rather than guessed: the padding of the
+     box it is in, the format columns, or the box's own columns. A mode with nothing
+     to hold it — the box padding outside a box, the box columns with no solid on the
+     format — falls back to the format columns. */
   function blockCols(b) {
-    var c = b.cols || "auto";
+    var c = ["box", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "box";
+    if (c === "box") return blockOwner(b) >= 0 ? "box" : "format";
     if (c === "rect" && !state.solids.length) return "format";
-    if (c === "format" || c === "rect") return c;
-    return blockOwner(b) >= 0 ? "box" : "format";
+    return c;
+  }
+  // what it is set to, whether or not there is anything to hold it
+  function blockColsSet(b) {
+    return ["box", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "box";
   }
   // a block on "the solid's columns" means the one it is inside, not the selected one
   function blockGrid(b) {
@@ -2098,6 +2220,7 @@
         fontSize: rolePx(b.role) * s + "px",
         fontFamily: roleStack(b.role),
         fontWeight: st.weight,
+        fontStyle: st.italic ? "italic" : "normal",
         lineHeight: roleLh(b.role),
         letterSpacing: st.ls + "em",
         textTransform: st.transform,
@@ -2168,8 +2291,98 @@
     });
   }
 
+  /* A line runs down the middle of its box, along whichever side is longer: the
+     box is its length and its reach, so it is moved, snapped and dragged exactly
+     like any other solid. A round or square cap sticks out past the end of the
+     stroke, so the stroke is pulled in by half its width to keep it in the box. */
+  function lineInk() {
+    var bg = state.stage.bg, paper = schemePaper(), ink = schemeInk();
+    return contrastRatio(paper, bg) >= contrastRatio(ink, bg) ? paper : ink;
+  }
+  function lineRun(sd, b) {
+    var t = Math.max(0.2, sd.line.w), flat = sd.line.cap === "butt";
+    var horiz = b.w >= b.h, trim = flat ? 0 : t / 2;
+    var len = Math.max(0, (horiz ? b.w : b.h) - trim * 2);
+    return {
+      horiz: horiz, t: t, len: len,
+      x1: horiz ? trim : b.w / 2, x2: horiz ? b.w - trim : b.w / 2,
+      y1: horiz ? b.h / 2 : trim, y2: horiz ? b.h / 2 : b.h - trim
+    };
+  }
+
+  // the stroke as an SVG the size it is drawn at, so it stays crisp at any zoom
+  function lineSVG(sd, b, s) {
+    var r = lineRun(sd, b), L = sd.line;
+    var w = Math.max(1, b.w * s), h = Math.max(1, b.h * s);
+    var dash = L.dash === "dotted"
+      ? ' stroke-dasharray="' + round(Math.max(0.2, L.dot) * s, 2) + " " +
+        round(Math.max(0.2, L.gap) * s, 2) + '"'
+      : "";
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + round(w, 2) + '" height="' +
+      round(h, 2) + '" viewBox="0 0 ' + round(w, 2) + " " + round(h, 2) + '">' +
+      '<line x1="' + round(r.x1 * s, 2) + '" y1="' + round(r.y1 * s, 2) + '" x2="' +
+      round(r.x2 * s, 2) + '" y2="' + round(r.y2 * s, 2) + '" stroke="' + sd.fill +
+      '" stroke-width="' + round(r.t * s, 2) + '" stroke-linecap="' + L.cap + '"' + dash +
+      "/></svg>";
+  }
+  function lineURL(sd, b, s) {
+    return 'url("data:image/svg+xml;charset=utf-8,' +
+      encodeURIComponent(lineSVG(sd, b, s)).replace(/"/g, "%22") + '")';
+  }
+
+  /* The same guides the canvas carries, painted inside a host: the margin box, the
+     baseline grid and both column grids. The canvas draws them in an overlay of its
+     own above the stage; this draws them in the picture itself, so a tile can show
+     what the type is standing on. */
+  function paintGuides(host, s, on) {
+    // its own key: the canvas has a #guides overlay of its own, outside the picture
+    var layer = child(host, "tileGuides", "div", "tile-guides");
+    layer.hidden = !on;
+    if (!on) return;
+    var c = content(), rgb = hexRgb(guideColour());
+    var rgba = function (a) {
+      return "rgba(" + Math.round(rgb.r) + "," + Math.round(rgb.g) + "," + Math.round(rgb.b) + "," + a + ")";
+    };
+    var at = function (el, b) {
+      Object.assign(el.style, {
+        left: b.x * s + "px", top: b.y * s + "px",
+        width: b.w * s + "px", height: b.h * s + "px"
+      });
+    };
+
+    // the margin box, and the baseline grid down it from its top edge
+    var boxEl = child(layer, "box", "div", "tg-box");
+    at(boxEl, { x: c.x, y: c.y, w: c.w, h: c.h });
+    boxEl.style.boxShadow = "0 0 0 1px " + rgba(0.5);
+    var unit = baseline() * s, mode = state.type.grid, both = mode === "both", rows = [];
+    var row = function (step, alpha) {
+      return "repeating-linear-gradient(to bottom," + rgba(alpha) + " 0 1px,transparent 1px " +
+        step + "px)";
+    };
+    if ((mode === "full" || both) && unit >= 4) rows.push(row(unit, 0.24));
+    if ((mode === "half" || both) && unit / 2 >= 5) rows.push(row(unit / 2, both ? 0.1 : 0.22));
+    boxEl.style.backgroundImage = rows.length ? rows.join(",") : "none";
+
+    // the columns: the format's across the margin box, a solid's across the solid
+    var cols = function (el, g, show, frame) {
+      el.hidden = !show || !frame;
+      if (el.hidden) return;
+      var w = gridColW(g) * s, gut = g.gutter * s;
+      at(el, { x: g.x, y: frame.y, w: g.w, h: frame.h });
+      el.style.backgroundImage = w >= 1
+        ? "repeating-linear-gradient(to right," + rgba(0.09) + " 0 " + w + "px,transparent " +
+          w + "px " + (w + gut) + "px)"
+        : "none";
+    };
+    cols(child(layer, "cols", "div", "tg-cols"), colGrid("format"),
+      state.cols.show && state.cols.n >= 1, { y: c.y, h: c.h });
+    var rc = state.rect.columns, rb = state.solids.length ? rectColBox() : null;
+    cols(child(layer, "rcols", "div", "tg-cols"), colGrid("rect"),
+      !!state.solids.length && rc.show && rc.n >= 1, rb);
+  }
+
   // draw the whole design into host at format fw x fh, scaled by s
-  function paintInto(host, fw, fh, s) {
+  function paintInto(host, fw, fh, s, opts) {
     withFormat(fw, fh, function () {
       host.style.width = fw * s + "px";
       host.style.height = fh * s + "px";
@@ -2211,6 +2424,17 @@
           var b = box("rect");
           Object.assign(el.style, shapeStyle("rect", s));
           /* No background shorthand here: it would reset the image behind it. */
+          if (sd.content === "line") {
+            Object.assign(el.firstChild.style, {
+              borderRadius: "0", clipPath: "none",
+              backgroundColor: "transparent",
+              backgroundSize: "auto",
+              backgroundPosition: "0 0",
+              backgroundRepeat: "no-repeat",
+              backgroundImage: sd.visible ? lineURL(sd, b, s) : "none"
+            });
+            return;
+          }
           var pic = sd.visible ? picSrc(sd, b.w, b.h) : "";
           var pl = pic ? picLayout(sd, b.w, b.h) : null;
           Object.assign(el.firstChild.style, {
@@ -2250,6 +2474,9 @@
           logoEl.style.background = lg.fill;
         }
       }
+
+      // last, so they lie over the picture the way the canvas overlay does
+      paintGuides(host, s, !!(opts && opts.guides));
     });
   }
 
@@ -2443,7 +2670,10 @@
       el.style.left = b.w * s * p[0] + "px";
       el.style.top = b.h * s * p[1] + "px";
     });
+    // a line has no corners to round, so its round handles stand down
+    var noRadius = name === "rect" && state.rect.content === "line";
     $$("#frame .handle.radius").forEach(function (el) {
+      el.hidden = noRadius;
       var n = el.dataset.corner;
       var rx = clamp(cornerPx(n, "x") * s, 14, Math.max(14, b.w * s / 2));
       var ry = clamp(cornerPx(n, "y") * s, 14, Math.max(14, b.h * s / 2));
@@ -2526,12 +2756,34 @@
      gradient modules the background stage uses, drawn at the size of the box. */
   function syncPic(r) {
     var kind = r.content, made = kind === "pattern" || kind === "gradient";
+    var line = kind === "line";
     $("#pic-content").value = kind;
     $("#pic-image").hidden = kind !== "image";
     $("#pic-mods").hidden = !made;
     $("#pic-mod-note").hidden = !made;
     $("#pic-fields").hidden = !made;
-    $("#pic-place").hidden = kind === "fill";
+    $("#pic-place").hidden = kind === "fill" || line;
+    $("#line-fields").hidden = !line;
+    if (line) {
+      var lb = box("rect"), run = lineRun(r, lb);
+      setValue($("#line-w"), r.line.w);
+      $("#line-cap").value = r.line.cap;
+      $("#line-dash").value = r.line.dash;
+      $("#line-dots").hidden = r.line.dash !== "dotted";
+      $("#pic-hint").textContent = "";
+      setValue($("#line-dot"), r.line.dot);
+      setValue($("#line-gap"), r.line.gap);
+      bound("#line-w", 0.2, Math.max(1, Math.round((run.horiz ? lb.h : lb.w) || 1)));
+      $("#line-hint").textContent = "The stroke runs down the middle of the box, along its longer " +
+        "side \u2014 " + (run.horiz ? "across" : "down") + ", " + round(run.len, 1) + " long and " +
+        round(r.line.w, 2) + " wide, in the box\u2019s own fill colour. Resize the box to set its " +
+        "length; a round or square cap is pulled in by half the width so it stays inside it." +
+        (r.line.dash === "dotted"
+          ? " Dots of " + round(r.line.dot, 2) + " with " + round(r.line.gap, 2) + " between them" +
+            (r.line.cap === "round" ? ", rounded into circles." : ".")
+          : "");
+      return;
+    }
     if (kind === "image") {
       setValue($("#pic-url"), /^data:/.test(r.src) ? "" : r.src);
       $("#pic-url").placeholder = /^data:/.test(r.src) ? "— uploaded image —" : "https://…";
@@ -2579,7 +2831,8 @@
         "canvas to move it. The corner shape masks it.";
     } else {
       $("#pic-hint").textContent = "A colour fill. Set it to an image, a pattern or a gradient and " +
-        "the box becomes a frame — resized, snapped and masked exactly the same way.";
+        "the box becomes a frame — resized, snapped and masked exactly the same way; set it to a " +
+        "line and the box becomes the length of a stroke drawn down the middle of it.";
     }
   }
 
@@ -2664,7 +2917,9 @@
 
     $("#fmt-hint").textContent = state.pages.length
       ? "Tick what a format takes from the master; untick it to keep that part for this format " +
-        "alone. Click a tile to work on that format in the design system."
+        "alone. What is on a format \u2014 its solids, lines and text \u2014 is always its own: " +
+        "a new format starts from a copy of the one you added it from, and is laid out from there. " +
+        "Click a tile to work on that format in the design system."
       : "";
 
     // one tile per format, each painted at its own values
@@ -2873,7 +3128,7 @@
         put: function (v) { state.type.roles[r].color = v; } });
     });
     state.solids.forEach(function (sd, i) {
-      out.push({ k: "solid:" + i, name: (sd.content === "fill" ? "Solid " : "Frame ") + (i + 1),
+      out.push({ k: "solid:" + i, name: solidKind(sd) + " " + (i + 1),
         get: function () { return sd.fill; },
         put: function (v) { sd.fill = v; } });
     });
@@ -3105,6 +3360,7 @@
     var items = [];
     items.push({ id: "rect", kind: "shape", name: "Solid" });   // as many as you like
     items.push({ id: "frame", kind: "shape", name: "Frame" });
+    items.push({ id: "line", kind: "shape", name: "Line" });
     ROLES.forEach(function (r) {
       items.push({ id: "role:" + r, kind: "text", name: ROLE_NAMES[r] });   // as many as you like
     });
@@ -3127,13 +3383,19 @@
     ];
     if (state.solids.length) {
       var b = box("rect");
-      var frames = state.solids.filter(function (x) { return x.content !== "fill"; }).length;
-      var boxes = state.solids.length - frames;
+      var lines = state.solids.filter(function (x) { return x.content === "line"; }).length;
+      var frames = state.solids.filter(function (x) {
+        return x.content !== "fill" && x.content !== "line";
+      }).length;
+      var boxes = state.solids.length - frames - lines;
       parts.push((state.solids.length > 1
         ? [boxes ? boxes + (boxes === 1 ? " solid" : " solids") : "",
-           frames ? frames + (frames === 1 ? " frame" : " frames") : ""].filter(Boolean).join(" · ") + " · "
+           frames ? frames + (frames === 1 ? " frame" : " frames") : "",
+           lines ? lines + (lines === 1 ? " line" : " lines") : ""].filter(Boolean).join(" · ") + " · "
         : "") +
-        (state.rect.content === "fill" ? "Solid " : "Frame ") + fmt(b.w) + " × " + fmt(b.h) +
+        (state.rect.content === "line"
+          ? "Line " + fmt(lineRun(state.rect, b).len) + " long, " + fmt(state.rect.line.w) + " wide"
+          : solidKind(state.rect) + " " + fmt(b.w) + " × " + fmt(b.h)) +
         " at " + fmt(b.x) + " / " + fmt(b.y));
     }
     var onStage = state.text.blocks.length;
@@ -3202,19 +3464,34 @@
 
   // a combination, for the length of one paint
   function withCombo(c, fn) {
-    var keepFamily = state.type.family, keep = {};
-    ROLES.forEach(function (r) { keep[r] = state.type.roles[r].family; });
+    var keepFamily = state.type.family, keep = {}, keepW = {}, keepI = {};
     ROLES.forEach(function (r) {
-      if (c.fams[r]) state.type.roles[r].family = "g:" + c.fams[r];
+      var st = state.type.roles[r];
+      keep[r] = st.family; keepW[r] = st.weight; keepI[r] = st.italic;
+    });
+    ROLES.forEach(function (r) {
+      var st = state.type.roles[r], sty = labStyle(c, r);
+      if (c.fams[r]) st.family = "g:" + c.fams[r];
+      if (sty) { st.weight = parseInt(sty, 10); st.italic = /i$/.test(sty); }
     });
     if (c.fams.paragraph) state.type.family = "g:" + c.fams.paragraph;
     try { return fn(); } finally {
       state.type.family = keepFamily;
       ROLES.forEach(function (r) {
-        if (keep[r]) state.type.roles[r].family = keep[r];
-        else delete state.type.roles[r].family;
+        var st = state.type.roles[r];
+        st.weight = keepW[r]; st.italic = keepI[r];
+        if (keep[r]) st.family = keep[r];
+        else delete st.family;
       });
     }
+  }
+
+  function labStyleName(v) {
+    return weightName(parseInt(v, 10)) + (/i$/.test(v) ? " italic" : "");
+  }
+  function labStyle(combo, role) {
+    var v = combo.stys && combo.stys[role];
+    return LAB_STYLES.indexOf(String(v || "")) >= 0 ? String(v) : "";
   }
 
   function labSample() {
@@ -3247,7 +3524,8 @@
   function labFaces(combo) {
     var out = [];
     ROLES.forEach(function (r) {
-      var n = labFamilyLabel(combo, r);
+      var sty = labStyle(combo, r);
+      var n = labFamilyLabel(combo, r) + (sty ? " " + labStyleName(sty) : "");
       if (out.indexOf(n) < 0) out.push(n);
     });
     return out;
@@ -3291,7 +3569,13 @@
           ROLES.map(function (r) {
             return '<label class="lab-fam"><span>' + esc(ROLE_NAMES[r]) + "</span>" +
               '<input type="text" list="gf-list" data-lab="fam" data-i="' + i + '" data-role="' + r +
-              '" spellcheck="false"></label>';
+              '" spellcheck="false">' +
+              '<select data-lab="sty" data-i="' + i + '" data-role="' + r +
+              '" title="The style this combination sets this role in">' +
+              '<option value="">Its own style</option>' +
+              LAB_STYLES.map(function (v) {
+                return '<option value="' + v + '">' + esc(labStyleName(v)) + "</option>";
+              }).join("") + "</select></label>";
           }).join("") +
           "</div>";
       }).join("");
@@ -3301,11 +3585,20 @@
       row.classList.toggle("on", i === labPick());
       setValue(row.querySelector('[data-lab="name"]'), c.name || "");
       ROLES.forEach(function (r) {
-        var el = row.querySelector('[data-role="' + r + '"]');
+        var el = row.querySelector('input[data-role="' + r + '"]');
         setValue(el, c.fams[r] || "");
         el.placeholder = familyLabel(roleFamilyId(r));
+        var sel = row.querySelector('select[data-role="' + r + '"]');
+        sel.value = labStyle(c, r);
+        sel.options[0].textContent = "Its own — " + styleName(state.type.roles[r]);
       });
     });
+    $("#lab-guides").checked = !!lab.guides;
+    $("#lab-guides-hint").textContent = lab.guides
+      ? "The margin box, the baseline grid (" + round(baseline(), 2) + " px) and the columns, " +
+        "drawn over every card in the guide colour — the same grids the canvas shows."
+      : "Off. Turn them on to see the margins, the baseline grid and the columns the type is " +
+        "standing on, on every card.";
     $("#lab-add").disabled = lab.combos.length >= LAB_MAX;
     $("#lab-status").textContent = labSaid || (lab.combos.length + " of " + LAB_MAX +
       " combinations. " + (lab.combos.length >= LAB_MAX ? "Take one off to add another." : ""));
@@ -3333,8 +3626,10 @@
               '<input type="number" data-lb="size" data-i="' + i + '" min="4" max="400" step="1"></label>' +
             '<label class="field"><span>Weight</span><select data-lb="weight" data-i="' + i + '">' +
               [100, 200, 300, 400, 500, 600, 700, 800, 900].map(function (w) {
-                return '<option value="' + w + '">' + w + "</option>";
+                return '<option value="' + w + '">' + esc(weightName(w)) + " " + w + "</option>";
               }).join("") + "</select></label></div>" +
+            '<label class="check"><input type="checkbox" data-lb="italic" data-i="' + i +
+              '"><span>Italic</span></label>' +
             '<div class="row"><label class="field"><span>Leading</span>' +
               '<input type="number" data-lb="lh" data-i="' + i + '" min="0.7" max="3" step="0.01"></label>' +
             '<label class="field"><span>Tracking (em)</span>' +
@@ -3355,7 +3650,7 @@
       if (row.open !== !!b.labOpen) row.open = !!b.labOpen;
       row.querySelector("summary b").textContent = ROLE_NAMES[b.role];
       row.querySelector("summary .px").textContent = Math.round(rolePx(b.role)) + " px · " +
-        round(roleLh(b.role), 2) + " · " + round(st.ls, 3) + "em";
+        styleName(st) + " · " + round(roleLh(b.role), 2) + " · " + round(st.ls, 3) + "em";
       row.querySelector("[data-lb-copy]").textContent = "\u201c" +
         b.text.replace(/\s+/g, " ").slice(0, 64) + (b.text.length > 64 ? "\u2026" : "") + "\u201d";
       var fam = row.querySelector('[data-lb="family"]');
@@ -3366,6 +3661,7 @@
       fam.value = st.family || "";
       if (fam.selectedIndex < 0) fam.selectedIndex = 0;
       row.querySelector('[data-lb="weight"]').value = String(st.weight);
+      row.querySelector('[data-lb="italic"]').checked = !!st.italic;
       row.querySelector('[data-lb="transform"]').value = st.transform;
       /* The size sweeps what the role can actually take: the paragraph as far as its
          basis allows, everything else as far as the scale's own ceiling of twelve
@@ -3423,7 +3719,10 @@
       box.style.width = Math.round(master.w * sc) + "px";
       box.style.height = Math.round(master.h * sc) + "px";
       var paint = function () {
-        withCombo(c, function () { paintInto(card.querySelector(".tile-stage"), master.w, master.h, sc); });
+        withCombo(c, function () {
+          paintInto(card.querySelector(".tile-stage"), master.w, master.h, sc,
+            { guides: !!lab.guides });
+        });
       };
       if (master.i >= 0) withPage(master.i, paint); else paint();
     });
@@ -3445,13 +3744,14 @@
     state.lab.pick = i;                  // the one the work goes on with
     var used = [];
     ROLES.forEach(function (r) {
-      var name = c.fams[r], st = state.type.roles[r];
+      var name = c.fams[r], st = state.type.roles[r], sty = labStyle(c, r);
       if (name) {
         if (state.type.google.indexOf(name) < 0) state.type.google.push(name);
         loadGoogleFont(name);
         st.family = "g:" + name;
         if (used.indexOf(name) < 0) used.push(name);
       }
+      if (sty) { st.weight = parseInt(sty, 10); st.italic = /i$/.test(sty); }
     });
     // the text face is the design's family, so a role that matches it needs no override
     var shared = c.fams.paragraph;
@@ -3538,6 +3838,7 @@
         fontFamily: roleStack(r).split(",").map(function (x) { return x.trim().replace(/^"|"$/g, ""); }),
         fontSize: remOf(rolePx(r), anchor),
         fontWeight: st.weight,
+        fontStyle: st.italic ? "italic" : "normal",
         // tracking is in em of its own size, and its own size is mult × the anchor
         letterSpacing: round(st.ls * mult, 4) + "rem",
         lineHeight: round(roleLh(r), 4)
@@ -3608,9 +3909,11 @@
         shares: schemeShares().map(function (v) { return round(v, 2); })
       }),
       solids: state.solids.map(function (r, i) {
-        return { pos: clone(r.pos), anchor: clone(r.anchor), wmode: r.wmode, hmode: r.hmode,
-          w: r.w, h: r.h, grid: r.grid, cols: r.cols, shape: r.shape, content: r.content,
-          module: r.module, fill: r.fill, params: clone(r.params || {}) };
+        var stroke = r.content === "line" ? { line: clone(r.line) } : null;
+        return Object.assign(stroke || {},
+          { pos: clone(r.pos), anchor: clone(r.anchor), wmode: r.wmode, hmode: r.hmode,
+            w: r.w, h: r.h, grid: r.grid, cols: r.cols, shape: r.shape, content: r.content,
+            module: r.module, fill: r.fill, params: clone(r.params || {}) });
       }),
       blocks: state.text.blocks.map(function (b) {
         return { role: b.role, row: b.row, from: b.from, grid: b.grid, cols: b.cols,
@@ -3619,7 +3922,7 @@
       background: { on: state.bgGen.on, pattern: state.bgGen.pattern, gradient: state.bgGen.gradient,
         params: clone(state.bgGen.params) },
       logo: { visible: state.logo.visible, h: clone(state.logo.h), align: clone(state.logo.align),
-        anchor: clone(state.logo.anchor), fill: state.logo.fill },
+        anchor: clone(state.logo.anchor), offset: clone(elOff(state.logo)), fill: state.logo.fill },
       families: { shared: ty.family, roles: ROLES.reduce(function (a, r) {
         if (ty.roles[r].family) a[r] = ty.roles[r].family;
         return a;
@@ -3687,6 +3990,7 @@
       lines.push("  font-family: " + roleStack(r) + ";");
       lines.push("  font-size: var(--size-" + TOKEN_SLUG(r) + ");");
       lines.push("  font-weight: " + st.weight + ";");
+      if (st.italic) lines.push("  font-style: italic;");
       lines.push("  line-height: " + round(roleLh(r), 4) + ";");
       lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
       if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
@@ -3724,14 +4028,16 @@
       return out.map(function (l) { return indent + l + ";"; }).join("\n");
     }
 
-    if (el.align.h === "left" && el.anchor.h === "left") out.push("left: " + fmt(m.left) + "px");
-    else if (el.align.h === "right" && el.anchor.h === "right") out.push("right: " + fmt(m.right) + "px");
-    else if (el.align.h === "center" && el.anchor.h === "center") { out.push("left: 50%"); tx = "-50%"; }
+    // a nudged logo is written out where it actually is, not off a margin
+    var lo = elOff(el), square = !lo.x && !lo.y;
+    if (square && el.align.h === "left" && el.anchor.h === "left") out.push("left: " + fmt(m.left) + "px");
+    else if (square && el.align.h === "right" && el.anchor.h === "right") out.push("right: " + fmt(m.right) + "px");
+    else if (square && el.align.h === "center" && el.anchor.h === "center") { out.push("left: 50%"); tx = "-50%"; }
     else out.push("left: " + fmt(b.x) + "px");
 
-    if (el.align.v === "top" && el.anchor.v === "top") out.push("top: " + fmt(m.top) + "px");
-    else if (el.align.v === "bottom" && el.anchor.v === "bottom") out.push("bottom: " + fmt(m.bottom) + "px");
-    else if (el.align.v === "middle" && el.anchor.v === "middle") { out.push("top: 50%"); ty = "-50%"; }
+    if (square && el.align.v === "top" && el.anchor.v === "top") out.push("top: " + fmt(m.top) + "px");
+    else if (square && el.align.v === "bottom" && el.anchor.v === "bottom") out.push("bottom: " + fmt(m.bottom) + "px");
+    else if (square && el.align.v === "middle" && el.anchor.v === "middle") { out.push("top: 50%"); ty = "-50%"; }
     else out.push("top: " + fmt(b.y) + "px");
 
     out.push("width: " + fmt(b.w) + "px");
@@ -3767,10 +4073,46 @@
     // every solid, in the order they were put down
     state.solids.forEach(function (sd, si) { withSolid(si, function () {
       lines.push("");
-      lines.push("." + (sd.content === "fill" ? "solid" : "frame") +
-        (state.solids.length > 1 ? "-" + (si + 1) : "") + " {");
+      var cls = solidKind(sd).toLowerCase() + (state.solids.length > 1 ? "-" + (si + 1) : "");
+      lines.push("." + cls + " {");
       lines.push("  position: absolute;");
       lines.push(positionCSS("rect", "  "));
+      if (sd.content === "line") {
+        /* The stroke is a bar down the middle of the box. A gradient carries the
+           dots; the cap is a property of a stroke and has no CSS of its own, so it
+           is named in a comment for whoever draws it in SVG or on a canvas. */
+        var lb = box("rect"), run = lineRun(sd, lb), L = sd.line;
+        lines.push("}");
+        lines.push("");
+        lines.push("." + cls + "::before {");
+        lines.push('  content: "";');
+        lines.push("  position: absolute;");
+        if (run.horiz) {
+          lines.push("  top: 50%;");
+          lines.push("  left: " + fmt(run.x1) + "px;");
+          lines.push("  width: " + fmt(run.len) + "px;");
+          lines.push("  height: " + fmt(run.t) + "px;");
+          lines.push("  transform: translateY(-50%);");
+        } else {
+          lines.push("  left: 50%;");
+          lines.push("  top: " + fmt(run.y1) + "px;");
+          lines.push("  height: " + fmt(run.len) + "px;");
+          lines.push("  width: " + fmt(run.t) + "px;");
+          lines.push("  transform: translateX(-50%);");
+        }
+        if (L.dash === "dotted") {
+          lines.push("  background: repeating-linear-gradient(to " + (run.horiz ? "right" : "bottom") +
+            "," + sd.fill + " 0 " + fmt(L.dot) + "px,transparent " + fmt(L.dot) + "px " +
+            fmt(L.dot + L.gap) + "px);");
+          if (L.cap === "round") lines.push("  /* round caps: each dot is a circle */");
+        } else {
+          lines.push("  background: " + sd.fill + ";");
+        }
+        lines.push("  /* " + L.cap + " cap" + (L.dash === "dotted" ? ", dotted" : "") +
+          " — stroke-linecap in SVG */");
+        lines.push("}");
+        return;
+      }
       if (state.rect.shape === "radius") {
         lines.push("  border-radius: " + radiusCSS(1) + ";");
       } else {
@@ -3864,6 +4206,7 @@
               (st.snap === "half" ? "2" : "1") + " */" : ""));
         if (st.family) lines.push("  font-family: " + roleStack(r) + ";");
         lines.push("  font-weight: " + st.weight + ";");
+        if (st.italic) lines.push("  font-style: italic;");
         lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
         lines.push("  color: " + st.color + ";");
@@ -3908,7 +4251,7 @@
     }
     if (state.solids.length) {
       state.solids.forEach(function (sd, i) {
-        inner.push('  <div class="' + (sd.content === "fill" ? "solid" : "frame") +
+        inner.push('  <div class="' + solidKind(sd).toLowerCase() +
           (state.solids.length > 1 ? "-" + (i + 1) : "") + '"></div>');
       });
       inner = inner.concat(text);
@@ -3952,8 +4295,15 @@
   var past = [], future = [], histTimer = null, lastSnap = null, restoring = false;
   var HISTORY_MAX = 80, HISTORY_QUIET = 400;
 
+  /* The open format's content is state.solids and state.text.blocks themselves, so
+     it is left out of the snapshot and hung back on when one is restored — a
+     history entry holds the design once, not the open format's share of it twice. */
   function snapshot() {
-    try { return JSON.stringify(state); } catch (e) { return null; }
+    var pg = state.pages[state.page], held = pg ? pg.content : null;
+    if (pg) pg.content = null;
+    try { return JSON.stringify(state); } catch (e) { return null; } finally {
+      if (pg) pg.content = held;
+    }
   }
 
   function recordHistory() {
@@ -3990,6 +4340,8 @@
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     state = JSON.parse(json);
     useSolid(state.solid);                  // the alias does not survive the round trip
+    // nor does the open format's hold on its own content
+    if (state.pages[state.page]) takeContent(state.pages[state.page]);
     lastSnap = json;
     buildFamilySelect();
     inspectorFor = -1;
@@ -4185,7 +4537,7 @@
       '<div class="block-row cols">' +
         "<span>Cols</span>" +
         '<select data-block="cols" title="Which column grid this block lines up on">' +
-          '<option value="auto">follow the box</option>' +
+          '<option value="box">the box padding</option>' +
           '<option value="format">the format columns</option>' +
           '<option value="rect">the box\'s own columns</option>' +
         "</select>" +
@@ -4222,7 +4574,7 @@
     setValue(body.querySelector('[data-block="row"]'), b.row);
     body.querySelector('[data-block="grid"]').value = String(b.grid);
     body.querySelector('[data-block="from"]').value = b.from === "bottom" ? "bottom" : "top";
-    body.querySelector('[data-block="cols"]').value = b.cols || "auto";
+    body.querySelector('[data-block="cols"]').value = blockColsSet(b);
     setValue(body.querySelector('[data-block="blind"]'), b.blind || 12);
     body.querySelector("[data-blindn]").textContent = (b.blind || 12) + " words";
     setValue(body.querySelector('[data-block="padL"]'), fmt(b.padL || 0));
@@ -4252,7 +4604,7 @@
     ins.hidden = !show;
     if (!show) return;
     var r = state.rect;
-    $("#sol-title").textContent = (r.content === "fill" ? "Solid " : "Frame ") + (state.solid + 1) +
+    $("#sol-title").textContent = solidKind(r) + " " + (state.solid + 1) +
       (state.solids.length > 1 ? " of " + state.solids.length : "");
     positionInspector(ins, el, solPos);
 
@@ -4276,8 +4628,8 @@
           "Centred text keeps the padding.";
     $("#text-rows-hint").textContent = "Rows run from the top or the bottom margin: grid 1 is the " +
       "full rows (" + round(baseline(), 2) + " px), grid 2 the half lines between them. " +
-      "Following the box means the box padding while the block is inside the solid and the " +
-      "format columns anywhere else; the other two hold whichever grid you name.";
+      "The box padding holds a block to the box it is inside; the two column grids hold it to " +
+      "whichever you name, wherever it sits.";
   }
 
   function repositionInspector() {
@@ -4708,6 +5060,7 @@
     if ($("#type-role-family").selectedIndex < 0) $("#type-role-family").selectedIndex = 0;
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
+    $("#type-italic").checked = !!st2.italic;
     setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
     $("#type-snap").innerHTML = (ty.editing === "paragraph"
       ? (fromLeading()
@@ -4959,11 +5312,17 @@
         var b = e.target.closest("button");
         if (!b) return;
         if (b.dataset.kind === "align") setAlign(b.dataset.el, b.dataset.h, b.dataset.v);
-        else state[b.dataset.el].anchor = { h: b.dataset.h, v: b.dataset.v };
+        else setAnchor(b.dataset.el, b.dataset.h, b.dataset.v);
         state.sel = b.dataset.el;
         render();
       });
     });
+
+    onInput("#line-w", function (el) { state.rect.line.w = clamp(num(el.value, 4), 0.2, 400); });
+    onInput("#line-dot", function (el) { state.rect.line.dot = clamp(num(el.value, 8), 0.2, 400); });
+    onInput("#line-gap", function (el) { state.rect.line.gap = clamp(num(el.value, 8), 0.2, 400); });
+    onChange("#line-cap", function (el) { state.rect.line.cap = el.value; });
+    onChange("#line-dash", function (el) { state.rect.line.dash = el.value; });
 
     onChange("#corner-shape", function (el) {
       state.rect.shape = el.value;
@@ -5137,6 +5496,7 @@
     onChange("#type-tag", function (el) { styleOf().tag = el.value; });
     onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
+    onChange("#type-italic", function (el) { styleOf().italic = el.checked; });
     numInput("#type-lh", function (v) {
       var p = state.type.roles.paragraph;
       // in the fit mode a typed paragraph leading picks the row count that comes
@@ -5335,13 +5695,15 @@
     $("#labz-out").addEventListener("click", function () { state.lab.tile = clamp(state.lab.tile / 1.2, .6, 3); render(); });
     $("#labz-value").addEventListener("click", function () { state.lab.tile = 1; render(); });
     onChange("#lab-sample", function (el) { state.lab.sample = el.value; });
+    onChange("#lab-guides", function (el) { state.lab.guides = el.checked; });
     onInput("#lab-own", function (el) { state.lab.own = el.value; });
     $("#lab-add").addEventListener("click", function () {
       if (state.lab.combos.length >= LAB_MAX) return;
       var last = state.lab.combos[state.lab.combos.length - 1];
       state.lab.combos.push({
         name: "Combination " + (state.lab.combos.length + 1),
-        fams: last ? clone(last.fams) : { display: "", headline: "", subline: "", paragraph: "", smallprint: "" }
+        fams: last ? clone(last.fams) : { display: "", headline: "", subline: "", paragraph: "", smallprint: "" },
+        stys: last ? clone(last.stys || {}) : {}
       });
       render();
     });
@@ -5392,6 +5754,11 @@
       labSaid = "";
       if (t.dataset.lab === "name" && state.lab.combos[i]) {
         state.lab.combos[i].name = t.value;
+        return render();
+      }
+      if (t.dataset.lab === "sty" && state.lab.combos[i]) {
+        if (!state.lab.combos[i].stys) state.lab.combos[i].stys = {};
+        state.lab.combos[i].stys[t.dataset.role] = t.value;
         return render();
       }
       if (t.dataset.lab === "fam" && state.lab.combos[i]) {
@@ -5456,7 +5823,10 @@
         if (state.pages.length && !state.pages.some(function (pg) { return pg.master; })) {
           state.pages[0].master = true;
         }
+        var was = state.page === i;
         state.page = clamp(state.page > i ? state.page - 1 : state.page, 0, Math.max(0, state.pages.length - 1));
+        // its elements went with it, so the format that takes its place brings its own
+        if (was) applyPage(state.page);
         render();
         return;
       }
@@ -5659,7 +6029,7 @@
     return {
       role: role, align: "left", row: grid === "both" ? rows * 2 : rows, grid: grid,
       from: role === "smallprint" ? "bottom" : "top",
-      padL: 0, padR: 0, cols: "auto",
+      padL: 0, padR: 0, cols: "box",
       blind: ROLE_BLIND[role] || 12, text: blindText(ROLE_BLIND[role] || 12)
     };
   }
@@ -5681,13 +6051,26 @@
   // pull an element out of the tray: it lands where the pointer is, snapping as it
   // goes, and goes back to the tray if it is let go outside the format
   function startPlace(e, id) {
-    var isRect = id === "rect" || id === "frame", role = isRect ? null : id.split(":")[1];
+    var isRect = id === "rect" || id === "frame" || id === "line";
+    var role = isRect ? null : id.split(":")[1];
     var b, i = -1;
     if (isRect) {
-      b = addSolid();                      // another one, every time
-      if (id === "frame") {                // a solid whose fill is a picture
-        b.content = "image";
-        b.fill = "#232834";
+      /* Another one every time, copied from the last: what the chip says it is
+         overrides whatever that one was, so a solid is never a picture and a box
+         pulled out after a line is a box again. */
+      b = addSolid();
+      if (id === "line") {
+        b.content = "line";
+        b.hmode = "fixed";
+        b.h = 1;                           // one row of its snap grid, the stroke down it
+        b.fill = lineInk();
+      } else {
+        if (b.content === "line") { b.content = "fill"; b.h = Math.max(b.h, 360); }
+        if (id === "rect") b.content = "fill";
+        if (id === "frame") {               // a solid whose fill is a picture
+          b.content = "image";
+          b.fill = "#232834";
+        }
       }
       solClosed = false;
       state.sel = "rect";
@@ -6123,6 +6506,10 @@
     return "hsl(" + Math.round(h) + " " + Math.round(sat * 100) + "% " + Math.round(l * 100) + "%)";
   }
 
+  // a face as it is named: the weight, and the slope when it is set in one
+  function styleName(st) {
+    return weightName(st.weight) + (st.italic ? " italic" : "");
+  }
   function weightName(w) {
     return ({ 100: "Thin", 200: "Extra light", 300: "Light", 400: "Regular", 500: "Medium",
       600: "Semibold", 700: "Bold", 800: "Extra bold", 900: "Black" })[w] || String(w);
@@ -6154,7 +6541,7 @@
       var snapName = (SNAPS.filter(function (x) { return x.id === st.snap; })[0] || {}).name || st.snap;
       return '<div class="spec">' +
         '<div class="spec-head"><span class="spec-name">' + esc(ROLE_NAMES[r]) + "</span>" +
-        '<span class="spec-meta">' + esc(familyLabel(roleFamilyId(r))) + " " + esc(weightName(st.weight)) +
+        '<span class="spec-meta">' + esc(familyLabel(roleFamilyId(r))) + " " + esc(styleName(st)) +
         (st.transform !== "none" ? ", " + esc(st.transform) : "") +
         " · &lt;" + esc(st.tag) + "&gt; · " + round(px, 2) + " px = " +
         (r === "paragraph"
@@ -6165,7 +6552,8 @@
         " · tracking " + round(st.ls, 3) + "em · " + st.color.toUpperCase() +
         " · " + esc(snapName) + "</span></div>" +
         '<div class="spec-line" style="font-family:' + esc(roleStack(r)) + ";font-size:" + round(px * k, 2) +
-        "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight + ";letter-spacing:" +
+        "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight +
+        ";font-style:" + (st.italic ? "italic" : "normal") + ";letter-spacing:" +
         round(st.ls, 3) + "em;text-transform:" + st.transform + ';color:#14171c">' +
         esc(blindText(SPECIMEN_WORDS[r] || 6)) + "</div></div>";
     }).join("");
@@ -7061,7 +7449,9 @@
         row: { type: "integer", description: "Which line of its grid it sits on, counted from the margin it is measured from" },
         from: { type: "string", enum: ["top", "bottom"] },
         grid: { type: "string", enum: ["1", "2", "both"] },
-        cols: { type: "string", enum: ["auto", "format", "rect"] },
+        cols: { type: "string", enum: ["box", "format", "rect"],
+          description: "Which grid it lines up on: box (the padding of the solid it is inside), " +
+            "format (the format columns), rect (the solid's own columns)" },
         align: { type: "string", enum: ["left", "center", "right"] },
         padL: { type: "integer", description: "Inset from the left of the area it runs in, in px" },
         padR: { type: "integer" }
@@ -7159,7 +7549,7 @@
       one.row = Math.max(0, Math.round(num(b.row, one.row)));
       one.from = b.from === "bottom" ? "bottom" : "top";
       one.grid = b.grid === "1" ? 1 : b.grid === "2" ? 2 : "both";
-      one.cols = ["auto", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "auto";
+      one.cols = ["box", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "box";
       one.align = ["left", "center", "right"].indexOf(b.align) >= 0 ? b.align : "left";
       one.padL = Math.max(0, num(b.padL, 0));
       one.padR = Math.max(0, num(b.padR, 0));
@@ -7176,6 +7566,7 @@
       if (H_KEYS.indexOf(lg.alignH) >= 0 && V_KEYS.indexOf(lg.alignV) >= 0) setAlign("logo", lg.alignH, lg.alignV);
       if (H_KEYS.indexOf(lg.anchorH) >= 0 && V_KEYS.indexOf(lg.anchorV) >= 0) {
         state.logo.anchor = { h: lg.anchorH, v: lg.anchorV };
+        state.logo.off = { x: 0, y: 0 };      // a layout places it, so nothing is held over
       }
       /* Its height is only the answer's to give while the margins are set by hand:
          in a logo mode the margins are worked out from it, so resizing it here would
@@ -7230,6 +7621,7 @@
       return render();
     }
     if (k === "weight") { st.weight = +t.value; return render(); }
+    if (k === "italic") { st.italic = !!t.checked; return render(); }
     if (k === "transform") { st.transform = t.value; return render(); }
     if (t.value === "") return;
     if (k === "size") {

@@ -375,8 +375,38 @@
             <option value="image">An image</option>
             <option value="pattern">A pattern</option>
             <option value="gradient">A gradient</option>
+            <option value="line">A line</option>
           </select>
         </label>
+
+        <div id="line-fields" hidden>
+          <div class="row">
+            <label class="field"><span>Width</span>
+              <input type="number" id="line-w" min="0.2" step="0.5"></label>
+            <label class="field"><span>Cap</span>
+              <select id="line-cap">
+                <option value="butt">Flat</option>
+                <option value="round">Round</option>
+                <option value="square">Square</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label class="field grow"><span>Stroke</span>
+              <select id="line-dash">
+                <option value="solid">Solid</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" id="line-dots" hidden>
+            <label class="field"><span>Dot</span>
+              <input type="number" id="line-dot" min="0.2" step="0.5"></label>
+            <label class="field"><span>Gap</span>
+              <input type="number" id="line-gap" min="0.2" step="0.5"></label>
+          </div>
+          <p class="hint" id="line-hint"></p>
+        </div>
 
         <div id="pic-image" hidden>
           <div class="row">
@@ -556,6 +586,7 @@
           </select>
         </label>
       </div>
+      <label class="check"><input type="checkbox" id="type-italic"><span>Italic</span></label>
       <div class="row">
         <label class="field"><span>Line height <b id="type-lh-px"></b></span>
           <input type="number" id="type-lh" min="0.5" max="3" step="0.05"></label>
@@ -591,6 +622,10 @@
         <button type="button" class="ghost" id="lab-reset">Reset</button>
       </div>
       <p class="status" id="lab-status"></p>
+
+      <label class="check"><input type="checkbox" id="lab-guides">
+        <span>Show the margins, the baseline grid and the columns on the cards</span></label>
+      <p class="hint" id="lab-guides-hint"></p>
 
       <h3 class="sub-head">The blocks on the master</h3>
       <p class="hint">The master's own blocks, in the order they sit on it. Each one shows the copy

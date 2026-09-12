@@ -145,13 +145,16 @@ body{
 .lab-foot{display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .lab-foot button{flex:1 1 0;padding:5px 8px;font-size:11px}
 .lab-foot button.x{flex:0 0 30px}
+.tile-guides{position:absolute;inset:0;pointer-events:none}
+.tg-box,.tg-cols{position:absolute;pointer-events:none}
 .lab-combo{border-bottom:1px solid var(--line);padding:10px 0}
 .lab-combo:last-of-type{border-bottom:0}
 .lab-combo-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .lab-combo-head input{flex:1;min-width:0}
-.lab-fam{display:grid;grid-template-columns:74px 1fr;gap:6px;align-items:center;margin-bottom:4px}
+.lab-fam{display:grid;grid-template-columns:74px 1fr 108px;gap:6px;align-items:center;margin-bottom:4px}
 .lab-fam span{font-size:11px;color:var(--text-dim)}
 .lab-fam input{padding:5px 7px;font-size:12px}
+.lab-fam select{padding:4px 6px;font-size:11px;min-width:0}
 .lab-block{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px}
 .lab-block>summary{cursor:pointer;font-size:12px;display:flex;gap:8px;align-items:center}
 .lab-block>summary::-webkit-details-marker{display:none}
