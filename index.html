@@ -200,6 +200,8 @@
           </select>
         </label>
       </div>
+      <label class="check"><input type="checkbox" id="type-grid-full">
+        <span>Carry the rows past the margins, out to the edges of the format</span></label>
       <p class="hint" id="type-grid-hint"></p>
 
       <h3 class="sub-head">Format columns</h3>
@@ -593,6 +595,18 @@
       </div>
       <label class="check"><input type="checkbox" id="type-italic"><span>Italic</span></label>
       <div class="row">
+        <label class="field"><span>Kerning</span>
+          <select id="type-kern" title="Whether the font’s own kerning pairs are used">
+            <option value="metrics">The font’s own pairs</option>
+            <option value="off">Off — no pairs</option>
+          </select>
+        </label>
+        <label class="field"><span>Figures</span><select id="type-figs"></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="type-liga">
+        <span>Common ligatures — fi, fl and the rest the font carries</span></label>
+      <p class="hint" id="type-feat-hint"></p>
+      <div class="row">
         <label class="field"><span>Line height <b id="type-lh-px"></b></span>
           <input type="number" id="type-lh" min="0.5" max="3" step="0.05"></label>
         <label class="field"><span>Align to</span><select id="type-snap"></select></label>
@@ -632,8 +646,9 @@
         <span>Show the margins, the baseline grid and the columns on the cards</span></label>
       <p class="hint" id="lab-guides-hint"></p>
 
-      <h3 class="sub-head">The blocks on the master</h3>
-      <p class="hint">The master's own blocks, in the order they sit on it. Each one shows the copy
+      <h3 class="sub-head">The blocks on this format</h3>
+      <p class="hint">The blocks of the format you have open, in the order they sit on it — the
+        same format the cards are painted at. Each one shows the copy
         it holds and the size, leading and tracking of the role it runs in — a role is what every
         block of it follows, so setting one here sets them all, and the card above redraws.</p>
       <div id="lab-blocks"></div>
@@ -678,6 +693,9 @@
           <input type="range" id="col-spread" min="5" max="90" step="1"></label>
       </div>
       <div class="sw-grid" id="col-swatches"></div>
+      <div class="row">
+        <button type="button" class="ghost grow" id="col-own-clear">Back to the harmony</button>
+      </div>
       <p class="hint" id="col-note"></p>
 
 

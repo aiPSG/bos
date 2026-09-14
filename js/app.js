@@ -167,6 +167,26 @@
      Nothing wraps on its own, and the box is never narrower than its longest line,
      so these are the lengths that make a sensible line at each size. */
   var ROLE_BLIND = { display: 3, headline: 5, subline: 7, paragraph: 12, smallprint: 10 };
+  /* The OpenType settings a type tool offers on a paragraph: which figures the
+     font sets, and whether its ligatures and kerning pairs are used. */
+  var FIGURES = ["normal", "lining", "oldstyle", "tabular", "tabular-oldstyle"];
+  var FIGURE_NAMES = {
+    normal: "As the font sets them", lining: "Lining", oldstyle: "Old style",
+    tabular: "Tabular (lining)", "tabular-oldstyle": "Tabular old style"
+  };
+  var FIGURE_CSS = {
+    normal: "", lining: "lining-nums", oldstyle: "oldstyle-nums",
+    tabular: "lining-nums tabular-nums", "tabular-oldstyle": "oldstyle-nums tabular-nums"
+  };
+  /* What a single character can be marked as. Superscript and subscript are set
+     the way a type tool sets them when the font has no superior figures of its
+     own: the character at a share of the size, shifted off the baseline. */
+  var MARKS = ["sup", "sub", "caps"];
+  // how far a pair can be kerned by hand, in thousandths of an em either way
+  var KERN_MAX = 1000;
+  var MARK_NAMES = { sup: "Superscript", sub: "Subscript", caps: "Small caps" };
+  var MARK_SHORT = { sup: "Sup", sub: "Sub", caps: "Caps" };
+
   var ROLE_NAMES = {
     display: "Display", headline: "Headline", subline: "Subline",
     paragraph: "Paragraph", smallprint: "Small print"
@@ -551,7 +571,11 @@
       seg: "system",
       // a scheme built from one colour and a relationship between hues
       // shares: what proportion of the whole each colour makes up, in per cent
-      scheme: { base: "#4f7cff", technique: "complement", count: 6, spread: 30, shares: null },
+      /* own: the colours the user has set by hand. A scheme is worked out, but a
+         designer settles it: what is set here stands where the harmony's own
+         colour would be, at that place in the scheme, and can be handed back. */
+      scheme: { base: "#4f7cff", technique: "complement", count: 6, spread: 30, shares: null,
+        own: { h: {}, ink: "", paper: "" } },
       // the formats the work runs in; one of them is the master
       pages: [], page: 0, pageKey: 1,
       stage: { w: 1080, h: 1350, bg: "#111318", preset: "ig-portrait" },
@@ -631,15 +655,22 @@
         // "leading" takes the paragraph line height and lets the rows fall where they may
         gridFrom: "fit",
         grid: "both",           // baseline grid on the canvas: off | full | half | both
+        /* The rows are the format's, not the margin box's: they keep their rhythm
+           past the margins, out to the edges, so anything in the bleed lands on
+           the same grid. The margin box is still where they are counted from. */
+        gridFull: true,
         // every role is a multiple of the paragraph size; line heights snap to the
         // baseline grid unless a role is set free
         roles: {
           // display is the biggest of them: the golden ratio one step past the headline
-          display:    { mult: 4.236, tag: "h1", snap: "full", weight: 700, italic: false, lh: 1, ls: -0.03, transform: "none", color: "#ffffff" },
-          headline:   { mult: 2.618, tag: "h2", snap: "full", weight: 700, italic: false, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff" },
-          subline:    { mult: 1.618, tag: "h3", snap: "half", weight: 600, italic: false, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff" },
-          paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, italic: false, lh: 1.5, ls: 0, transform: "none", color: "#ffffff" },
-          smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, italic: false, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff" }
+          /* kern: whether the font's own kerning pairs are used at all. liga: its
+             common ligatures. figs: which figures it sets. Tracking is ls, and a
+             pair kerned by hand is on the block, where that pair is. */
+          display:    { mult: 4.236, tag: "h1", snap: "full", weight: 700, italic: false, lh: 1, ls: -0.03, transform: "none", color: "#ffffff", kern: "metrics", liga: true, figs: "normal" },
+          headline:   { mult: 2.618, tag: "h2", snap: "full", weight: 700, italic: false, lh: 1.05, ls: -0.02, transform: "none", color: "#ffffff", kern: "metrics", liga: true, figs: "normal" },
+          subline:    { mult: 1.618, tag: "h3", snap: "half", weight: 600, italic: false, lh: 1.2, ls: -0.01, transform: "none", color: "#ffffff", kern: "metrics", liga: true, figs: "normal" },
+          paragraph:  { mult: 1, tag: "p", snap: "fit", weight: 400, italic: false, lh: 1.5, ls: 0, transform: "none", color: "#ffffff", kern: "metrics", liga: true, figs: "normal" },
+          smallprint: { mult: 0.5, tag: "p", snap: "half", weight: 400, italic: false, lh: 1.4, ls: 0.02, transform: "none", color: "#ffffff", kern: "metrics", liga: true, figs: "normal" }
         },
         google: [], uploads: [],
         editing: "headline"
@@ -693,6 +724,24 @@
     if (!r.columns.m || typeof r.columns.m !== "object") r.columns.m = { top: 0, right: 0, bottom: 0, left: 0 };
     SIDES.forEach(function (side) { if (!isFinite(r.columns.m[side])) r.columns.m[side] = 0; });
     return r;
+  }
+
+  /* The blocks of one format, as they come back from storage: a role that still
+     exists, a grid and a column mode that mean something, and the kerning and the
+     marks landing on characters the copy actually has. */
+  function tidyBlocks(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; }).map(function (b) {
+      if (b.grid !== 1 && b.grid !== 2 && b.grid !== "both") b.grid = "both";
+      if (["box", "format", "rect"].indexOf(b.cols) < 0) b.cols = "box";
+      if (b.from !== "bottom") b.from = "top";
+      if (!isFinite(b.padL)) b.padL = 0;
+      if (!isFinite(b.padR)) b.padR = 0;
+      b.kern = tidyKern(b);
+      b.marks = tidyMarks(b);
+      b.shift = tidyShift(b);
+      return b;
+    });
   }
 
   // what a box is: a colour, a picture, or a stroke
@@ -764,20 +813,15 @@
         s.type.paraPct = true;
       }
       s.type.roles = Object.assign(d.type.roles, s.type.roles);
-      // a role saved before it could be set in italic keeps every other setting
+      // a role saved before it could be set in italic, or kerned, keeps the rest
       ROLES.forEach(function (r) {
-        s.type.roles[r] = Object.assign({}, d.type.roles[r], s.type.roles[r]);
-        s.type.roles[r].italic = !!s.type.roles[r].italic;
+        var st = s.type.roles[r] = Object.assign({}, d.type.roles[r], s.type.roles[r]);
+        st.italic = !!st.italic;
+        st.liga = st.liga !== false;
+        if (st.kern !== "off") st.kern = "metrics";
+        if (FIGURES.indexOf(st.figs) < 0) st.figs = "normal";
       });
-      if (!Array.isArray(s.text.blocks)) s.text.blocks = [];
-      s.text.blocks = s.text.blocks.filter(function (b) { return b && ROLES.indexOf(b.role) >= 0; });
-      s.text.blocks.forEach(function (b) {
-        if (b.grid !== 1 && b.grid !== 2 && b.grid !== "both") b.grid = "both";
-        if (["box", "format", "rect"].indexOf(b.cols) < 0) b.cols = "box";
-        if (b.from !== "bottom") b.from = "top";
-        if (!isFinite(b.padL)) b.padL = 0;
-        if (!isFinite(b.padR)) b.padR = 0;
-      });
+      s.text.blocks = tidyBlocks(s.text.blocks);
       if (!Array.isArray(s.solids)) s.solids = [];
       // a design from before there could be more than one carries its solid across
       if (!s.solids.length && s.rect && s.rect.placed) s.solids = [s.rect];
@@ -798,9 +842,7 @@
           pg.content = { solids: solids, blocks: blocks };
         } else {
           pg.content.solids = (pg.content.solids || []).map(function (r) { return normaliseSolid(r, d); });
-          pg.content.blocks = (pg.content.blocks || []).filter(function (b) {
-            return b && ROLES.indexOf(b.role) >= 0;
-          });
+          pg.content.blocks = tidyBlocks(pg.content.blocks);
         }
       });
       if (!s.lab || typeof s.lab !== "object") s.lab = clone(d.lab);
@@ -829,6 +871,11 @@
       else s.ai.briefs = Object.assign(clone(d.ai.briefs), s.ai.briefs);
       if (s.ai.brief) { s.ai.briefs.layout = s.ai.briefs.layout || s.ai.brief; delete s.ai.brief; }
       delete s.ai.key;                       // no key was ever stored; make sure of it
+      if (!s.scheme.own || typeof s.scheme.own !== "object") s.scheme.own = { h: {}, ink: "", paper: "" };
+      if (!s.scheme.own.h || typeof s.scheme.own.h !== "object") s.scheme.own.h = {};
+      if (typeof s.scheme.own.ink !== "string") s.scheme.own.ink = "";
+      if (typeof s.scheme.own.paper !== "string") s.scheme.own.paper = "";
+      if (typeof s.type.gridFull !== "boolean") s.type.gridFull = true;
       if (!s.margin.buf || typeof s.margin.buf !== "object") s.margin.buf = { top: 0, right: 0, bottom: 0, left: 0 };
       SIDES.forEach(function (side) { if (!isFinite(s.margin.buf[side])) s.margin.buf[side] = 0; });
       if (!s.logo.h || typeof s.logo.h !== "object" || !isFinite(s.logo.h.v)) s.logo.h = { v: 10, u: "%" };
@@ -2039,6 +2086,8 @@
   function startEditing(i) {
     if (editing === i) return;
     editing = i;
+    var stack = liveStack();
+    if (stack) stack.dataset.sig = "";      // rebuild: plain text under the caret
     render();
     requestAnimationFrame(function () {
       var el = els.stage.querySelector('.tb[data-i="' + i + '"]');
@@ -2125,6 +2174,143 @@
      box it is in, the format columns, or the box's own columns. A mode with nothing
      to hold it — the box padding outside a box, the box columns with no solid on the
      format — falls back to the format columns. */
+  /* The characters a keyboard does not have, in the groups a type tool keeps them
+     in. A space that is not an ordinary space is named, since nothing can be seen
+     of it on a button. */
+  var GLYPHS = [
+    { id: "punct", name: "Punctuation and dashes",
+      items: "\u2013\u2014\u2010\u2011\u2026\u00b7\u2022\u00b6\u00a7\u2020\u2021\u2032\u2033\u00ab\u00bb\u2039\u203a\u00a1\u00bf\u2044".split("") },
+    { id: "quotes", name: "Quotation marks",
+      items: "\u201c\u201d\u2018\u2019\u201e\u201a\u00ab\u00bb\u2039\u203a\"'".split("") },
+    { id: "spaces", name: "Spaces and breaks", items: [
+      { c: "\u00a0", n: "No-break space" }, { c: "\u2009", n: "Thin space" },
+      { c: "\u200a", n: "Hair space" }, { c: "\u2007", n: "Figure space" },
+      { c: "\u2002", n: "En space" }, { c: "\u2003", n: "Em space" },
+      { c: "\u2060", n: "Word joiner \u2014 no break here" },
+      { c: "\u00ad", n: "Soft hyphen \u2014 break here if it must" }
+    ] },
+    { id: "maths", name: "Maths and currency",
+      items: "\u00d7\u00f7\u00b1\u2212\u2248\u2260\u2264\u2265\u221e\u00b0\u0025\u2030\u20ac\u00a3\u0024\u00a5\u00a2\u20bd\u20b9\u00a4".split("") },
+    { id: "sups", name: "Superior and inferior figures",
+      items: "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207a\u207b\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089\u208a\u208b".split("") },
+    { id: "fracs", name: "Fractions",
+      items: "\u00bd\u2153\u2154\u00bc\u00be\u2155\u215b\u215c\u215d\u215e\u2150\u2151".split("") },
+    { id: "arrows", name: "Arrows",
+      items: "\u2190\u2192\u2191\u2193\u2194\u2195\u2196\u2197\u2198\u2199\u21d0\u21d2".split("") },
+    { id: "legal", name: "Marks and numbers",
+      items: "\u00a9\u00ae\u2122\u2117\u2116\u00aa\u00ba\u00b0\u2113\u212e".split("") },
+    { id: "latin", name: "Accented Latin",
+      items: "\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00d1\u00d6\u00d8\u00dc\u0152\u00df\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00f1\u00f6\u00f8\u00fc\u00ff\u0153\u0142".split("") },
+    { id: "greek", name: "Greek",
+      items: "\u03b1\u03b2\u03b3\u03b4\u03b5\u03b8\u03bb\u03bc\u03c0\u03c1\u03c3\u03c4\u03c6\u03c9\u0394\u0398\u039b\u03a0\u03a3\u03a6\u03a9".split("") }
+  ];
+  function glyphSet() {
+    return GLYPHS.filter(function (g) { return g.id === glyphGroup; })[0] || GLYPHS[0];
+  }
+  var glyphGroup = "punct";
+  /* What is picked in the strip: a gap between two characters, to kern, or a run of
+     characters, to mark. It belongs to one block and goes when another is picked. */
+  var charPick = null;
+  function pickedBlock() {
+    return charPick && charPick.i === state.selBlock ? state.text.blocks[charPick.i] : null;
+  }
+
+  /* Kerning by hand, in the units a type tool uses: thousandths of an em, on the
+     gap between two characters. The gap is named by the character after it, so gap
+     1 is between the first two, and the adjustment is drawn as extra letter
+     spacing on the character before it — which is what kerning a pair is. */
+  function tidyKern(b) {
+    var out = {}, src = b.kern, len = String(b.text || "").length;
+    if (!src || typeof src !== "object") return out;
+    Object.keys(src).forEach(function (k) {
+      var at = Math.round(num(k, -1)), v = Math.round(num(src[k], 0));
+      if (at >= 1 && at < len && v) out[at] = clamp(v, -KERN_MAX, KERN_MAX);
+    });
+    return out;
+  }
+  function tidyMarks(b) {
+    var out = {}, src = b.marks, len = String(b.text || "").length;
+    if (!src || typeof src !== "object") return out;
+    Object.keys(src).forEach(function (k) {
+      var at = Math.round(num(k, -1));
+      if (at >= 0 && at < len && MARKS.indexOf(src[k]) >= 0) out[at] = src[k];
+    });
+    return out;
+  }
+  /* A baseline shift, in thousandths of an em like the kerning and positive
+     upwards: what a type tool calls baseline shift, held per character so it can be
+     put on a run of them. It is a shift of the glyph and nothing else — the line
+     box, and with it the baseline grid, is left where it is. */
+  function tidyShift(b) {
+    var out = {}, src = b.shift, len = String(b.text || "").length;
+    if (!src || typeof src !== "object") return out;
+    Object.keys(src).forEach(function (k) {
+      var at = Math.round(num(k, -1)), v = Math.round(num(src[k], 0));
+      if (at >= 0 && at < len && v) out[at] = clamp(v, -KERN_MAX, KERN_MAX);
+    });
+    return out;
+  }
+  // the baseline shifts of a block, by character — not blockShift above, which is
+  // how far the block's own row origin sits off the margin
+  function charShifts(b) {
+    return (b.shift && typeof b.shift === "object") ? b.shift : (b.shift = {});
+  }
+  // where a mark puts the glyph, before any shift of its own, in em
+  var MARK_TOP = { sup: -0.35, sub: 0.15, caps: 0 };
+  function blockKern(b) { return (b.kern && typeof b.kern === "object") ? b.kern : (b.kern = {}); }
+  function blockMarks(b) { return (b.marks && typeof b.marks === "object") ? b.marks : (b.marks = {}); }
+  // what is set, as one short string, so a paint knows when it has to be rebuilt
+  function charSig(b) {
+    var k = blockKern(b), m = blockMarks(b), sh = charShifts(b), out = [];
+    Object.keys(k).forEach(function (i) { out.push("k" + i + ":" + k[i]); });
+    Object.keys(m).forEach(function (i) { out.push("m" + i + ":" + m[i]); });
+    Object.keys(sh).forEach(function (i) { out.push("s" + i + ":" + sh[i]); });
+    return out.sort().join(",");
+  }
+  /* Which characters the strip has to draw differently — not what the kerning of a
+     pair comes to. A value dragged on a pair that is already kerned leaves the
+     strip as it is, so a long block is not rebuilt button by button every frame. */
+  function stripSig(b) {
+    var k = blockKern(b), m = blockMarks(b), sh = charShifts(b), out = [];
+    Object.keys(k).forEach(function (i) { out.push("k" + i); });
+    Object.keys(m).forEach(function (i) { out.push("m" + i + m[i]); });
+    Object.keys(sh).forEach(function (i) { out.push("s" + i); });
+    return out.sort().join(",");
+  }
+
+  /* Editing the copy must not leave the kerning and the marks on the wrong
+     characters. What the two texts share at the front and at the back is kept, so
+     anything before the edit stays where it is and anything after it moves by the
+     difference; what was inside the edit is gone with the characters it was on. */
+  function shiftChars(b, was, now) {
+    var pre = 0, post = 0;
+    while (pre < was.length && pre < now.length && was.charAt(pre) === now.charAt(pre)) pre++;
+    while (post < was.length - pre && post < now.length - pre &&
+      was.charAt(was.length - 1 - post) === now.charAt(now.length - 1 - post)) post++;
+    var end = was.length - post, delta = now.length - was.length;
+    var move = function (src, lo) {
+      var out = {};
+      Object.keys(src).forEach(function (key) {
+        var at = +key;
+        if (at < pre) out[at] = src[key];
+        else if (at >= end + lo) out[at + delta] = src[key];
+      });
+      return out;
+    };
+    // a mark is on a character; a kern is on the gap before one, so it survives one further on
+    b.marks = tidyMarks({ text: now, marks: move(blockMarks(b), 0) });
+    b.shift = tidyShift({ text: now, shift: move(charShifts(b), 0) });
+    b.kern = tidyKern({ text: now, kern: move(blockKern(b), 1) });
+  }
+
+  // the one way a block's copy is changed, so what is set on it follows the characters
+  function setBlockText(b, next) {
+    var was = String(b.text || ""), now = String(next == null ? "" : next);
+    if (was === now) return;
+    b.text = now;
+    shiftChars(b, was, now);
+  }
+
   function blockCols(b) {
     var c = ["box", "format", "rect"].indexOf(b.cols) >= 0 ? b.cols : "box";
     if (c === "box") return blockOwner(b) >= 0 ? "box" : "format";
@@ -2181,19 +2367,22 @@
     stack.hidden = false;
 
     var sig = blocks.map(function (b) {
-      return b.role + "\u0000" + state.type.roles[b.role].tag + "\u0000" + b.text;
+      return b.role + "\u0000" + state.type.roles[b.role].tag + "\u0000" + charSig(b) +
+        "\u0000" + b.text;
     }).join("\u0001");
-    // rebuilding the stack would take the caret with it, so the block being typed
-    // into keeps its own node — the DOM already holds what was typed
+    /* Rebuilding the stack would take the caret with it, so the block being typed
+       into keeps its own node — the DOM already holds what was typed. Starting and
+       stopping a session clears the signature, which asks for the rebuild that
+       swaps the spans for plain text and back. */
     var typing = editing >= 0 && rectEl.parentNode === els.stage;
-    if (typing) stack.dataset.sig = sig;
+    if (typing && stack.dataset.sig) stack.dataset.sig = sig;
     if (stack.dataset.sig !== sig) {
       stack.dataset.sig = sig;
       stack.innerHTML = "";
       blocks.forEach(function (b) {
         var el = document.createElement(state.type.roles[b.role].tag || "p");
         el.className = "tb " + b.role;
-        el.textContent = b.text;
+        paintChars(el, b, typing && editing === t.blocks.indexOf(b));
         // a zero-sized inline-block aligns to the baseline of the line it sits in,
         // which makes the first baseline directly measurable
         var probe = document.createElement("span");
@@ -2223,9 +2412,16 @@
         fontStyle: st.italic ? "italic" : "normal",
         lineHeight: roleLh(b.role),
         letterSpacing: st.ls + "em",
+        fontKerning: st.kern === "off" ? "none" : "normal",
+        fontVariantLigatures: st.liga === false ? "none" : "common-ligatures",
+        fontVariantNumeric: FIGURE_CSS[st.figs] || "normal",
         textTransform: st.transform,
         color: st.color,
         textAlign: b.align
+      });
+      // a pair kerned by hand: the role's tracking plus the thousandths asked for
+      Array.prototype.forEach.call(el.querySelectorAll(".tk[data-k]"), function (sp) {
+        sp.style.letterSpacing = round(st.ls + num(sp.dataset.k, 0) / 1000, 5) + "em";
       });
       var edit = rectEl.parentNode === els.stage && editing === +el.dataset.i;
       if (edit !== (el.getAttribute("contenteditable") === "true")) {
@@ -2235,6 +2431,40 @@
       el.classList.toggle("editing", edit);
       el.classList.toggle("picked", rectEl.parentNode === els.stage && state.selBlock === +el.dataset.i);
     });
+  }
+
+  /* The copy of one block as nodes: the characters run as plain text until one
+     carries a mark or the gap after it carries kerning, and that one gets a span
+     of its own. While the block is being typed into it is plain text throughout —
+     a caret has no business walking through spans. */
+  function paintChars(el, b, plain) {
+    var text = String(b.text || ""), k = blockKern(b), m = blockMarks(b), sh = charShifts(b);
+    var probe = el._probe || null;
+    el.textContent = "";
+    if (probe) el.appendChild(probe);
+    if (plain || (!Object.keys(k).length && !Object.keys(m).length && !Object.keys(sh).length)) {
+      el.appendChild(document.createTextNode(text));
+      return;
+    }
+    var run = "";
+    var flush = function () {
+      if (!run) return;
+      el.appendChild(document.createTextNode(run));
+      run = "";
+    };
+    for (var i = 0; i < text.length; i++) {
+      var mark = m[i] || "", kern = k[i + 1] || 0, up = sh[i] || 0;
+      if (!mark && !kern && !up) { run += text.charAt(i); continue; }
+      flush();
+      var sp = document.createElement("span");
+      sp.className = "tk" + (mark ? " " + mark : "") + (up ? " shifted" : "");
+      if (kern) sp.dataset.k = kern;
+      // a shift of its own goes with whatever the mark already does
+      if (up) sp.style.top = round((MARK_TOP[mark] || 0) - up / 1000, 5) + "em";
+      sp.textContent = text.charAt(i);
+      el.appendChild(sp);
+    }
+    flush();
   }
 
   // pull each block so its first baseline lands exactly on the row it was given, and
@@ -2350,7 +2580,7 @@
       });
     };
 
-    // the margin box, and the baseline grid down it from its top edge
+    // the margin box, and the baseline grid: down the whole format, or only the box
     var boxEl = child(layer, "box", "div", "tg-box");
     at(boxEl, { x: c.x, y: c.y, w: c.w, h: c.h });
     boxEl.style.boxShadow = "0 0 0 1px " + rgba(0.5);
@@ -2361,7 +2591,14 @@
     };
     if ((mode === "full" || both) && unit >= 4) rows.push(row(unit, 0.24));
     if ((mode === "half" || both) && unit / 2 >= 5) rows.push(row(unit / 2, both ? 0.1 : 0.22));
-    boxEl.style.backgroundImage = rows.length ? rows.join(",") : "none";
+    var rowsEl = child(layer, "rows", "div", "tg-rows"), pastM = gridPastMargins();
+    rowsEl.hidden = !rows.length;
+    if (rows.length) {
+      at(rowsEl, pastM ? { x: 0, y: 0, w: state.stage.w, h: state.stage.h }
+        : { x: c.x, y: c.y, w: c.w, h: c.h });
+      rowsEl.style.backgroundPosition = pastM ? "0 " + gridPhase(unit, c.y * s) + "px" : "0 0";
+      rowsEl.style.backgroundImage = rows.join(",");
+    }
 
     // the columns: the format's across the margin box, a solid's across the solid
     var cols = function (el, g, show, frame) {
@@ -2519,10 +2756,11 @@
     renderReadout();
   }
 
-  // the baseline grid: paragraph line boxes, drawn down the margin box from its top edge
+  // the baseline grid: paragraph line boxes, counted down the margin box from its
+  // top edge and carried on past the margins to the edges of the format
   function renderBaseline(s) {
     var mode = state.showGuides === false ? "off" : state.type.grid;
-    var unit = baseline() * s, m = margins();
+    var unit = baseline() * s, m = margins(), st = state.stage, full = gridPastMargins();
     var c = hexRgb(guideColour());
     var rgba = function (a) {
       return "rgba(" + Math.round(c.r) + "," + Math.round(c.g) + "," + Math.round(c.b) + "," + a + ")";
@@ -2539,12 +2777,23 @@
     els.baseline.hidden = mode === "off" || !layers.length;
     if (els.baseline.hidden) return;
     Object.assign(els.baseline.style, {
-      top: m.top * s + "px",
-      left: m.left * s + "px",
-      right: m.right * s + "px",
-      height: contentH() * s + "px",
+      top: (full ? 0 : m.top * s) + "px",
+      left: (full ? 0 : m.left * s) + "px",
+      right: (full ? 0 : m.right * s) + "px",
+      height: (full ? st.h : contentH()) * s + "px",
+      // the rows are still counted from the top margin: the phase puts a line on it
+      backgroundPosition: full ? "0 " + gridPhase(unit, m.top * s) + "px" : "0 0",
       backgroundImage: layers.join(",")
     });
+  }
+
+  /* Where a grid that starts at the top of the format has to begin for a line to
+     land exactly on the top margin — the margin in whole rows, and the remainder. */
+  function gridPastMargins() { return state.type.gridFull !== false; }
+  function gridPhase(unit, at) {
+    if (!(unit > 0)) return 0;
+    var r = at % unit;
+    return round(r < 0 ? r + unit : r, 3);
   }
 
   // the column grid, drawn across the content box
@@ -2983,11 +3232,57 @@
      white dropped in, and they are what the audit below reaches for when a colour
      does not carry enough contrast. */
   var INK_L = 0.07, PAPER_L = 0.965;
+
+  /* A colour of the scheme the user has set by hand. The hues are held by their
+     place in the harmony; the ink and the paper by name, so they keep their own
+     colour however many swatches the harmony is set to. */
+  function schemeOwn() {
+    var o = state.scheme.own;
+    if (!o || typeof o !== "object") o = state.scheme.own = { h: {}, ink: "", paper: "" };
+    if (!o.h || typeof o.h !== "object") o.h = {};
+    return o;
+  }
+  function isHex(v) { return typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v); }
+  // what the user set at that place in the scheme, if anything
+  function schemeOwnAt(i) {
+    var o = schemeOwn(), n = schemeHues().length;
+    if (i === n) return isHex(o.ink) ? o.ink : "";
+    if (i === n + 1) return isHex(o.paper) ? o.paper : "";
+    return isHex(o.h[i]) ? o.h[i] : "";
+  }
+  function setSchemeColour(i, hex) {
+    var o = schemeOwn(), n = schemeHues().length;
+    if (!isHex(hex)) return;
+    if (i === n) o.ink = hex;
+    else if (i === n + 1) o.paper = hex;
+    else if (i >= 0 && i < n) o.h[i] = hex;
+  }
+  function clearSchemeColour(i) {
+    var o = schemeOwn(), n = schemeHues().length;
+    if (i === n) o.ink = "";
+    else if (i === n + 1) o.paper = "";
+    else delete o.h[i];
+  }
+  function schemeOwnCount() {
+    var o = schemeOwn(), n = 0;
+    Object.keys(o.h).forEach(function (k) { if (isHex(o.h[k])) n++; });
+    if (isHex(o.ink)) n++;
+    if (isHex(o.paper)) n++;
+    return n;
+  }
+  function clearScheme() {
+    state.scheme.own = { h: {}, ink: "", paper: "" };
+  }
+
   function schemeInk() {
+    var o = schemeOwn();
+    if (isHex(o.ink)) return o.ink;
     var base = hexHsl(state.scheme.base);
     return hslHex(base.h, Math.min(base.s, 0.35), INK_L);
   }
   function schemePaper() {
+    var o = schemeOwn();
+    if (isHex(o.paper)) return o.paper;
     var base = hexHsl(state.scheme.base);
     return hslHex(base.h, Math.min(base.s, 0.16), PAPER_L);
   }
@@ -3005,7 +3300,9 @@
       var sat = base.s * (offs.length === 1 && pass ? 1 - Math.abs(step) * 0.5 : 1);
       out.push(hslHex(base.h + offs[i % offs.length], sat, clamp(base.l + step, 0.06, 0.96)));
     }
-    return out;
+    // a colour set by hand stands in the place of the one the harmony worked out
+    var own = schemeOwn();
+    return out.map(function (hex, k) { return isHex(own.h[k]) ? own.h[k] : hex; });
   }
 
   // the scheme is the harmony and those two tones, in that order
@@ -3059,6 +3356,23 @@
     var px = rolePx(role), w = state.type.roles[role].weight;
     return px >= 24 || (px >= 18.66 && w >= 700) ? 3 : 4.5;
   }
+  /* The ink and the paper are the way out of every failure below, so a set one
+     has to be able to do that job: the ink has to read on a light ground and the
+     paper on a dark one. Whichever cannot is named. */
+  function toneAudit() {
+    var out = [], ink = schemeInk(), paper = schemePaper();
+    var onWhite = contrastRatio(ink, "#ffffff"), onBlack = contrastRatio(paper, "#000000");
+    if (onWhite < 4.5) {
+      out.push({ k: "ink", name: "ink", hex: ink, got: onWhite, ground: "a white ground",
+        want: "dark enough to read on a light surface" });
+    }
+    if (onBlack < 4.5) {
+      out.push({ k: "paper", name: "paper", hex: paper, got: onBlack, ground: "a black ground",
+        want: "light enough to read on a dark surface" });
+    }
+    return out;
+  }
+
   function schemeAudit() {
     var out = [], bg = state.stage.bg, ink = schemeInk(), paper = schemePaper();
     var check = function (role, ground, where) {
@@ -3105,21 +3419,31 @@
   }
 
   function renderColWarn() {
-    var bad = schemeAudit(), el = $("#col-warn");
-    if (!bad.length) {
+    var bad = schemeAudit(), tones = toneAudit(), el = $("#col-warn");
+    var toneSaid = tones.map(function (x) {
+      return "The " + x.name + " you set (" + x.hex.toUpperCase() + ") is only " + round(x.got, 2) +
+        ":1 on " + x.ground + ", so it is not " + x.want + " \u2014 every scheme needs one that is, " +
+        "and it is what the fixes below reach for. Hand it back to the harmony, or set one further " +
+        (x.k === "ink" ? "down" : "up") + " the range.";
+    }).join(" ");
+    if (!bad.length && !tones.length) {
       el.className = "status ok";
       el.textContent = "Every role carries enough contrast where it sits — " +
-        "4.5:1 for text, 3:1 where it is large enough to need less.";
+        "4.5:1 for text, 3:1 where it is large enough to need less. The ink reads on a light " +
+        "ground and the paper on a dark one.";
       return;
     }
     el.className = "status err";
-    el.innerHTML = "<b>" + bad.length + (bad.length === 1 ? " colour does not read where it sits."
+    el.innerHTML = (tones.length ? "<b>" + (tones.length === 1 ? "A tone the scheme leans on "
+      : "The tones the scheme leans on ") + "cannot do the job.</b> " + esc(toneSaid) +
+      (bad.length ? " " : "") : "") +
+      (bad.length ? "<b>" + bad.length + (bad.length === 1 ? " colour does not read where it sits."
       : " colours do not read where they sit.") + "</b> WCAG 2 AA asks 4.5:1 of text, 3:1 once it is large. " +
       bad.map(function (x) {
         return esc(ROLE_NAMES[x.role]) + " on " + esc(x.where) + " is " + round(x.got, 2) +
-          ":1, short of " + x.need + ":1 — " + esc(x.fix.name) + " (" + x.fix.hex.toUpperCase() +
+          ":1, short of " + x.need + ":1 \u2014 " + esc(x.fix.name) + " (" + x.fix.hex.toUpperCase() +
           ") would give " + round(x.fixRatio, 1) + ":1.";
-      }).join(" ");
+      }).join(" ") : "");
   }
 
   function schemeTargets() {
@@ -3157,22 +3481,38 @@
     $("#col-spread-field").hidden = !techniqueOf(sc.technique).spread;
     $("#col-note").textContent = techniqueOf(sc.technique).name + ". " + schemeHues().length +
       " swatches from " + sc.base.toUpperCase() + ", and the ink and the paper every scheme carries " +
-      "— click one on a row below to put it there.";
+      "— click one on a row below to put it there. Any of them can be set by hand: open the " +
+      "picker on the swatch and that colour is yours, marked “set”, until you hand it back. " +
+      "A hue keeps its place in the harmony; the ink and the paper keep their names.";
 
     var names = schemeNames(), shares = schemeShares();
     rebuilt($("#col-swatches"), "sw:" + sw.length, function () {
       return sw.map(function (hex, i) {
         return '<div class="sw-cell' + (names[i] ? " tone" : "") + '" data-cell="' + i + '">' +
-          '<span class="sw-box"></span><span class="sw-hex"></span>' +
+          '<span class="sw-box"><input type="color" data-colour="' + i +
+            '" title="Set this colour by hand"><button type="button" class="sw-undo" data-unset="' +
+            i + '" title="Hand it back to the harmony" hidden>\u21ba</button></span>' +
+          '<span class="sw-hex"></span>' +
           '<input type="number" data-share="' + i + '" min="0" max="100" step="0.5" ' +
           'title="What share of the whole this colour makes up"></div>';
       }).join("");
     });
     Array.prototype.forEach.call($("#col-swatches").children, function (cell, i) {
+      var own = schemeOwnAt(i);
       cell.querySelector(".sw-box").style.background = sw[i];
-      cell.querySelector(".sw-hex").textContent = (names[i] ? names[i] + " · " : "") + sw[i].toUpperCase();
-      setValue(cell.querySelector("input"), round(shares[i], 1));
+      cell.querySelector("[data-colour]").value = sw[i];
+      cell.querySelector("[data-unset]").hidden = !own;
+      cell.classList.toggle("own", !!own);
+      cell.querySelector(".sw-hex").textContent = (names[i] ? names[i] + " \u00b7 " : "") +
+        sw[i].toUpperCase() + (own ? " \u00b7 set" : "");
+      setValue(cell.querySelector("[data-share]"), round(shares[i], 1));
     });
+    var setCount = schemeOwnCount();
+    $("#col-own-clear").disabled = !setCount;
+    $("#col-own-clear").textContent = setCount
+      ? "Hand " + (setCount === 1 ? "that colour" : "those " + setCount + " colours") +
+        " back to the harmony"
+      : "Every colour is the harmony\u2019s own";
 
     /* The mix is the palette itself, so it is drawn on the stage rather than in the
        panel: every colour at the width of its share, with a grip between each pair
@@ -3457,10 +3797,14 @@
   /* The stage shows the master format itself — the real layout, the real copy, the
      real background — painted once per combination, so what is compared is this
      design in those faces rather than a specimen standing in for it. */
+  /* The format the cards are painted at: the one that is open, since its solids,
+     lines and text are its own now — the blocks listed in the panel are that
+     format's blocks, and the cards have to be the same layout they belong to. */
   function labMaster() {
-    var m = masterIndex();
-    if (state.pages.length && state.pages[m]) {
-      return { i: m, name: state.pages[m].name + " · master", w: state.pages[m].w, h: state.pages[m].h };
+    var pg = state.pages[state.page];
+    if (pg) {
+      return { i: state.page, name: pg.name + (pg.master ? " · master" : ""),
+        w: pg.w, h: pg.h };
     }
     return { i: -1, name: formatName(), w: state.stage.w, h: state.stage.h };
   }
@@ -3554,10 +3898,10 @@
     setValue($("#lab-own"), lab.own);
     $("#lab-fill").disabled = !state.text.blocks.length;
     $("#lab-sample-hint").textContent = state.text.blocks.length
-      ? "Fill pours this into the master's blocks — two words for the display, a line for the " +
+      ? "Fill pours this into the blocks of the format that is open — two words for the display, a line for the " +
         "headline, a few sentences for the paragraph — over whatever copy is there now. Undo " +
         "brings it back."
-      : "The master has no text on it yet.";
+      : "This format has no text on it yet.";
 
     // ---- the combinations. Built once per row, so a family typed in keeps its caret
     rebuilt($("#lab-combos"), "c:" + lab.combos.length, function () {
@@ -3616,8 +3960,8 @@
     rebuilt($("#lab-blocks"), "mb:" + mblocks.map(function (b) { return b.role; }).join(","),
       function () {
         if (!mblocks.length) {
-          return '<p class="hint">The master has no text on it yet — pull a role out of the tray ' +
-            "in the layout system and it appears here.</p>";
+          return '<p class="hint">This format has no text on it yet — pull a role out of the ' +
+            "tray in the layout system and it appears here.</p>";
         }
         return mblocks.map(function (b, i) {
           return '<details class="lab-block" data-block="' + i + '"><summary>' +
@@ -3919,9 +4263,21 @@
             module: r.module, fill: r.fill, params: clone(r.params || {}) });
       }),
       blocks: state.text.blocks.map(function (b) {
-        return { role: b.role, row: b.row, from: b.from, grid: b.grid, cols: b.cols,
+        var one = { role: b.role, row: b.row, from: b.from, grid: b.grid, cols: b.cols,
           align: b.align, padL: b.padL, padR: b.padR, text: b.text };
+        // what is set on the characters themselves: the pairs kerned, the marks
+        if (Object.keys(blockKern(b)).length) one.kern = clone(blockKern(b));
+        if (Object.keys(blockMarks(b)).length) one.marks = clone(blockMarks(b));
+        if (Object.keys(charShifts(b)).length) one.shift = clone(charShifts(b));
+        return one;
       }),
+      features: ROLES.reduce(function (a, r) {
+        var st = ty.roles[r];
+        a[r] = { kerning: st.kern === "off" ? "none" : "metrics",
+          ligatures: st.liga === false ? "none" : "common",
+          figures: st.figs || "normal", italic: !!st.italic };
+        return a;
+      }, {}),
       background: { on: state.bgGen.on, pattern: state.bgGen.pattern, gradient: state.bgGen.gradient,
         params: clone(state.bgGen.params) },
       logo: { visible: state.logo.visible, h: clone(state.logo.h), align: clone(state.logo.align),
@@ -3994,6 +4350,7 @@
       lines.push("  font-size: var(--size-" + TOKEN_SLUG(r) + ");");
       lines.push("  font-weight: " + st.weight + ";");
       if (st.italic) lines.push("  font-style: italic;");
+      featureCSS(st).forEach(function (l) { lines.push("  " + l); });
       lines.push("  line-height: " + round(roleLh(r), 4) + ";");
       lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
       if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
@@ -4004,6 +4361,16 @@
   }
 
   /* ------------------------------------------------------------ CSS output */
+
+  /* What the font is asked to do with the text, where it is not the default:
+     kerning, ligatures and figures are properties of the role. */
+  function featureCSS(st) {
+    var out = [];
+    if (st.kern === "off") out.push("font-kerning: none;");
+    if (st.liga === false) out.push("font-variant-ligatures: none;");
+    if (FIGURE_CSS[st.figs]) out.push("font-variant-numeric: " + FIGURE_CSS[st.figs] + ";");
+    return out;
+  }
 
   function positionCSS(name, indent) {
     var el = state[name], b = box(name), m = margins(), out = [], tx = null, ty = null;
@@ -4210,6 +4577,7 @@
         if (st.family) lines.push("  font-family: " + roleStack(r) + ";");
         lines.push("  font-weight: " + st.weight + ";");
         if (st.italic) lines.push("  font-style: italic;");
+        featureCSS(st).forEach(function (l) { lines.push("  " + l); });
         lines.push("  letter-spacing: " + round(st.ls, 3) + "em;");
         if (st.transform !== "none") lines.push("  text-transform: " + st.transform + ";");
         lines.push("  color: " + st.color + ";");
@@ -4222,6 +4590,32 @@
       aligns.forEach(function (a) {
         lines.push(TX + " .align-" + a + " { text-align: " + a + "; }");
       });
+
+      /* A character marked in a block, and a pair kerned by hand. The marks are a
+         class; the kerning is on the character before the pair, as letter spacing
+         in thousandths of an em on top of the role's own tracking — which is what
+         kerning a pair is, and why it is written inline on the character. */
+      var marked = {}, kerned = 0;
+      used.forEach(function (b) {
+        Object.keys(blockMarks(b)).forEach(function (k) { marked[blockMarks(b)[k]] = 1; });
+        kerned += Object.keys(blockKern(b)).length;
+      });
+      if (Object.keys(marked).length || kerned) {
+        lines.push("");
+        if (marked.sup || marked.sub) {
+          lines.push(TX + " .sup, " + TX + " .sub { font-size: " + MARK_SIZE +
+            "em; position: relative; }   /* set the way a type tool sets them without the " +
+            "font's own superiors: position, so the line box and the baseline grid are left alone */");
+          if (marked.sup) lines.push(TX + " .sup { top: -0.35em; }");
+          if (marked.sub) lines.push(TX + " .sub { top: 0.15em; }");
+        }
+        if (marked.caps) lines.push(TX + " .caps { font-variant-caps: small-caps; }");
+        if (kerned) {
+          lines.push("/* " + kerned + (kerned === 1 ? " pair is" : " pairs are") +
+            " kerned by hand: the character before the pair carries the role's tracking plus the " +
+            "thousandths of an em asked for, inline in the markup below. */");
+        }
+      }
     }
     els.cssOut.textContent = lines.join("\n");
     renderMarkup(used);
@@ -4239,6 +4633,30 @@
       : round(state.type.paragraph, 3) + "% of " + basisLabel();
   }
 
+  /* The copy as markup: plain where nothing is set on it, and a span wherever a
+     character is marked or the gap after it is kerned. */
+  function charMarkup(b) {
+    var text = String(b.text || ""), k = blockKern(b), m = blockMarks(b), sh = charShifts(b);
+    var st = state.type.roles[b.role], out = [], run = "";
+    var flush = function () { if (run) { out.push(esc(run)); run = ""; } };
+    for (var i = 0; i < text.length; i++) {
+      var mark = m[i] || "", kern = k[i + 1] || 0, up = sh[i] || 0;
+      if (!mark && !kern && !up) { run += text.charAt(i); continue; }
+      flush();
+      var style = [];
+      if (kern) style.push("letter-spacing:" + round(st.ls + kern / 1000, 5) + "em");
+      if (up) {
+        style.push("position:relative");
+        style.push("top:" + round((MARK_TOP[mark] || 0) - up / 1000, 5) + "em");
+      }
+      out.push('<span' + (mark ? ' class="' + mark + '"' : "") +
+        (style.length ? ' style="' + style.join(";") + '"' : "") + ">" +
+        esc(text.charAt(i)) + "</span>");
+    }
+    flush();
+    return out.join("");
+  }
+
   function renderMarkup(used) {
     var out = ['<div class="stage">'];
     var inner = [], pad = "  ";
@@ -4248,7 +4666,7 @@
       used.forEach(function (b) {
         var tag = state.type.roles[b.role].tag || "p";
         text.push(pad + '  <' + tag + ' class="' + b.role + " align-" + b.align + '">' +
-          esc(b.text) + "</" + tag + ">");
+          charMarkup(b) + "</" + tag + ">");
       });
       text.push(pad + "</div>");
     }
@@ -4501,7 +4919,9 @@
   /* Everything a block can be set to, set at the block itself: the inspector
      opens beside the one that is selected and follows it about, so nothing
      about a text block is edited from the far side of the window. */
-  var inspectorFor = -1, sharedOpen = false;
+  var inspectorFor = -1, sharedOpen = false, charsOpen = false;
+  // superscript and subscript, set the way a type tool sets them without the font's own
+  var MARK_SIZE = 0.58;
   var insClosed = false;      // shut by its ✕; picking a block opens it again
   var insPos = null;          // where the user parked it, in canvas-body pixels
   var solClosed = false, solPos = null;      // the same, for the solid's panel
@@ -4551,6 +4971,39 @@
         }).join("") +
       "</div>" +
       '<p class="hint" id="text-rows-hint"></p>' +
+      '<details class="sub" id="ins-chars"' + (charsOpen ? " open" : "") +
+        "><summary><h3>Characters, kerning and marks</h3></summary>" +
+        '<div class="kern-strip" id="ins-strip"></div>' +
+        '<div class="block-row kernset">' +
+          "<span>Kern</span>" +
+          '<input type="number" id="ins-kern" min="-1000" max="1000" step="5" ' +
+            'data-slmin="-200" data-slmax="200" title="The pair, in thousandths of an em">' +
+          '<button type="button" class="ghost" id="ins-kern-clear">Clear</button>' +
+          '<span class="px" id="ins-kern-px"></span>' +
+        "</div>" +
+        '<div class="block-row kernset">' +
+          "<span>Shift</span>" +
+          '<input type="number" id="ins-shift" min="-1000" max="1000" step="5" ' +
+            'data-slmin="-500" data-slmax="500" ' +
+            'title="Baseline shift, in thousandths of an em \u2014 positive lifts it">' +
+          '<button type="button" class="ghost" id="ins-shift-clear">Clear</button>' +
+          '<span class="px" id="ins-shift-px"></span>' +
+        "</div>" +
+        '<div class="seg" id="ins-marks">' +
+          [["", "Plain", "No mark \u2014 as the font sets it"]].concat(MARKS.map(function (m) {
+            return [m, MARK_SHORT[m], MARK_NAMES[m]];
+          })).map(function (o) {
+            return '<button type="button" data-mark="' + o[0] + '" title="' + esc(o[2]) + '">' +
+              esc(o[1]) + "</button>";
+          }).join("") +
+        "</div>" +
+        '<label class="field grow"><span>Special characters</span>' +
+          '<select id="ins-glyphset">' + GLYPHS.map(function (g) {
+            return '<option value="' + g.id + '">' + esc(g.name) + "</option>";
+          }).join("") + "</select></label>" +
+        '<div class="glyphs" id="ins-glyphs"></div>' +
+        '<p class="hint" id="ins-chars-hint"></p>' +
+      "</details>" +
       '<details class="sub" id="ins-shared"' + (sharedOpen ? " open" : "") + "><summary><h3>Every block</h3></summary>" +
         '<label class="field grow"><span>Side padding \u2014 the column the blocks run in</span>' +
           '<input type="number" id="text-padding" min="0" max="400" step="1"></label>' +
@@ -4592,6 +5045,7 @@
     Array.prototype.forEach.call(body.querySelectorAll("[data-align]"), function (btn) {
       btn.setAttribute("aria-pressed", btn.dataset.align === b.align ? "true" : "false");
     });
+    syncChars(b, i);
     syncTextShared();
     positionInspector(ins, el, insPos);
   }
@@ -4611,6 +5065,188 @@
       (state.solids.length > 1 ? " of " + state.solids.length : "");
     positionInspector(ins, el, solPos);
 
+  }
+
+  /* The characters of the block, one button each, with the gap between every pair
+     between them: pick a gap to kern it, pick a character — or shift-click a run of
+     them — to mark it. This is the caret a type tool puts between two letters,
+     made into something that can be seen and gone back to. */
+  function syncChars(b, i) {
+    if (charPick && charPick.i !== i) charPick = null;
+    var text = String(b.text || ""), k = blockKern(b), m = blockMarks(b), sh = charShifts(b);
+    var host = $("#ins-strip");
+    var sig = i + "|" + stripSig(b) + "|" +
+      (charPick ? charPick.kind + charPick.from + "-" + charPick.to : "") + "|" + text;
+    rebuilt(host, sig, function () {
+      if (!text) return '<span class="kern-empty">No copy in this block yet.</span>';
+      var out = [], j;
+      for (j = 0; j < text.length; j++) {
+        if (j > 0) {
+          var kv = k[j] || 0;
+          var on = charPick && charPick.kind === "gap" && charPick.from === j;
+          out.push('<button type="button" class="kg' + (kv ? " set" : "") + (on ? " on" : "") +
+            '" data-kg="' + j + '" title="' + (kv ? "Kerned " + kv + "/1000 em" : "Kern this pair") +
+            ": " + esc(charName(text.charAt(j - 1))) + " and " + esc(charName(text.charAt(j))) +
+            '"></button>');
+        }
+        var mk = m[j] || "", up = sh[j] || 0;
+        var picked = charPick && charPick.kind === "char" && j >= charPick.from && j <= charPick.to;
+        var ch = text.charAt(j);
+        var blank = /\s/.test(ch);
+        out.push('<button type="button" class="kc' + (mk ? " " + mk : "") +
+          (up ? " shifted" : "") + (picked ? " on" : "") +
+          (blank ? " blank" : "") + '" data-kc="' + j + '" title="' + esc(charName(ch)) +
+          (mk ? " \u2014 " + MARK_NAMES[mk] : "") +
+          (up ? " \u2014 shifted " + up + "/1000 em" : "") + '">' +
+          (blank ? "\u00b7" : esc(ch)) + "</button>");
+      }
+      return out.join("");
+    });
+
+    var gap = charPick && charPick.kind === "gap" ? charPick.from : -1;
+    var kernEl = $("#ins-kern");
+    kernEl.disabled = gap < 0;
+    $("#ins-kern-clear").disabled = gap < 0 || !k[gap];
+    setValue(kernEl, gap >= 0 ? (k[gap] || 0) : 0);
+    $("#ins-kern-px").textContent = gap >= 0
+      ? round((k[gap] || 0) / 1000 * rolePx(b.role), 2) + " px"
+      : "";
+    var run = charPick && charPick.kind === "char";
+    var shiftEl = $("#ins-shift"), upv = run ? (sh[charPick.from] || 0) : 0;
+    shiftEl.disabled = !run;
+    $("#ins-shift-clear").disabled = !run || !upv;
+    setValue(shiftEl, upv);
+    $("#ins-shift-px").textContent = run
+      ? round(upv / 1000 * rolePx(b.role), 2) + " px"
+      : "";
+    Array.prototype.forEach.call($("#ins-marks").children, function (btn) {
+      btn.disabled = !run;
+      var mk = run ? (blockMarks(b)[charPick.from] || "") : "";
+      btn.setAttribute("aria-pressed", run && btn.dataset.mark === mk ? "true" : "false");
+    });
+
+    var set = glyphSet();
+    $("#ins-glyphset").value = set.id;
+    rebuilt($("#ins-glyphs"), "g:" + set.id, function () {
+      return set.items.map(function (it) {
+        var c = typeof it === "string" ? it : it.c;
+        var n = typeof it === "string" ? charName(c) : it.n;
+        var wide = typeof it === "object";
+        return '<button type="button" class="glyph' + (wide ? " named" : "") +
+          '" data-glyph="' + esc(c) + '" title="' + esc(n) + '">' +
+          (wide ? esc(n.split(" ")[0]) : esc(c)) + "</button>";
+      }).join("");
+    });
+
+    var kerned = Object.keys(k).length, marked = Object.keys(m).length;
+    var shifted = Object.keys(sh).length;
+    $("#ins-chars-hint").textContent =
+      (gap >= 0
+        ? "Kerning the pair " + charName(text.charAt(gap - 1)) + " / " + charName(text.charAt(gap)) +
+          ", in thousandths of an em on top of whatever the font\u2019s own pairs do \u2014 the " +
+          "same units and the same sense as a type tool. Negative pulls them together. "
+        : run
+          ? "Marking " + (charPick.to > charPick.from
+            ? (charPick.to - charPick.from + 1) + " characters"
+            : charName(text.charAt(charPick.from))) +
+            ". Superscript and subscript are set at " + Math.round(MARK_SIZE * 100) +
+            "% of the size and shifted off the baseline, the way a type tool sets them when the " +
+            "font has no superior figures of its own. Shift moves the glyphs off the baseline on " +
+            "their own, in thousandths of an em, positive upwards \u2014 the line box, and with it " +
+            "the grid, stays where it is. "
+          : "Click a join to kern that pair, a character to mark it \u2014 shift-click for a run " +
+            "of them. A special character lands at the caret when you are typing into the block, " +
+            "after the character you have picked, or at the end. ") +
+      (kerned || marked || shifted
+        ? kerned + (kerned === 1 ? " pair kerned, " : " pairs kerned, ") + marked +
+          (marked === 1 ? " character marked" : " characters marked") +
+          (shifted ? ", " + shifted + (shifted === 1 ? " shifted." : " shifted.") : ".")
+        : "Nothing kerned, marked or shifted on this block yet.");
+  }
+
+  // what to call a character on a button: the character itself, or its name
+  var CHAR_NAMES = {
+    " ": "space", "\u00a0": "no-break space", "\u2009": "thin space", "\u200a": "hair space",
+    "\u2007": "figure space", "\u2002": "en space", "\u2003": "em space",
+    "\u2060": "word joiner", "\u00ad": "soft hyphen", "\n": "line break", "\t": "tab"
+  };
+  function charName(c) {
+    if (!c) return "nothing";
+    return CHAR_NAMES[c] || c;
+  }
+
+  /* Where the caret is in a block being typed into, counted in characters — the
+     probe is empty, so it counts for nothing. */
+  function caretAt(el) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return -1;
+    var r = sel.getRangeAt(0);
+    if (!el.contains(r.endContainer)) return -1;
+    var span = document.createRange();
+    span.selectNodeContents(el);
+    span.setEnd(r.endContainer, r.endOffset);
+    return span.toString().length;
+  }
+  function setCaret(i, at) {
+    requestAnimationFrame(function () {
+      var el = els.stage.querySelector('.tb[data-i="' + i + '"]');
+      if (!el) return;
+      var node = null, seen = 0, put = -1;
+      Array.prototype.some.call(el.childNodes, function (n) {
+        if (n.nodeType !== 3) return false;
+        if (seen + n.length >= at) { node = n; put = at - seen; return true; }
+        seen += n.length;
+        return false;
+      });
+      if (!node) { node = el.lastChild; put = node && node.nodeType === 3 ? node.length : 0; }
+      if (!node || node.nodeType !== 3) return;
+      var r = document.createRange(), sel = window.getSelection();
+      r.setStart(node, clamp(put, 0, node.length));
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    });
+  }
+
+  /* A special character lands where the work is: at the caret while the block is
+     being typed into, after the character picked in the strip, or at the end. */
+  var lastCaret = null;              // where the caret was in the block being typed into
+  function putGlyph(g) {
+    var i = state.selBlock, b = state.text.blocks[i];
+    if (!b || !g) return;
+    var el = els.stage.querySelector('.tb[data-i="' + i + '"]');
+    var live = editing === i && el;
+    /* While the block is being typed into, let the browser put the character in at
+       the caret: the caret stays where it belongs, nothing is rebuilt under it, and
+       the copy comes back through the same handler a keystroke comes through. */
+    if (live && caretAt(el) >= 0 && document.execCommand) {
+      var done = false;
+      try { done = document.execCommand("insertText", false, g); } catch (err) { done = false; }
+      if (done) return;
+    }
+    var at = live ? caretAt(el) : -1;
+    // the focus may have gone to the button; the caret is where it last was
+    if (at < 0 && live && lastCaret && lastCaret.i === i) at = lastCaret.at;
+    if (at < 0) {
+      at = charPick && charPick.i === i && charPick.kind === "char"
+        ? charPick.to + 1 : String(b.text || "").length;
+    }
+    var text = String(b.text || "");
+    setBlockText(b, text.slice(0, at) + g + text.slice(at));
+    if (charPick && charPick.i === i && charPick.kind === "char") {
+      charPick = { i: i, kind: "char", from: at, to: at + g.length - 1 };
+    }
+    var stack = liveStack();
+    if (stack) stack.dataset.sig = "";          // the copy changed under the caret
+    render();
+    // the node it was being typed into is gone with the rebuild: take it up again
+    if (live) {
+      requestAnimationFrame(function () {
+        editing = -1;
+        startEditing(i);
+        setCaret(i, at + g.length);
+      });
+    }
   }
 
   // the two settings every block shares, kept with the blocks rather than in the panel
@@ -5044,11 +5680,12 @@
         : "It runs from " + PARA_MIN + "% to " + PARA_MAX + "% of that side.");
 
     $("#type-grid").value = ty.grid;
+    $("#type-grid-full").checked = gridPastMargins();
     $("#type-grid-from").value = ty.gridFrom || "fit";
     setValue($("#type-rows"), gridRows());
     $("#type-rows").disabled = fromLeading();
     $("#type-rowpx").value = round(baseline(), 2) + " px";
-    $("#type-grid-hint").textContent = fromLeading()
+    $("#type-grid-hint").textContent = (fromLeading()
       ? "Grid 1 is the paragraph line box — " + round(paraPx(), 1) + " px × " + round(paraLh(), 3) +
         " = " + round(baseline(), 2) + " px — set in Style below. " + gridRows() +
         " whole rows fit the " + round(contentH(), 1) + " px between the top and bottom margins, with " +
@@ -5056,7 +5693,11 @@
       : "Grid 1 divides the " + round(contentH(), 1) +
         " px between the top and bottom margins into " + gridRows() + " rows of " + round(baseline(), 2) +
         " px, so it fits exactly. That row is the paragraph line height — " + round(paraPx(), 1) + " px × " +
-        round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.";
+        round(paraLh(), 3) + ". Grid 2 halves it at " + round(baseline() / 2, 2) + " px.") +
+      (gridPastMargins()
+        ? " The rows are counted from the top margin and carried on past all four, so the whole " +
+          "format is on the grid \u2014 a solid in the bleed lands on it too."
+        : " The rows are drawn between the margins only.");
 
     $("#type-level").value = ty.editing;
     $("#type-role-family").value = st2.family || "";
@@ -5064,6 +5705,14 @@
     $("#type-tag").value = st2.tag;
     $("#type-weight").value = String(st2.weight);
     $("#type-italic").checked = !!st2.italic;
+    $("#type-kern").value = st2.kern === "off" ? "off" : "metrics";
+    $("#type-liga").checked = st2.liga !== false;
+    if (!$("#type-figs").options.length) {
+      $("#type-figs").innerHTML = FIGURES.map(function (f) {
+        return '<option value="' + f + '">' + esc(FIGURE_NAMES[f]) + "</option>";
+      }).join("");
+    }
+    $("#type-figs").value = FIGURES.indexOf(st2.figs) >= 0 ? st2.figs : "normal";
     setValue($("#type-lh"), round(ty.editing === "paragraph" ? paraLh() : st2.lh, 3));
     $("#type-snap").innerHTML = (ty.editing === "paragraph"
       ? (fromLeading()
@@ -5079,6 +5728,12 @@
     $("#type-color").value = st2.color;
     var eff = roleLh(ty.editing), steps = roleSteps(ty.editing);
     $("#type-lh-px").textContent = "= " + round(rolePx(ty.editing) * eff, 1) + " px";
+    var feat = [st2.kern === "off" ? "kerning off" : "the font\u2019s kerning pairs",
+      st2.liga === false ? "no ligatures" : "common ligatures"];
+    if (st2.figs !== "normal") feat.push(FIGURE_NAMES[st2.figs].toLowerCase() + " figures");
+    $("#type-feat-hint").textContent = "Set in " + styleName(st2) + " with " + feat.join(", ") +
+      ". Tracking above is the whole role; a single pair is kerned on the block itself, in the " +
+      "panel beside it on the canvas.";
     $("#type-style-hint").textContent = ty.editing === "paragraph"
       ? (fromLeading()
         ? "This line height sets grid 1: " + round(paraPx(), 1) + " px × " + round(st2.lh, 3) + " = " +
@@ -5479,6 +6134,7 @@
       render();
     });
     onChange("#type-grid", function (el) { state.type.grid = el.value; });
+    onChange("#type-grid-full", function (el) { state.type.gridFull = el.checked; });
     onChange("#type-grid-from", function (el) {
       var ty = state.type;
       if (el.value === "leading" && !fromLeading()) {
@@ -5507,6 +6163,11 @@
     onChange("#type-snap", function (el) { styleOf().snap = el.value; });
     onChange("#type-weight", function (el) { styleOf().weight = +el.value; });
     onChange("#type-italic", function (el) { styleOf().italic = el.checked; });
+    onChange("#type-kern", function (el) { styleOf().kern = el.value === "off" ? "off" : "metrics"; });
+    onChange("#type-liga", function (el) { styleOf().liga = el.checked; });
+    onChange("#type-figs", function (el) {
+      styleOf().figs = FIGURES.indexOf(el.value) >= 0 ? el.value : "normal";
+    });
     numInput("#type-lh", function (v) {
       var p = state.type.roles.paragraph;
       // in the fit mode a typed paragraph leading picks the row count that comes
@@ -5539,8 +6200,21 @@
       } else if (!b) return;
       else if (what === "blind") {                    // the slider fills as it moves
         b.blind = Math.max(1, Math.round(num(e.target.value, 12)));
-        b.text = blindText(b.blind);
-      } else if (what === "text") b.text = e.target.value;
+        setBlockText(b, blindText(b.blind));
+      } else if (what === "text") setBlockText(b, e.target.value);
+      else if (e.target.id === "ins-kern") {
+        if (!charPick || charPick.kind !== "gap" || e.target.value === "") return;
+        var kk = blockKern(b), kv = clamp(Math.round(num(e.target.value, 0)), -KERN_MAX, KERN_MAX);
+        if (kv) kk[charPick.from] = kv; else delete kk[charPick.from];
+        b.kern = tidyKern(b);
+      } else if (e.target.id === "ins-shift") {
+        if (!charPick || charPick.kind !== "char" || e.target.value === "") return;
+        var ss = charShifts(b), sv = clamp(Math.round(num(e.target.value, 0)), -KERN_MAX, KERN_MAX);
+        for (var si = charPick.from; si <= charPick.to; si++) {
+          if (sv) ss[si] = sv; else delete ss[si];
+        }
+        b.shift = tidyShift(b);
+      }
       else if (what === "row" && e.target.value !== "") b.row = Math.round(num(e.target.value, b.row));
       else if ((what === "padL" || what === "padR") && e.target.value !== "") {
         b[what] = Math.max(0, snap(num(e.target.value, b[what] || 0)));
@@ -5551,6 +6225,7 @@
     $("#block-inspector").addEventListener("change", function (e) {
       var b = selBlock(), what = e.target.dataset.block;
       if (e.target.id === "text-margin-pad") state.text.marginPad = e.target.checked;
+      else if (e.target.id === "ins-glyphset") glyphGroup = e.target.value;
       else if (!b) return;
       else if (what === "role") b.role = e.target.value;
       else if (what === "grid" || what === "from") {
@@ -5575,7 +6250,7 @@
       render();
     });
     $("#block-inspector").addEventListener("click", function (e) {
-      var b = selBlock();
+      var b = selBlock(), i = state.selBlock;
       // the ✕ here shuts the panel; the one on the block itself takes the block off
       if (e.target.closest('[data-ins="close"]')) {
         insClosed = true;
@@ -5583,9 +6258,54 @@
         return;
       }
       if (!b) return;
+      /* The strip: a join picks the pair to kern, a character picks itself, and
+         shift-click carries the pick out into a run of them. Picking the same thing
+         again lets it go. */
+      var gap = e.target.closest("[data-kg]"), ch = e.target.closest("[data-kc]");
+      if (gap) {
+        var g = +gap.dataset.kg;
+        charPick = charPick && charPick.i === i && charPick.kind === "gap" && charPick.from === g
+          ? null : { i: i, kind: "gap", from: g, to: g };
+        return render();
+      }
+      if (ch) {
+        var at = +ch.dataset.kc;
+        if (e.shiftKey && charPick && charPick.i === i && charPick.kind === "char") {
+          charPick = { i: i, kind: "char",
+            from: Math.min(charPick.from, at), to: Math.max(charPick.to, at) };
+        } else if (charPick && charPick.i === i && charPick.kind === "char" &&
+          charPick.from === at && charPick.to === at) {
+          charPick = null;
+        } else {
+          charPick = { i: i, kind: "char", from: at, to: at };
+        }
+        return render();
+      }
+      if (e.target.closest("#ins-kern-clear")) {
+        if (!charPick || charPick.kind !== "gap") return;
+        delete blockKern(b)[charPick.from];
+        return render();
+      }
+      if (e.target.closest("#ins-shift-clear")) {
+        if (!charPick || charPick.kind !== "char") return;
+        for (var sj = charPick.from; sj <= charPick.to; sj++) delete charShifts(b)[sj];
+        return render();
+      }
+      var mk = e.target.closest("[data-mark]");
+      if (mk) {
+        if (!charPick || charPick.kind !== "char") return;
+        var m = blockMarks(b), mark = mk.dataset.mark;
+        for (var j = charPick.from; j <= charPick.to; j++) {
+          if (mark) m[j] = mark; else delete m[j];
+        }
+        b.marks = tidyMarks(b);
+        return render();
+      }
+      var gl = e.target.closest("[data-glyph]");
+      if (gl) return putGlyph(gl.dataset.glyph);
       if (e.target.closest('[data-block="fill"]')) {
         b.blind = b.blind || 12;
-        b.text = blindText(b.blind);
+        setBlockText(b, blindText(b.blind));
         render();
         return;
       }
@@ -5593,6 +6313,14 @@
       if (!btn) return;
       b.align = btn.dataset.align;
       render();
+    });
+    /* Picking a character, marking it or putting a glyph in must not take the focus
+       off the block being typed into — the caret is the whole point of it. */
+    $("#block-inspector").addEventListener("mousedown", function (e) {
+      if (editing < 0 || !e.target.closest) return;
+      if (e.target.closest("#ins-strip,#ins-glyphs,#ins-marks,#ins-kern-clear,#ins-shift-clear")) {
+        e.preventDefault();
+      }
     });
     // a click inside the inspector is not a click on empty canvas
     $("#block-inspector").addEventListener("pointerdown", function (e) {
@@ -5618,6 +6346,7 @@
     // opening the shared settings makes it taller; keep it on the canvas
     $("#block-inspector").addEventListener("toggle", function (e) {
       if (e.target.id === "ins-shared") sharedOpen = e.target.open;
+      if (e.target.id === "ins-chars") charsOpen = e.target.open;
       repositionInspector();
     }, true);
 
@@ -5725,7 +6454,7 @@
       var src = state.lab.sample === "own" ? state.lab.own : labSample().text;
       if (!String(src).trim()) src = labSample().text;
       state.text.blocks.forEach(function (b) {
-        b.text = labShare(src, b.role);
+        setBlockText(b, labShare(src, b.role));
         b.blind = 0;
       });
       var stack = liveStack();
@@ -5810,8 +6539,23 @@
     // a share typed on a swatch, and the rest keep their proportions
     $("#col-swatches").addEventListener("input", function (e) {
       var t = e.target;
-      if (!t.dataset || t.dataset.share === undefined || t.value === "") return;
+      if (!t.dataset) return;
+      if (t.dataset.colour !== undefined) {
+        setSchemeColour(+t.dataset.colour, t.value);
+        return render();
+      }
+      if (t.dataset.share === undefined || t.value === "") return;
       setSchemeShare(+t.dataset.share, num(t.value, 0));
+      render();
+    });
+    $("#col-swatches").addEventListener("click", function (e) {
+      var t = e.target.closest("[data-unset]");
+      if (!t) return;
+      clearSchemeColour(+t.dataset.unset);
+      render();
+    });
+    $("#col-own-clear").addEventListener("click", function () {
+      clearScheme();
       render();
     });
 
@@ -6305,12 +7049,22 @@
       if (!tb || tb.dataset.i === undefined || editing !== +tb.dataset.i) return;
       var b = state.text.blocks[+tb.dataset.i];
       if (!b) return;
-      b.text = (tb.innerText || "").replace(/\u00a0/g, " ").replace(/\n$/, "");
+      /* What was typed, as typed: a no-break space put in from the palette is kept
+         as one, and only the trailing break a contenteditable adds is dropped. */
+      setBlockText(b, (tb.innerText || "").replace(/\n$/, ""));
       render();
     });
     els.stage.addEventListener("keydown", function (e) {
       if (editing < 0) return;
       if (e.key === "Escape") { e.preventDefault(); stopEditing(); }
+    });
+    // keep hold of where the caret is, so a glyph can land there
+    document.addEventListener("selectionchange", function () {
+      if (editing < 0) return;
+      var el = els.stage.querySelector('.tb[data-i="' + editing + '"]');
+      if (!el) return;
+      var at = caretAt(el);
+      if (at >= 0) lastCaret = { i: editing, at: at };
     });
     els.stage.addEventListener("focusout", function (e) {
       if (editing >= 0 && e.target.classList.contains("tb")) stopEditing();
@@ -6553,6 +7307,10 @@
         '<div class="spec-head"><span class="spec-name">' + esc(ROLE_NAMES[r]) + "</span>" +
         '<span class="spec-meta">' + esc(familyLabel(roleFamilyId(r))) + " " + esc(styleName(st)) +
         (st.transform !== "none" ? ", " + esc(st.transform) : "") +
+        // what it asks of the font, where that is not the font's own way
+        (st.kern === "off" ? ", kerning off" : "") +
+        (st.liga === false ? ", no ligatures" : "") +
+        (st.figs !== "normal" ? ", " + esc(FIGURE_NAMES[st.figs].toLowerCase()) + " figures" : "") +
         " · &lt;" + esc(st.tag) + "&gt; · " + round(px, 2) + " px = " +
         (r === "paragraph"
           ? esc(paraRule())
@@ -6564,7 +7322,8 @@
         '<div class="spec-line" style="font-family:' + esc(roleStack(r)) + ";font-size:" + round(px * k, 2) +
         "px;line-height:" + round(lh, 4) + ";font-weight:" + st.weight +
         ";font-style:" + (st.italic ? "italic" : "normal") + ";letter-spacing:" +
-        round(st.ls, 3) + "em;text-transform:" + st.transform + ';color:#14171c">' +
+        round(st.ls, 3) + "em;text-transform:" + st.transform +
+        ";" + featureCSS(st).join("") + 'color:#14171c">' +
         esc(blindText(SPECIMEN_WORDS[r] || 6)) + "</div></div>";
     }).join("");
 
@@ -7345,7 +8104,8 @@
       base: /^#[0-9a-f]{6}$/i.test(v.base) ? v.base : state.scheme.base,
       technique: TECHNIQUES.some(function (t) { return t.id === v.technique; }) ? v.technique : state.scheme.technique,
       count: clamp(Math.round(v.count) || 6, 3, 12),
-      spread: clamp(Math.round(v.spread) || 30, 5, 90)
+      spread: clamp(Math.round(v.spread) || 30, 5, 90),
+      shares: null, own: { h: {}, ink: "", paper: "" }
     };
     var sw = schemeSwatches(), pick = function (n) { return sw[clamp(Math.round(n) - 1, 0, sw.length - 1)]; };
     var a = v.assign || {};
@@ -7614,7 +8374,7 @@
 
   /* Three boxes, one set of handlers: the click tells us which question it came
      from, and the settings they share are written once and shown in all of them. */
-  /* One of the master's blocks, whichever field was touched. What is written is
+  /* One of the blocks on the open format, whichever field was touched. What is written is
      the role's own value — the size as the multiple of the paragraph it comes to,
      so the scale holds — since a role is what every block of it follows. */
   function labBlockField(t) {

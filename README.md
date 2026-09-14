@@ -29,9 +29,9 @@ The work runs in stages, and the tabs across the top are those stages in order:
 
 | | Stage | What it is |
 | --- | --- | --- |
-| 1 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — with an ink, a paper, a contrast audit, and the share each colour takes of the whole. |
-| 2 | **Typography** | The whole type system — family, scale, every role — and up to six font combinations side by side, each painting the master format itself. |
-| 3 | **Layout system** | The format, the logo, the margins and the columns, the solid, both baseline grids, and the text that sits on them. The canvas. |
+| 1 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — with an ink, a paper, a contrast audit, the share each colour takes of the whole, and any colour of it settable by hand. |
+| 2 | **Typography** | The whole type system — family, scale, every role, and what each asks of the font — and up to six font combinations side by side, each painting the format you have open. |
+| 3 | **Layout system** | The format, the logo, the margins and the columns, the solids and lines, both baseline grids, and the text that sits on them — down to the kerning of one pair. The canvas. |
 | 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a pattern or a gradient. Images are not built yet. |
 | 5 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
 | 6 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
@@ -49,10 +49,12 @@ family, an uploaded font file), the scale with its anchor and its ratios, and ev
 family, weight, leading, tracking, case and colour. *Comparing combinations* is below it, and the
 two work together: change the scale on the left and every card redraws.
 
-**Up to six combinations** sit side by side, and **each one paints the master format itself** — the
-real layout, the real copy, the real solids, background and logo, at the master's own size and in
+**Up to six combinations** sit side by side, and **each one paints the format you have open** — the
+real layout, the real copy, the real solids, background and logo, at that format's own size and in
 that combination's faces. Nothing is a specimen standing in for the design: what you are comparing
 is *this* design in those faces, and every change to the type system redraws all of them at once.
+The blocks listed in the panel are that same format's blocks, since what is on a format is its own —
+switch formats in *Design formats* and the comparison follows you there.
 
 A combination names a **family and a style for each of the five roles**. Type any **Google family**
 — the field suggests as you type, from the catalogue if you have loaded it — or leave a role empty
@@ -68,8 +70,8 @@ draws them over every card in the guide colour — the same margin box, the same
 and the same columns the canvas shows, at the card's scale. It is **off by default**, because what
 is being judged is the type; turn it on to see what the type is standing on.
 
-**The blocks on the master** are listed under the combinations, in the order they sit on it, each
-with the copy it holds. Every one carries its **size, leading, tracking, weight, italic, case and
+**The blocks on the open format** are listed under the combinations, in the order they sit on it,
+each with the copy it holds. Every one carries its **size, leading, tracking, weight, italic, case and
 family** —
 and those are the *role's*, because a role is what every block of it follows: set the display block
 here and every display block in the design follows, on every format. The size is given in pixels and
@@ -90,8 +92,8 @@ into the roles; the sizes, leading and tracking are already the roles' own, set 
 
 **One note on how the panels repaint.** A panel that rebuilt its markup on every change would
 destroy whatever the pointer was on: a slider would stop dead after a pixel and a field would lose
-its caret after a keystroke. Every list that holds a control — the master's blocks, the combinations,
-the swatch shares, the colour rows — is built when its *shape* changes and has its values synced in
+its caret after a keystroke. Every list that holds a control — the blocks, the combinations,
+the swatch shares, the colour rows, the character strip — is built when its *shape* changes and has its values synced in
 place the rest of the time. That is why a size, a leading or a tracking can be dragged the whole way
 in one movement.
 
@@ -105,6 +107,19 @@ relationship between hues**. Pick the colour it starts from, then the relationsh
 is the hues themselves; each pass after it steps the lightness, so a six-swatch complementary scheme
 is the two hues, then a lighter pair, then a darker pair. Analogous and split complementary also take
 a **spread**, the angle between neighbours.
+
+**Any colour of the scheme can be set by hand.** A scheme is worked out, but a designer settles it:
+open the picker on a swatch and that colour is yours. It is marked *set*, the swatch is ringed, and
+the ↺ in its corner hands it back to the harmony (or *Hand them back* under the row, for all of
+them at once). A **hue keeps its place in the harmony** — change the technique or the spread and the
+colour you set stays on that place, with the rest worked out around it — while the **ink and the
+paper keep their names**, so they hold whatever the swatch count is set to. Everything downstream
+follows: the mix on the stage, the rows under *Put it on*, the tiles, the background modules, the
+tokens and the CSS.
+
+Because the two tones are what the audit reaches for when something does not read, **a set ink or
+paper is checked for being able to do that job**: the ink has to carry 4.5:1 on a white ground and
+the paper 4.5:1 on a black one. Whichever cannot is named in the warning, with the way out.
 
 **Every scheme also carries an ink and a paper** — one tone dark enough to read on a light ground,
 one light enough to read on a dark one — whatever the harmony says. They are not black and white
@@ -433,8 +448,54 @@ Picking one sets display to `ratio³`, headline to `ratio²`, subline to `ratio`
 over any multiple is always allowed** — the moment you do, the system reads *Custom* and your value
 stands.
 
-Each role also carries its own **HTML tag** (h1–h6, p, div), weight, letter spacing (in `em`), case
-and colour, so the hierarchy is real markup, not just sizes.
+Each role also carries its own **HTML tag** (h1–h6, p, div), weight, italic, letter spacing (in
+`em`), case and colour, so the hierarchy is real markup, not just sizes. Beside those are the three
+things a type tool asks the font itself to do: **kerning** (the font's own pairs, or off),
+**ligatures** (the common ones it carries, or none) and **figures** (as the font sets them, lining,
+old style, tabular, or tabular old style). They are properties of the role, so every block of it
+follows, and they are written out as `font-kerning`, `font-variant-ligatures` and
+`font-variant-numeric`.
+
+**Kerning a single pair, and marking single characters.** Tracking is the whole role; kerning is one
+pair, and that belongs to the copy rather than the system — so it is set on the block, in
+*Characters, kerning and marks* in the block's own panel on the canvas. The block's text is laid out
+there **one button per character, with the join between every pair between them**: it is the caret a
+type tool puts between two letters, made into something you can see and come back to.
+
+| Pick | What you can do |
+| --- | --- |
+| **a join** | kern that pair, in **thousandths of an em** — the same unit and the same sense as Illustrator or InDesign, on top of whatever the font's own pairs already do. Negative pulls the two together. The panel says what it comes to in pixels at the role's size, and the field takes the arrow keys. |
+| **a character** — shift-click for a run of them | mark it **superscript**, **subscript** or **small caps**, or back to plain; and **shift it off the baseline**, in the same thousandths of an em, positive upwards — what a type tool calls baseline shift, for lifting a ® or dropping a bracket without changing its size |
+
+A kerned pair is drawn as the role's tracking plus those thousandths, on the character before the
+pair — which is what kerning a pair is — and that is exactly how it leaves the app: a `<span>` with
+an inline `letter-spacing` in the markup output. Superscript and subscript are set the way a type
+tool sets them when the font has no superior figures of its own: **58% of the size, shifted off the
+baseline** — with `position`, not `vertical-align`, so the line box and the baseline grid are left
+alone, and a shift of your own stacks on top of the one the mark makes. Small caps is
+`font-variant-caps`. Marked, shifted and kerned characters are all marked in the strip, and the
+whole lot is counted under it.
+
+**Optical kerning is not offered.** Metrics kerning is the font's own pairs, which is what
+`font-kerning` switches, and hand kerning is the numbers above. Optical kerning means measuring the
+glyph outlines and spacing them by the shapes themselves; nothing in a browser hands out those
+outlines, so it would be a guess dressed up as a number. Kern the pairs that need it instead — which
+is what a typographer does with optical kerning on anyway.
+
+**Special characters** are in the same panel, in the groups a type tool keeps them in: punctuation
+and dashes, quotation marks, spaces and breaks (no-break, thin, hair, figure, en, em, the word joiner
+and the soft hyphen — each named, since nothing can be seen of a space on a button), maths and
+currency, superior and inferior figures, fractions, arrows, marks and numbers, accented Latin, and
+Greek. One lands **at the caret** when you are typing into the block on the canvas, **after the
+character you have picked** in the strip, or at the end. A real superior figure from the font beats a
+synthetic one, so both ways are there: the glyphs for the cases the font covers, the mark for the
+rest.
+
+**Editing the copy carries all of it along.** What the old and the new text share at the front and at
+the back is kept, so a word typed at the start moves every mark and every kerned pair after it along
+with the characters they were on; what was inside the edit goes with the characters that were
+deleted. And while a block is being typed into on the canvas it is plain text throughout — a caret
+has no business walking through spans.
 
 **And its own family.** The family at the top of the Typography group is the design's — what every
 role runs in unless it says otherwise — and each role has a **Family** of its own in *Style*, set to
@@ -465,8 +526,14 @@ In the fitting mode, set the row count directly, or type a paragraph line height
 whole row count that still fits is used — the panel reports both ("grid 1 divides the 1190 px between the top and bottom
 margins into 39 rows of 30.51 px, so it fits exactly"). Paragraph can also be cut loose from the
 grid: set it to *Free* and the line height you type is used as it is, while grid 1 keeps its rows.
-Both grids draw on the canvas in the guide colour, down the margin box; show both, either, or
-neither.
+Both grids draw on the canvas in the guide colour; show both, either, or neither.
+
+**The rows run past the margins.** They are *counted* from the top margin — that is where the
+system is measured from — but they are *drawn* to the edges of the format, out through all four
+margins, so the whole page is on the grid and a solid bleeding off the edge lands on it too. The
+phase is worked out so a row line falls exactly on the top margin whichever way the grid is built.
+*Carry the rows past the margins* in **Page setup** turns that off and keeps them inside the margin
+box, and the cards in the typography stage draw them the same way as the canvas.
 
 Every role other than paragraph is **aligned to grid 1 or grid 2**: its line height snaps so the
 line box is a whole number of that grid's rows, with the arithmetic reported ("line height 1.05
@@ -484,8 +551,11 @@ rows.
 text-block section in the left panel: **a block is set where it sits**. Click one on the canvas and
 an inspector opens beside it — outside the format when the canvas has room for it there, so the
 design is never covered — carrying that block's role, its copy, its blind text, its field, its row
-and grid, and its alignment. The two settings every block shares (the side padding, and hanging
-side-aligned text on the format margins) fold out of *Every block* at the foot of it.
+and grid, and its alignment. *Characters, kerning and marks* folds out of it for the work on the
+characters themselves — the pair kerning, the superscript and subscript marks, and the special
+characters, all described under **Typography** above. The two settings every block shares (the side
+padding, and hanging side-aligned text on the format margins) fold out of *Every block* at the foot
+of it.
 
 **Drag the inspector by its title bar** to park it anywhere on the canvas; it stays where it is put,
 whichever block you pick next, and is held inside the canvas whatever the window does. Its **✕ only
@@ -647,8 +717,9 @@ export says the same thing three ways:
    a print pipeline reads.
 3. **The rules, under `$extensions`** — where the spec puts what it does not model: the margin
    source and its factor, where the baseline grid comes from, the paragraph basis and percentage,
-   both column grids, every solid and block, the background module and its parameters, the colour
-   scheme, the font pairing. A generic tool reads `$value` and gets a working system; bos reading
+   both column grids, every solid and block — with the pairs kerned by hand and the characters
+   marked on each — what each role asks of the font (kerning, ligatures, figures, italic), the
+   background module and its parameters, the colour scheme, the font pairing. A generic tool reads `$value` and gets a working system; bos reading
    its own extensions gets the design back.
 
 **The anchor can set itself.** Under the tokens, the same system as **CSS custom properties** with
