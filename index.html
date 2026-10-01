@@ -14,6 +14,8 @@
   <header class="app-bar">
     <h1>bos</h1>
     <nav class="segments" id="segments" aria-label="Stages of the work"></nav>
+    <button type="button" class="ghost" id="bare-toggle" aria-pressed="false"
+      title="Hide every panel and menu and leave the work — the stages up here stay">Panels</button>
     <button type="button" class="ghost" id="reset" title="Reset everything to defaults">Reset</button>
   </header>
 
@@ -187,7 +189,8 @@
         </select>
       </label>
       <div class="row">
-        <label class="field"><span>Rows in grid 1</span><input type="number" id="type-rows" min="1" max="200" step="1"></label>
+        <label class="field"><span id="type-rows-label">Rows in grid 1</span>
+          <input type="number" id="type-rows" min="1" max="400" step="1"></label>
         <label class="field"><span>Row height</span><input type="text" id="type-rowpx" readonly tabindex="-1"></label>
       </div>
       <div class="row">
@@ -200,6 +203,9 @@
           </select>
         </label>
       </div>
+      <label class="check"><input type="checkbox" id="type-grid-strict">
+        <span>Only values that fit: the row divides the format height into whole rows, and the
+          margins sit on whole rows</span></label>
       <label class="check"><input type="checkbox" id="type-grid-full">
         <span>Carry the rows past the margins, out to the edges of the format</span></label>
       <p class="hint" id="type-grid-hint"></p>
@@ -490,7 +496,7 @@
       </aside>
     </div>
 
-    <p class="footnote">Drag a solid to move it, the logo to align it · square handles resize · round handles set the corner radius · click a text block to pick it up and its settings open beside it, double-click to type into it, drag its edges to resize the field or its round grip to size the type · click empty canvas to deselect · ⌘/Ctrl + Z undoes · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan</p>
+    <p class="footnote">Drag a solid to move it, the logo to align it · square handles resize · round handles set the corner radius · click a text block to pick it up and its settings open beside it, double-click to type into it, drag its edges to resize the field or its round grip to size the type · click empty canvas to deselect · ⌘/Ctrl + Z undoes · unlock the guides to drag them for margins · wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom · Space or middle-drag to pan · G shows and hides the guides · Panels takes every panel off and Escape brings them back</p>
   </main>
 
   <section class="bgseg" id="seg-bg" hidden>

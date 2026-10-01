@@ -208,19 +208,26 @@ way the work is: **Print** (DIN A4, A3, A2 and A1 at 300 dpi, and a business car
 intro and outro cards) and **Book**. Each is a tile painted at its own values; clicking one takes
 you to the design system with that format open.
 
-**One format is the master.** Every other one says, with a tick each, what it takes from it:
+**Every format carries the whole design system.** Not a scale factor applied to the master's — its
+own copy of all of it, which it either takes from the master or holds for itself, group by group:
 
-| Typography | Page setup |
-| --- | --- |
-| **Font** | **Baseline grid** |
-| **Font sizes** — the paragraph size, its basis, the ratio system and every multiple | **Margins** — the page's, the columns, and every solid's own |
-| | **Logo** |
+| Typography | Page setup | The design |
+| --- | --- | --- |
+| **Font** — the families, shared and per role | **Baseline grid** — where the row comes from, the count, what is drawn, and whether only full lines are allowed | **Colour scheme** — the base, the harmony, the shares and every colour set by hand |
+| **Font sizes** — the anchor, its basis, the ratio system and every multiple | **Margins and columns** — the page's, both column grids, and every solid's own | **Background** — the format's colour, the picture over it, and the module that makes one |
+| **Type style** — weight, italic, tracking, case, colour, and what each role asks of the font | **Logo** | |
 
 A ticked group is **shared**: set it on any format that links it and the master takes the change, so
-every other format on that link follows. An unticked group is that format's alone — untick *Margins*
-on a banner and it keeps its own while its type still comes from the master. The tile grid and the
-preview rail both paint each format at its own resolved values, so the differences are visible
-without switching between them.
+every other format on that link follows. An unticked group is **that format's own to set, and what
+you change while it is open is saved with it** — untick *Colour scheme* on a banner and it carries
+its own palette while its type still comes from the master.
+
+Two buttons do the whole row at once. **Keep it all here** unties every group *at the values the
+format is showing*, so nothing moves and the format is then entirely its own — its own master, free
+to go its own way. **From the master** ties them all back, and the format picks the master's values
+up again. The note under them says how many groups the format holds. The tile grid and the preview
+rail paint each format at its own resolved values, so the differences are visible without switching
+between them.
 
 **What is on a format is always the format's own.** The solids, the lines and the text blocks are
 not in that table and cannot be linked: a format is *laid out*, not scaled, so **each one has its
@@ -438,8 +445,14 @@ and measured one of four ways:
 
 A percentage scales the whole type scale with the format; a hand-set size holds still. It starts at
 **1%**, and the slider covers the range in hundredths. Every other role is a
-**multiple of the paragraph size** — 2.618, 1.618 and 0.5 out of the box — and the panel shows what
-each resolves to in pixels.
+**multiple of the paragraph size** — 2.618, 1.618 and 0.5 out of the box.
+
+**Every role is editable three ways, in the same row**: the multiple it is of the paragraph, its
+**size in pixels**, and its **tracking in em**. They are one value seen from three sides — type a
+size in pixels and it is written back as the multiple it comes to, so the scale stays whole and
+everything that follows from it follows; type into the paragraph's pixels and you are moving the
+anchor, which carries every other role with it. The sizes are all **in the typography stage**, beside
+the cards, so the scale can be worked where its effect is visible rather than only on the canvas.
 
 *Size relations* fills those multiples from a design ratio: the golden and silver ratios, root two,
 three and five, Euler's number, pi, and the musical intervals from a minor second to the octave.
@@ -535,6 +548,25 @@ phase is worked out so a row line falls exactly on the top margin whichever way 
 *Carry the rows past the margins* in **Page setup** turns that off and keeps them inside the margin
 box, and the cards in the typography stage draw them the same way as the canvas.
 
+**Only full lines.** *Only values that fit* in **Page setup** holds the grid to the strictest reading
+of a baseline system: **the row divides the format height into whole rows**, and the **top and bottom
+margins sit on whole rows**, so there is no part-row anywhere — not at the foot of the content box,
+not in the bleed, not above the top margin. Switch it on and three things change:
+
+| | Loose | Only values that fit |
+| --- | --- | --- |
+| What the rows divide | the content box, between the margins | the **format height**, edge to edge |
+| *Rows* in the panel | rows between the margins | rows in the format |
+| A margin you type | stands as typed | **taken to the nearest whole row** — the field shows what it became, and its arrows step a whole row at a time |
+| A paragraph leading you type | sets the row, with whatever is left over left at the foot | picks the **whole number of rows nearest it**, and the row is the format height over that count |
+| The paragraph line height | the row, or free | always the row |
+| Left over | a remainder at the foot in the leading mode | nothing, anywhere |
+
+Nothing is refused: a value that does not fit is taken to the one that does, and the hint reports the
+whole fit — "the 1350 px of format height is 44 rows of 30.6818 px… the top margin is 3 rows (92.05
+px) and the bottom 3 rows, which leaves 38 whole rows between them". Switch it off and the margins
+you typed come back, since only the drawing of them was ever snapped.
+
 Every role other than paragraph is **aligned to grid 1 or grid 2**: its line height snaps so the
 line box is a whole number of that grid's rows, with the arithmetic reported ("line height 1.05
 snaps to 1.205 so the line box is 3 × grid 1 = 91.5 px"). A line box is never snapped shorter than
@@ -617,6 +649,15 @@ top. Toggle the rail with **Formats** in the toolbar.
 
 A solid leaves the stage the way a text block does: the red **✕** at its top right corner, or ⌫
 while it is selected, takes that one off. Undo brings it back.
+
+**Nothing but the work** — *Panels* in the top bar takes **every panel and menu off**: the left
+panel, the toolbar, the tray, the format rail, the inspectors and the hints all go, and the stage is
+re-fitted to the room they leave. What stays is the work and the **stages across the top**, so you
+can still walk the design through its steps — and the button, which now reads *Show panels*. **Escape**
+brings them back too, and **G** toggles the guides and grids, since that switch is in the toolbar
+with everything else. It is a view, so it is remembered between sessions, and it works in every
+stage: the typography cards, the palette, the formats and the canvas all lose their panels and take
+the width.
 
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift

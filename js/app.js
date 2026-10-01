@@ -399,7 +399,7 @@
      for itself. A group is a name and a pair of routines that lift its values
      out of the state and put them back. */
   var LINK_GROUPS = [
-    { k: "font", name: "Font",
+    { k: "font", cat: "Typography", name: "Font",
       pick: function () {
         var roles = {};
         ROLES.forEach(function (r) { if (state.type.roles[r].family) roles[r] = state.type.roles[r].family; });
@@ -414,7 +414,7 @@
           else delete state.type.roles[r].family;
         });
       } },
-    { k: "sizes", name: "Font sizes",
+    { k: "sizes", cat: "Typography", name: "Font sizes \u2014 the anchor and every multiple",
       pick: function () {
         var r = {};
         ROLES.forEach(function (x) { r[x] = state.type.roles[x].mult; });
@@ -424,10 +424,38 @@
         state.type.paragraph = v.paragraph; state.type.basis = v.basis; state.type.system = v.system;
         ROLES.forEach(function (x) { if (isFinite(v.roles[x])) state.type.roles[x].mult = v.roles[x]; });
       } },
-    { k: "baseline", name: "Baseline grid",
-      pick: function () { return { rows: state.type.rows, gridFrom: state.type.gridFrom, grid: state.type.grid }; },
-      put: function (v) { state.type.rows = v.rows; state.type.gridFrom = v.gridFrom; state.type.grid = v.grid; } },
-    { k: "margins", name: "Margins — the page's and every solid's",
+    /* The treatment of each role: what the panel calls Style, and the two settings
+       every text block shares. Not the sizes — those are the scale, above. */
+    { k: "style", cat: "Typography", name: "Type style \u2014 weight, tracking, case, colour",
+      pick: function () {
+        var out = {};
+        ROLES.forEach(function (r) {
+          var st = state.type.roles[r];
+          out[r] = { tag: st.tag, snap: st.snap, weight: st.weight, italic: !!st.italic,
+            lh: st.lh, ls: st.ls, transform: st.transform, color: st.color,
+            kern: st.kern, liga: st.liga !== false, figs: st.figs };
+        });
+        return { roles: out, padding: state.text.padding, marginPad: !!state.text.marginPad };
+      },
+      put: function (v) {
+        var roles = v.roles || {};
+        ROLES.forEach(function (r) {
+          if (roles[r]) Object.assign(state.type.roles[r], roles[r]);
+        });
+        if (isFinite(v.padding)) state.text.padding = v.padding;
+        state.text.marginPad = !!v.marginPad;
+      } },
+    { k: "baseline", cat: "Page setup", name: "Baseline grid",
+      pick: function () {
+        return { rows: state.type.rows, gridFrom: state.type.gridFrom, grid: state.type.grid,
+          gridFull: state.type.gridFull !== false, gridStrict: !!state.type.gridStrict };
+      },
+      put: function (v) {
+        state.type.rows = v.rows; state.type.gridFrom = v.gridFrom; state.type.grid = v.grid;
+        if (typeof v.gridFull === "boolean") state.type.gridFull = v.gridFull;
+        if (typeof v.gridStrict === "boolean") state.type.gridStrict = v.gridStrict;
+      } },
+    { k: "margins", cat: "Page setup", name: "Margins and columns — the page's and every solid's",
       pick: function () {
         return { margin: clone(state.margin), cols: clone(state.cols),
           solids: state.solids.map(function (r) { return clone(r.columns.m); }) };
@@ -438,9 +466,43 @@
         state.solids.forEach(function (r, i) { if (v.solids[i]) r.columns.m = clone(v.solids[i]); });
         useSolid(state.solid);
       } },
-    { k: "logo", name: "Logo",
+    { k: "logo", cat: "Page setup", name: "Logo",
       pick: function () { return clone(state.logo); },
-      put: function (v) { state.logo = clone(v); } }
+      put: function (v) { state.logo = clone(v); } },
+    /* The palette itself. Shallow where it can be: a format is picked and put back
+       on every tile of every paint, so nothing here is deep-copied without cause. */
+    { k: "scheme", cat: "The design", name: "Colour scheme",
+      pick: function () {
+        var o = schemeOwn(), h = {};
+        Object.keys(o.h).forEach(function (k) { h[k] = o.h[k]; });
+        var sc = state.scheme;
+        return { base: sc.base, technique: sc.technique, count: sc.count, spread: sc.spread,
+          shares: Array.isArray(sc.shares) ? sc.shares.slice() : null,
+          own: { h: h, ink: o.ink, paper: o.paper } };
+      },
+      put: function (v) {
+        var sc = state.scheme;
+        sc.base = v.base; sc.technique = v.technique; sc.count = v.count; sc.spread = v.spread;
+        sc.shares = Array.isArray(v.shares) ? v.shares.slice() : null;
+        var h = {};
+        Object.keys((v.own || {}).h || {}).forEach(function (k) { h[k] = v.own.h[k]; });
+        sc.own = { h: h, ink: (v.own || {}).ink || "", paper: (v.own || {}).paper || "" };
+      } },
+    /* The ground: the format's colour, the picture over it, and the module that
+       makes one. The picture's source is a string, so sharing it costs nothing. */
+    { k: "ground", cat: "The design", name: "Background \u2014 the colour, the picture, the module",
+      pick: function () {
+        return { bg: state.stage.bg, img: Object.assign({}, state.bg),
+          gen: { on: state.bgGen.on, pattern: state.bgGen.pattern, gradient: state.bgGen.gradient,
+            params: clone(state.bgGen.params || {}) } };
+      },
+      put: function (v) {
+        state.stage.bg = v.bg;
+        Object.assign(state.bg, v.img);
+        var g = v.gen || {};
+        state.bgGen.on = g.on; state.bgGen.pattern = g.pattern; state.bgGen.gradient = g.gradient;
+        state.bgGen.params = clone(g.params || {});
+      } }
   ];
 
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
@@ -659,6 +721,11 @@
            past the margins, out to the edges, so anything in the bleed lands on
            the same grid. The margin box is still where they are counted from. */
         gridFull: true,
+        /* Only values that fit: the row divides the FORMAT height into whole rows
+           and the top and bottom margins sit on whole rows, so every line of the
+           grid is a full one — between the margins and out to the edges. Anything
+           typed that does not fit is taken to the nearest value that does. */
+        gridStrict: false,
         // every role is a multiple of the paragraph size; line heights snap to the
         // baseline grid unless a role is set free
         roles: {
@@ -690,6 +757,9 @@
       view: { zoom: null, pan: { x: 0, y: 0 }, panned: false },
       showRail: true,
       showGuides: true,          // one switch for every guide and grid on the canvas
+      /* Every panel and menu off, the stages at the top left on: the design with
+         nothing of the tool around it. A view, so it is remembered. */
+      bare: false,
       sel: "rect",
       selBlock: -1               // which text block carries the field handles
     };
@@ -836,6 +906,10 @@
         if (!pg || typeof pg !== "object") return;
         if (!pg.links || typeof pg.links !== "object") pg.links = {};
         if (!pg.own || typeof pg.own !== "object") pg.own = {};
+        // a group the design was saved before: taken from the master until it is untied
+        LINK_GROUPS.forEach(function (g) {
+          if (typeof pg.links[g.k] !== "boolean") pg.links[g.k] = true;
+        });
         if (i === s.page || !pg.content) {
           var solids = i === s.page ? s.solids : clone(s.solids);
           var blocks = i === s.page ? s.text.blocks : clone(s.text.blocks);
@@ -1493,11 +1567,31 @@
   }
 
   function margins() {
-    var m = state.margin;
-    if (m.mode === "manual") return { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
-    var base = marginBase(), out = {};
-    SIDES.forEach(function (side) { out[side] = Math.max(0, snap(base + buf(side))); });
-    return out;
+    var m = state.margin, out;
+    if (m.mode === "manual") {
+      out = { top: m.top, right: m.right, bottom: m.bottom, left: m.left };
+    } else {
+      var base = marginBase();
+      out = {};
+      SIDES.forEach(function (side) { out[side] = Math.max(0, snap(base + buf(side))); });
+    }
+    return onRows(out);
+  }
+
+  /* In the strict mode the top and bottom margins are taken to the nearest whole
+     row, so the content box starts and ends on a grid line. The row itself comes
+     from the format height, so there is nothing circular in asking for it here. */
+  function onRows(m) {
+    if (!gridStrict()) return m;
+    var u = state.stage.h / strictRows();
+    if (!(u > 0)) return m;
+    var fit = function (v) {
+      return clamp(Math.round(v / u) * u, 0, Math.max(0, state.stage.h - u));
+    };
+    var top = fit(m.top), bottom = fit(m.bottom);
+    // between them there has to be room for at least one row
+    if (state.stage.h - top - bottom < u - 1e-6) bottom = Math.max(0, state.stage.h - top - u);
+    return { top: top, right: m.right, bottom: bottom, left: m.left };
   }
 
   // base = factor x logo, where the logo spans n of the columns that the margins —
@@ -1991,6 +2085,21 @@
     return Math.max(1, state.stage.h - m.top - m.bottom);
   }
 
+  /* "Only full lines". The rows are worked out across the format height rather
+     than the content box, so the whole format is a whole number of rows; the top
+     and bottom margins are then taken to the nearest whole row, which leaves the
+     content box a whole number of rows as well. Nothing is left over anywhere, and
+     a value that does not fit is not refused but taken to the one that does. */
+  function gridStrict() { return !!state.type.gridStrict; }
+  // the height the rows divide: the format in the strict mode, the content box otherwise
+  function gridSpan() { return gridStrict() ? Math.max(1, state.stage.h) : contentH(); }
+  // how many rows that span is divided into
+  function strictRows() {
+    if (!fromLeading()) return fitRows();
+    // the leading asks for a row height; the nearest whole count of them is used
+    return clamp(Math.round(state.stage.h / leadingPx()), 1, 400);
+  }
+
   function fromLeading() { return state.type.gridFrom === "leading"; }
 
   // the paragraph line box, which is what grid 1 measures in the leading mode
@@ -2005,12 +2114,14 @@
 
   // grid 1 is one row; grid 2 halves it
   function baseline() {
+    if (gridStrict()) return state.stage.h / strictRows();
     return fromLeading() ? leadingPx() : contentH() / fitRows();
   }
 
   // whole rows of grid 1 in the content box — every one of them in the fit mode, and
   // as many as happen to fit when the leading sets the row
   function gridRows() {
+    if (gridStrict()) return Math.max(1, Math.round(contentH() / baseline()));
     return fromLeading()
       ? Math.max(1, Math.floor(contentH() / leadingPx() + 1e-6))
       : fitRows();
@@ -2018,6 +2129,7 @@
 
   // what is left over at the foot of the content box when the leading sets the grid
   function gridRest() {
+    if (gridStrict()) return 0;              // nothing is left over: that is the point of it
     return fromLeading() ? contentH() - gridRows() * leadingPx() : 0;
   }
 
@@ -2025,8 +2137,40 @@
   // own, and in the leading mode the typed one is the row
   function paraLh() {
     var p = state.type.roles.paragraph;
+    // only full lines: the paragraph line box is the row, whichever way the grid is built
+    if (gridStrict()) return baseline() / paraPx();
     if (fromLeading()) return p.lh;
     return p.snap === "free" ? p.lh : baseline() / paraPx();
+  }
+
+  /* A role's size, set in pixels and written back the way the scale holds it: the
+     paragraph is the anchor, so its pixels become the share of the side (or the
+     size itself where it is set by hand); every other role is a multiple of the
+     paragraph. Typing a size is therefore still typing the scale. */
+  function setRolePx(role, px) {
+    var v = clamp(num(px, rolePx(role)), 1, 800);
+    if (role === "paragraph") {
+      state.type.paragraph = paraByHand()
+        ? clamp(round(v, 2), PARAPX_MIN, PARAPX_MAX)
+        : clamp(round(v / Math.max(1, typeBasis()) * 100, 3), PARA_MIN, PARA_MAX);
+      return;
+    }
+    state.type.roles[role].mult = clamp(round(v / Math.max(1, paraPx()), 4), 0.01, 12);
+    state.type.system = "custom";          // a size typed in leaves the ratio behind
+  }
+  // and its tracking, in em of its own size
+  function setRoleLs(role, em) {
+    var st = state.type.roles[role];
+    st.ls = round(clamp(num(em, st.ls), -0.5, 1), 4);
+  }
+  // how far a role's size field may be swept: the paragraph by its basis, the rest
+  // by the scale's own ceiling of twelve paragraphs
+  function boundRolePx(el, role) {
+    if (role === "paragraph") {
+      bound(el, 1, paraByHand() ? PARAPX_SLIDER : Math.round(PARA_MAX / 100 * typeBasis()));
+    } else {
+      bound(el, Math.max(1, Math.round(0.05 * paraPx())), Math.round(12 * paraPx()));
+    }
   }
 
   function setRows(rows) {
@@ -2986,6 +3130,9 @@
     $("#seg-lab").hidden = !lab;
     $("#seg-stub").hidden = !!cur.built;
     document.body.classList.toggle("stub-on", !cur.built);
+    document.body.classList.toggle("bare", !!state.bare);
+    $("#bare-toggle").setAttribute("aria-pressed", state.bare ? "true" : "false");
+    $("#bare-toggle").textContent = state.bare ? "Show panels" : "Panels";
     if (bg) return renderBgSeg();
     if (fmt) return renderFmtSeg();
     if (col) return renderColSeg();
@@ -3149,10 +3296,30 @@
     }
 
     $("#fmt-list").innerHTML = state.pages.map(function (pg, i) {
-      var links = LINK_GROUPS.map(function (g) {
-        return '<label class="check"><input type="checkbox" data-link="' + g.k + '" data-i="' + i + '"' +
-          (pg.links[g.k] ? " checked" : "") + "><span>" + esc(g.name) + "</span></label>";
-      }).join("");
+      var cats = [];
+      LINK_GROUPS.forEach(function (g) { if (cats.indexOf(g.cat) < 0) cats.push(g.cat); });
+      var own = LINK_GROUPS.filter(function (g) { return !pg.links[g.k]; }).length;
+      var links = cats.map(function (cat) {
+        return '<h4 class="link-cat">' + esc(cat) + "</h4>" +
+          LINK_GROUPS.filter(function (g) { return g.cat === cat; }).map(function (g) {
+            return '<label class="check"><input type="checkbox" data-link="' + g.k +
+              '" data-i="' + i + '"' + (pg.links[g.k] ? " checked" : "") + "><span>" +
+              esc(g.name) + "</span></label>";
+          }).join("");
+      }).join("") +
+        '<div class="row link-acts">' +
+          '<button type="button" class="ghost grow" data-own="' + i + '"' +
+            (own === LINK_GROUPS.length ? " disabled" : "") +
+            ' title="Copy what it is showing into this format and untie every group">' +
+            "Keep it all here</button>" +
+          '<button type="button" class="ghost grow" data-inherit="' + i + '"' +
+            (own === 0 ? " disabled" : "") +
+            ' title="Tie every group back to the master">From the master</button>' +
+        "</div>" +
+        '<p class="hint">' + (own
+          ? own + (own === 1 ? " group is" : " groups are") + " this format\u2019s own; the rest " +
+            "come from the master."
+          : "Everything comes from the master.") + "</p>";
       return '<div class="fmt-row' + (i === state.page ? " on" : "") + '" data-page="' + i + '">' +
         '<div class="fmt-row-head">' +
           "<b>" + esc(pg.name) + "</b>" +
@@ -3168,10 +3335,12 @@
     }).join("") || '<p class="hint">No formats yet — add one below. The first is the master.</p>';
 
     $("#fmt-hint").textContent = state.pages.length
-      ? "Tick what a format takes from the master; untick it to keep that part for this format " +
-        "alone. What is on a format \u2014 its solids, lines and text \u2014 is always its own: " +
-        "a new format starts from a copy of the one you added it from, and is laid out from there. " +
-        "Click a tile to work on that format in the design system."
+      ? "Every format carries the whole design system: the type, the grids, the margins, the logo, " +
+        "the palette and the ground. Ticked, it takes that group from the master and follows it; " +
+        "unticked, the group is the format\u2019s own to set, and what you change while it is open " +
+        "is saved with it. Keep it all here unties every group at the values it is showing, so a " +
+        "format can go its own way entirely. What is on a format \u2014 its solids, lines and " +
+        "text \u2014 is always its own. Click a tile to work on that format in the design system."
       : "";
 
     // one tile per format, each painted at its own values
@@ -4014,11 +4183,7 @@
          basis allows, everything else as far as the scale's own ceiling of twelve
          paragraphs — so the slider is not pinned at a limit halfway along. */
       var sizeEl = row.querySelector('[data-lb="size"]');
-      if (b.role === "paragraph") {
-        bound(sizeEl, 1, paraByHand() ? PARAPX_SLIDER : Math.round(PARA_MAX / 100 * typeBasis()));
-      } else {
-        bound(sizeEl, Math.max(1, Math.round(0.05 * paraPx())), Math.round(12 * paraPx()));
-      }
+      boundRolePx(sizeEl, b.role);
       setValue(sizeEl, Math.round(rolePx(b.role)));
       setValue(row.querySelector('[data-lb="lh"]'), round(roleLh(b.role), 3));
       setValue(row.querySelector('[data-lb="ls"]'), round(st.ls, 3));
@@ -4906,14 +5071,25 @@
     }).join("");
     $("#type-system").innerHTML = '<option value="custom">Custom — set by hand</option>' +
       SCALES.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + "</option>"; }).join("");
-    $("#type-scale").innerHTML = ROLES.map(function (r) {
-      return '<div class="scale-row' + (r === "paragraph" ? " anchor" : "") + '" data-role="' + r + '">' +
-        "<span>" + esc(ROLE_NAMES[r]) + "</span>" +
-        (r === "paragraph"
-          ? '<span class="px anchor-note">anchor × 1</span>'
-          : '<input type="number" min="0.01" max="12" step="0.01" data-mult="' + r + '">') +
-        '<span class="px" data-px="' + r + '"></span></div>';
-    }).join("");
+    /* Every role, three ways: the multiple it is of the paragraph, the size that
+       comes to in pixels, and its tracking — all three editable here, so the scale
+       can be worked in whichever of them the design is thought in. */
+    $("#type-scale").innerHTML =
+      '<div class="scale-row head"><span></span><span>× para</span>' +
+        "<span>px</span><span>em</span></div>" +
+      ROLES.map(function (r) {
+        return '<div class="scale-row' + (r === "paragraph" ? " anchor" : "") + '" data-role="' + r + '">' +
+          "<span>" + esc(ROLE_NAMES[r]) + "</span>" +
+          (r === "paragraph"
+            ? '<span class="px anchor-note">anchor × 1</span>'
+            : '<input type="number" min="0.01" max="12" step="0.01" data-mult="' + r + '" ' +
+              'title="How many paragraphs this role is">') +
+          '<input type="number" min="1" max="800" step="1" data-size="' + r + '" ' +
+            'title="Its size in pixels on this format">' +
+          '<input type="number" min="-0.5" max="1" step="0.005" data-ls="' + r + '" ' +
+            'title="Tracking, in em of its own size">' +
+          "</div>";
+      }).join("");
   }
 
   /* Everything a block can be set to, set at the block itself: the inspector
@@ -5520,6 +5696,9 @@
       setValue($("#margin-" + s), fmt(derived ? buf(s) : mm[s]));
       $("#margin-" + s).disabled = false;
       bound("#margin-" + s, 0, Math.round((s === "top" || s === "bottom" ? st.h : st.w) / 2));
+      // a side the grid holds steps by the row, so what is typed is already a fit
+      var rowStep = gridStrict() && (s === "top" || s === "bottom");
+      $("#margin-" + s).step = rowStep ? round(baseline(), 3) : 1;
       $('[data-mlabel="' + s + '"]').textContent =
         SIDE_NAMES[s] + (derived ? " + " + fmt(mm[s]) : "");
     });
@@ -5670,22 +5849,48 @@
     ROLES.forEach(function (r) {
       var input = $('[data-mult="' + r + '"]');
       if (input) setValue(input, round(ty.roles[r].mult, 3));
-      $('[data-px="' + r + '"]').textContent = Math.round(rolePx(r)) + " px";
+      var sizeEl = $('[data-size="' + r + '"]');
+      boundRolePx(sizeEl, r);
+      setValue(sizeEl, Math.round(rolePx(r)));
+      setValue($('[data-ls="' + r + '"]'), round(ty.roles[r].ls, 3));
     });
     $("#type-scale-hint").textContent = "Paragraph is " + paraRule() +
       (byHand ? "" : " = " + Math.round(paraPx()) + " px") +
-      ". Every other role is a multiple of it — pick a ratio above or type any multiple. " +
+      ". Every other role is a multiple of it — pick a ratio above, or type the multiple, the " +
+      "size in pixels, or the tracking straight into the row: a size typed in is written back as " +
+      "the multiple it comes to, so the scale stays whole. " +
       (byHand
         ? "Set by hand it is the same in every format; a share of a side scales with the format."
         : "It runs from " + PARA_MIN + "% to " + PARA_MAX + "% of that side.");
 
     $("#type-grid").value = ty.grid;
     $("#type-grid-full").checked = gridPastMargins();
+    $("#type-grid-strict").checked = gridStrict();
+    $("#type-rows-label").textContent = gridStrict()
+      ? (fromLeading() ? "Rows in the format" : "Rows in the format")
+      : "Rows in grid 1";
     $("#type-grid-from").value = ty.gridFrom || "fit";
-    setValue($("#type-rows"), gridRows());
+    // the field is what it sets: the rows across the format in the strict mode
+    setValue($("#type-rows"), gridStrict() ? strictRows() : gridRows());
     $("#type-rows").disabled = fromLeading();
     $("#type-rowpx").value = round(baseline(), 2) + " px";
-    $("#type-grid-hint").textContent = (fromLeading()
+    if (gridStrict()) {
+      var u = baseline(), mm = margins();
+      var rowsTop = Math.round(mm.top / u), rowsBot = Math.round(mm.bottom / u);
+      $("#type-grid-hint").textContent = "Only full lines. The " + round(st.h, 1) +
+        " px of format height is " + strictRows() + " rows of " + round(u, 4) +
+        " px, so the grid fits it exactly" +
+        (fromLeading()
+          ? " \u2014 a paragraph line height of " + round(leadingPx(), 2) +
+            " px asked for " + round(state.stage.h / Math.max(1, leadingPx()), 2) +
+            " rows, and " + strictRows() + " is the whole count nearest it."
+          : ".") +
+        " The top margin is " + rowsTop + (rowsTop === 1 ? " row" : " rows") + " (" +
+        round(mm.top, 2) + " px) and the bottom " + rowsBot +
+        (rowsBot === 1 ? " row" : " rows") + " (" + round(mm.bottom, 2) + " px), which leaves " +
+        gridRows() + " whole rows between them. Grid 2 halves the row at " + round(u / 2, 4) +
+        " px. The paragraph line height is the row: " + round(paraLh(), 4) + ".";
+    } else $("#type-grid-hint").textContent = (fromLeading()
       ? "Grid 1 is the paragraph line box — " + round(paraPx(), 1) + " px × " + round(paraLh(), 3) +
         " = " + round(baseline(), 2) + " px — set in Style below. " + gridRows() +
         " whole rows fit the " + round(contentH(), 1) + " px between the top and bottom margins, with " +
@@ -6125,23 +6330,37 @@
       applyScale(el.value);
     });
     $("#type-scale").addEventListener("input", function (e) {
-      var role = e.target.dataset.mult;
-      if (!role || e.target.value === "") return;
-      var v = num(e.target.value, null);
-      if (v === null) return;
-      state.type.roles[role].mult = Math.max(0.01, round(v, 3));
-      state.type.system = "custom";                 // typing a value leaves the ratio behind
+      var t = e.target, d = t.dataset;
+      if (t.value === "") return;
+      if (d.mult) {
+        var v = num(t.value, null);
+        if (v === null) return;
+        state.type.roles[d.mult].mult = Math.max(0.01, round(v, 3));
+        state.type.system = "custom";               // typing a value leaves the ratio behind
+      } else if (d.size) {
+        setRolePx(d.size, t.value);
+      } else if (d.ls) {
+        setRoleLs(d.ls, t.value);
+      } else return;
       render();
     });
     onChange("#type-grid", function (el) { state.type.grid = el.value; });
     onChange("#type-grid-full", function (el) { state.type.gridFull = el.checked; });
+    /* Switching it on takes the row count from what is on screen, so the grid the
+       design already has is kept as nearly as whole rows allow. */
+    onChange("#type-grid-strict", function (el) {
+      var was = baseline();
+      state.type.gridStrict = el.checked;
+      if (el.checked) setRows(state.stage.h / Math.max(1, was));
+      else if (!fromLeading()) setRows(contentH() / Math.max(1, baseline()));
+    });
     onChange("#type-grid-from", function (el) {
       var ty = state.type;
       if (el.value === "leading" && !fromLeading()) {
         ty.roles.paragraph.lh = round(baseline() / paraPx(), 4);   // start from the grid on screen
         ty.roles.paragraph.snap = "free";
       } else if (el.value === "fit" && fromLeading()) {
-        setRows(contentH() / leadingPx());                         // keep the row as close as it can be
+        setRows(gridSpan() / leadingPx());                         // keep the row as close as it can be
         ty.roles.paragraph.snap = "fit";
       }
       ty.gridFrom = el.value;
@@ -6172,8 +6391,8 @@
       var p = state.type.roles.paragraph;
       // in the fit mode a typed paragraph leading picks the row count that comes
       // closest to it; in the leading mode it simply is the row
-      if (state.type.editing === "paragraph" && !fromLeading() && p.snap !== "free") {
-        setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      if (state.type.editing === "paragraph" && (gridStrict() || (!fromLeading() && p.snap !== "free"))) {
+        setRows(gridSpan() / (paraPx() * Math.max(0.5, v)));
       } else styleOf().lh = round(v, 3);
     }, .5);
     numInput("#type-ls", function (v) { styleOf().ls = round(v, 3); });
@@ -6584,6 +6803,29 @@
         render();
         return;
       }
+      /* Keep it all here: every group is untied at the values the format is showing,
+         so what it had under the master becomes its own to change. From the master
+         ties them all back. Either way the format that is open is stored first, so
+         nothing it is holding is lost. */
+      var own = e.target.closest("[data-own]"), inherit = e.target.closest("[data-inherit]");
+      if (own || inherit) {
+        var at = +(own || inherit).dataset[own ? "own" : "inherit"];
+        var page = state.pages[at];
+        if (!page || page.master) return;
+        storePage(state.page);
+        if (own) {
+          LINK_GROUPS.forEach(function (g) {
+            var v = pageValue(at, g.k);
+            if (v) page.own[g.k] = clone(v);
+            page.links[g.k] = false;
+          });
+        } else {
+          LINK_GROUPS.forEach(function (g) { page.links[g.k] = true; });
+        }
+        if (at === state.page) applyPage(state.page);
+        render();
+        return;
+      }
       var row = e.target.closest("[data-page]");
       if (row && !e.target.closest("input")) { usePage(+row.dataset.page); render(); }
     });
@@ -6663,6 +6905,15 @@
     $("#zoom-out").addEventListener("click", function () { setZoom(scale() / 1.25, viewCenter()); });
     $("#zoom-100").addEventListener("click", function () { setZoom(1, viewCenter()); });
     $("#zoom-fit").addEventListener("click", function () { setZoom(null); });
+    /* Everything but the work: the panel, the toolbar, the tray, the rail, the
+       inspectors and the hints all go, and the stage takes the room they leave —
+       so it is re-fitted to it rather than left where it was. */
+    $("#bare-toggle").addEventListener("click", function () {
+      state.bare = !state.bare;
+      state.view.zoom = null;                 // fit it to the room it has now
+      state.view.panned = false;
+      render();
+    });
     $("#zoom-value").addEventListener("click", function () { setZoom(null); });
     window.addEventListener("resize", function () { render(); });
   }
@@ -7162,6 +7413,14 @@
     window.addEventListener("keydown", function (e) {
       var t = e.target;
       if (e.key === "Escape" && !$("#sheet-wrap").hidden) { $("#sheet-wrap").hidden = true; return; }
+      // with the panels off, Escape is the way back to them
+      if (e.key === "Escape" && state.bare && editing < 0) {
+        state.bare = false;
+        state.view.zoom = null;
+        state.view.panned = false;
+        render();
+        return;
+      }
       // undo works wherever you are, including inside a field
       if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z" || e.key === "y")) {
         e.preventDefault();
@@ -7170,6 +7429,13 @@
       }
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
       if (e.code === "Space") { spaceDown = true; document.body.classList.add("can-pan"); return; }
+      // the guides, from the keyboard — the only way to them with the panels off
+      if (e.key === "g" || e.key === "G") {
+        e.preventDefault();
+        state.showGuides = state.showGuides === false;
+        render();
+        return;
+      }
       if (e.key === "Delete" || e.key === "Backspace") {
         if (state.selBlock >= 0) {
           e.preventDefault();
@@ -8395,28 +8661,19 @@
     if (k === "transform") { st.transform = t.value; return render(); }
     if (t.value === "") return;
     if (k === "size") {
-      var px = clamp(num(t.value, rolePx(b.role)), 1, 800);
-      // the paragraph is the anchor; everything else is a multiple of it
-      if (b.role === "paragraph") {
-        state.type.paragraph = paraByHand()
-          ? clamp(round(px, 2), PARAPX_MIN, PARAPX_MAX)
-          : clamp(round(px / Math.max(1, typeBasis()) * 100, 3), PARA_MIN, PARA_MAX);
-      } else {
-        st.mult = clamp(round(px / Math.max(1, paraPx()), 4), 0.01, 12);
-        state.type.system = "custom";
-      }
+      setRolePx(b.role, t.value);          // the anchor, or the multiple it comes to
       return render();
     }
     if (k === "lh") {
       var v = clamp(num(t.value, roleLh(b.role)), 0.5, 4);
       // in the fit mode the paragraph's leading is the row, so it picks the row count
-      if (b.role === "paragraph" && !fromLeading() && st.snap !== "free") {
-        setRows(contentH() / (paraPx() * Math.max(0.5, v)));
+      if (b.role === "paragraph" && (gridStrict() || (!fromLeading() && st.snap !== "free"))) {
+        setRows(gridSpan() / (paraPx() * Math.max(0.5, v)));
       } else st.lh = round(v, 3);
       return render();
     }
     if (k === "ls") {
-      st.ls = round(clamp(num(t.value, st.ls), -0.5, 1), 4);
+      setRoleLs(b.role, t.value);
       return render();
     }
   }
