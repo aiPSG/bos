@@ -376,12 +376,12 @@
     { id: "colour", name: "Create colour scheme", built: true,
       note: "A scheme worked out the way colour is worked out — from one colour and a " +
         "relationship — with the share each colour takes of the whole." },
-    { id: "typelab", name: "Typography", built: true,
-      note: "The whole type system — the family, the scale, every role — and up to six " +
-        "combinations side by side, each setting the same specimen." },
     { id: "system", name: "Layout system", built: true,
       note: "The format, the logo, the margins and the columns, the solid, both baseline " +
         "grids, and the text that sits on them." },
+    { id: "typelab", name: "Typography", built: true,
+      note: "The whole type system — the family, the scale, every role — and up to six " +
+        "combinations side by side, each setting the same specimen." },
     { id: "background", name: "Generate background", built: true,
       note: "One ground for the system to sit on, made rather than found." },
     { id: "formats", name: "Design formats", built: true,
@@ -2573,7 +2573,11 @@
         else el.removeAttribute("contenteditable");
       }
       el.classList.toggle("editing", edit);
-      el.classList.toggle("picked", rectEl.parentNode === els.stage && state.selBlock === +el.dataset.i);
+      /* Marked wherever it is drawn: on the canvas, and on every card in the
+         typography stage, so the block being set is visible in each version. */
+      var host = rectEl.parentNode;
+      var live = host === els.stage || (host.closest && host.closest(".lab-card"));
+      el.classList.toggle("picked", !!live && state.selBlock === +el.dataset.i);
     });
   }
 
@@ -5191,9 +5195,23 @@
       "</details>";
   }
 
+  /* Where what the inspector is about is drawn: the canvas while the layout stage
+     is open, and in the typography stage the card being worked on — so a block can
+     be picked on a card and set from the same panel the canvas uses. */
+  var labCardPick = -1;
+  function inspectorStage() {
+    var seg = segment().id;
+    if (seg === "system") return els.stage;
+    if (seg !== "typelab") return null;
+    var cards = $$("#lab-grid .lab-card");
+    var card = cards[labCardPick] || cards[labPick()] || cards[0];
+    return card ? card.querySelector(".tile-stage") : null;
+  }
+
   function renderBlockInspector() {
     var i = state.selBlock, b = state.text.blocks[i];
-    var el = b && els.stage.querySelector('.tb[data-i="' + i + '"]');
+    var host = inspectorStage();
+    var el = b && host && host.querySelector('.tb[data-i="' + i + '"]');
     var ins = $("#block-inspector");
     /* A block's own panel, which goes with the block rather than with the guides or
        the panels: it is shut by its \u2715, or by letting the block go. */
@@ -5233,7 +5251,9 @@
      used to hold, moved onto the canvas so a box is set where it is. */
   function renderSolidInspector() {
     var ins = $("#solid-inspector");
-    var el = state.solids.length && els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
+    // a solid is moved and resized on the canvas, so its panel stays there
+    var el = segment().id === "system" && state.solids.length &&
+      els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
     // one selection, one panel: a picked text block shows its own instead
     var show = el && state.sel === "rect" && state.selBlock < 0 && !solClosed;
     ins.hidden = !show;
@@ -5450,8 +5470,8 @@
   }
 
   function repositionInspector() {
-    var ins = $("#block-inspector");
-    var el = els.stage.querySelector('.tb[data-i="' + state.selBlock + '"]');
+    var ins = $("#block-inspector"), host = inspectorStage();
+    var el = host && host.querySelector('.tb[data-i="' + state.selBlock + '"]');
     if (!ins.hidden && el) positionInspector(ins, el, insPos);
     var sol = $("#solid-inspector");
     var sel = els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
@@ -5490,9 +5510,14 @@
     if (pos) return parkInspector(ins, pos);
     var r = el.getBoundingClientRect();
     var host = ins.parentNode.getBoundingClientRect();
-    var vp = els.viewport.getBoundingClientRect();
+    /* On the canvas it keeps clear of the format inside the viewport; in the
+       typography stage it keeps clear of the card, inside the grid of them. */
+    var onCanvas = segment().id === "system";
+    var room = onCanvas ? els.viewport : (el.closest(".lab-grid") || document.body);
+    var clear = onCanvas ? els.stage : (el.closest(".lab-card") || el);
+    var vp = room.getBoundingClientRect();
     var w = ins.offsetWidth, h = ins.offsetHeight, gap = 14;
-    var st = els.stage.getBoundingClientRect();
+    var st = clear.getBoundingClientRect();
     var lo = vp.left - host.left + 8, hi = vp.right - host.left - w - 8;
     /* Outside the format when the canvas has the room for it there, so the
        design is not covered; otherwise beside the block, on its roomier side. */
@@ -5503,8 +5528,10 @@
       ? r.right - host.left + gap
       : r.left - host.left - w - gap;
     ins.style.left = clamp(left, lo, Math.max(lo, hi)) + "px";
-    ins.style.top = clamp(r.top - host.top - 10, 8,
-      Math.max(8, vp.bottom - host.top - h - 8)) + "px";
+    // and inside the room it has, top as well as bottom: never over the bar above it
+    var top = Math.max(8, vp.top - host.top + 8);
+    ins.style.top = clamp(r.top - host.top - 10, top,
+      Math.max(top, vp.bottom - host.top - h - 8)) + "px";
   }
 
   function buildGrid(id, name, kind) {
@@ -6683,6 +6710,26 @@
       labSaid = "Poured " + (state.lab.sample === "own" ? "your own text" : labSample().name) +
         " into " + state.text.blocks.length + " blocks. Undo brings the old copy back.";
       render();
+    });
+    /* The type on a card is the design's own text, so it is picked the way it is
+       picked on the canvas: click a block and its panel opens beside the card,
+       click the card anywhere else and the block is let go. */
+    $("#lab-grid").addEventListener("click", function (e) {
+      if (e.target.closest("button")) return;            // the card's own buttons
+      var tb = e.target.closest(".tb");
+      var card = e.target.closest(".lab-card");
+      if (tb && tb.dataset.i !== undefined) {
+        labCardPick = card ? +card.dataset.card : -1;
+        state.selBlock = +tb.dataset.i;
+        state.sel = "rect";
+        insClosed = false;
+        inspectorFor = -1;
+        return render();
+      }
+      if (card && state.selBlock >= 0) {
+        state.selBlock = -1;
+        return render();
+      }
     });
     // the combinations and the cards
     $("#seg-lab").addEventListener("click", function (e) {

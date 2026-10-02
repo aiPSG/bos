@@ -30,14 +30,16 @@ The work runs in stages, and the tabs across the top are those stages in order:
 | | Stage | What it is |
 | --- | --- | --- |
 | 1 | **Create colour scheme** | A scheme worked out the way colour is worked out — from one colour and a relationship — with an ink, a paper, a contrast audit, the share each colour takes of the whole, and any colour of it settable by hand. |
-| 2 | **Typography** | The whole type system — family, scale, every role, and what each asks of the font — and up to six font combinations side by side, each painting the format you have open. |
-| 3 | **Layout system** | The format, the logo, the margins and the columns, the solids and lines, both baseline grids, and the text that sits on them — down to the kerning of one pair. The canvas. |
+| 2 | **Layout system** | The format, the logo, the margins and the columns, the solids and lines, both baseline grids, and the text that sits on them — down to the kerning of one pair. The canvas. |
+| 3 | **Typography** | The whole type system — family, scale, every role, and what each asks of the font — and up to six font combinations side by side, each painting the format you have open. |
 | 4 | **Generate background** | One ground for the system to sit on, made rather than found — from a pattern or a gradient. Images are not built yet. |
 | 5 | **Design formats** | The formats the work runs in, one of them the master, each other one saying what it takes from it. |
 | 6 | **Dummies** | The finished formats shown in place — a phone, a poster site, a spread. |
 
-The colour, then the type, then the layout they are put to work in — that is the order the work
-goes, and the tabs are in it. The first five are built. *Dummies* carries an **under construction** placeholder that names what
+The colour, then the layout it is put to work in, then the type that runs in that layout — that is
+the order the work goes, and the tabs are in it. The type comes after the layout because the
+comparison paints the layout: there has to be something to set before the faces can be judged on it.
+The first five are built. *Dummies* carries an **under construction** placeholder that names what
 will live there, as does the *Image* tab inside *Generate background*. The tab you were last on is
 remembered.
 
@@ -64,6 +66,15 @@ has it in. A comparison is rarely only of faces — the same two families read d
 Semibold than at Regular, and in italic differently again — so both are part of what a combination
 is, and **Use this one** takes the styles along with the families. Combinations can be named,
 duplicated and taken off.
+
+**The type on a card is the type itself** — click a block on any card and **its own panel opens
+beside that card**, the same panel the canvas opens: the role it runs in, its copy, its row and
+columns, its alignment, and *Characters, kerning and marks* with the strip, the pairs and the
+special characters. So a pair can be kerned, a character marked and the copy rewritten while the
+versions are side by side, and every card redraws as you type. The block you are working on is
+**marked on every card**, so it can be seen in each of the faces at once; clicking a card anywhere
+else lets it go. The panel floats over whichever stage is open and is dragged by its title bar, and
+a solid's panel stays on the canvas, where a solid is moved and resized.
 
 **The grids, on the cards.** *Show the margins, the baseline grid and the columns on the cards*
 draws them over every card in the guide colour — the same margin box, the same two baseline grids
@@ -861,6 +872,8 @@ way; the proxy is a separate 30-line deploy that Pages knows nothing about.
 The layout system's panel has five groups, in the order the design comes together: **Format** (with
 background image inside it), **Logo**, **Page setup** (the margins, the baseline grid and both column
 grids), **Layout** (asking Claude for one), **Export** (the slides, then CSS, then the tokens).
+**They all start shut**, so the panel opens as a list of five things rather than a long scroll; open
+the one you are working in and the rest stay out of the way.
 
 **Typography is not among them** — the whole type system is a stage of its own now, with the
 comparison. Neither are text blocks or solids: both are set on the canvas, beside the thing they
