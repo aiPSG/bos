@@ -592,8 +592,9 @@ of it.
 **Drag the inspector by its title bar** to park it anywhere on the canvas; it stays where it is put,
 whichever block you pick next, and is held inside the canvas whatever the window does. Its **✕ only
 shuts the panel** — the block stays on the stage, and picking a block opens it again. The red ✕ on
-the block itself is the one that takes the block off. Hiding the guides hides the inspector with the
-rest of the selection UI.
+the block itself is the one that takes the block off. **Neither switch in the toolbar touches it**:
+*Guides* takes the guides off and *Panels* takes the furniture off, and a block's own panel belongs
+to the block.
 
 **A text block is pinned to the page, not to a box.** Its row is counted from the top or the bottom
 margin, and **nothing a solid does moves it** — move a box, resize it, take it off the stage, and
@@ -650,8 +651,8 @@ top. Toggle the rail with **Formats** in the toolbar.
 A solid leaves the stage the way a text block does: the red **✕** at its top right corner, or ⌫
 while it is selected, takes that one off. Undo brings it back.
 
-**Nothing but the work** — *Panels* in the top bar takes **every panel and menu off**: the left
-panel, the toolbar, the tray, the format rail, the inspectors and the hints all go, and the stage is
+**Nothing but the work** — *Panels* in the top bar takes **the panels and the menus off**: the left
+panel, the toolbar, the tray, the format rail, the stage heads and the hints all go, and the stage is
 re-fitted to the room they leave. What stays is the work and the **stages across the top**, so you
 can still walk the design through its steps — and the button, which now reads *Show panels*. **Escape**
 brings them back too, and **G** toggles the guides and grids, since that switch is in the toolbar
@@ -659,10 +660,17 @@ with everything else. It is a view, so it is remembered between sessions, and it
 stage: the typography cards, the palette, the formats and the canvas all lose their panels and take
 the width.
 
+**Each switch does only what it says.** *Guides* is the guides: the margin guides, both baseline
+grids and the two column grids. *Panels* is the furniture around the work. **Neither takes the
+selection or its panel** — the handles on a solid, the field around a picked block and the inspector
+that block carries are how you work on the thing that is selected, so they stay through both, and the
+inspector is still shut by its own ✕ or by letting the block go. With both switches off what is left
+is the design, the stages, and whatever you have hold of.
+
 **Canvas** — wheel or trackpad to pan, ⌘/Ctrl + wheel to zoom at the cursor, Space or middle-drag
 to pan, plus −/+/1:1/Fit. Square handles resize, round handles set the corner radius, Shift
 constrains, arrow keys step through the alignment cells. Clicking empty canvas **deselects**, and
-hiding the guides hides the handles with them. **⌘/Ctrl + Z undoes** and ⌘/Ctrl + Shift + Z redoes,
+the handles stay through both toolbar switches. **⌘/Ctrl + Z undoes** and ⌘/Ctrl + Shift + Z redoes,
 from the keyboard or the two toolbar buttons; a burst of changes — a drag, a run of keystrokes —
 settles into one step.
 

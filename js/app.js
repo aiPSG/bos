@@ -3038,9 +3038,11 @@
   var frameFor = null;
   function renderFrame(s) {
     var name = state.sel;
-    // the handles are part of the furniture: hiding the guides hides them too
+    /* The handles belong to what is selected, not to the guides: Guides takes the
+       margin guides, the baseline grids and the columns off and leaves the
+       selection alone, so a shape can still be moved and resized without them. */
     var on = name === "rect" ? !!state.solids.length : name && state[name] && state[name].visible;
-    var shown = on && state.showGuides !== false;
+    var shown = !!on;
     els.frame.hidden = !shown;
     if (!shown) { frameFor = null; return; }
     var key = name;
@@ -3078,7 +3080,7 @@
   // the field around the selected block, measured straight off the element
   function renderBlockFrame() {
     var i = state.selBlock, el = i >= 0 && els.stage.querySelector('.tb[data-i="' + i + '"]');
-    var shown = !!el && state.showGuides !== false;
+    var shown = !!el;
     els.blockFrame.hidden = !shown;
     if (!shown) return;
     var r = el.getBoundingClientRect(), st = els.stage.getBoundingClientRect();
@@ -5193,8 +5195,9 @@
     var i = state.selBlock, b = state.text.blocks[i];
     var el = b && els.stage.querySelector('.tb[data-i="' + i + '"]');
     var ins = $("#block-inspector");
-    // selection UI goes with the guides, and the inspector is selection UI
-    if (!el || state.showGuides === false || insClosed) { ins.hidden = true; return; }
+    /* A block's own panel, which goes with the block rather than with the guides or
+       the panels: it is shut by its \u2715, or by letting the block go. */
+    if (!el || insClosed) { ins.hidden = true; return; }
 
     ins.hidden = false;
     if (inspectorFor !== i) { buildInspector(); inspectorFor = i; }
@@ -5232,8 +5235,7 @@
     var ins = $("#solid-inspector");
     var el = state.solids.length && els.stage.querySelector('.shape.rect[data-i="' + state.solid + '"]');
     // one selection, one panel: a picked text block shows its own instead
-    var show = el && state.sel === "rect" && state.selBlock < 0 &&
-      state.showGuides !== false && !solClosed;
+    var show = el && state.sel === "rect" && state.selBlock < 0 && !solClosed;
     ins.hidden = !show;
     if (!show) return;
     var r = state.rect;

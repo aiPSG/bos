@@ -30,13 +30,14 @@ body{
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 .app-body{display:flex;flex:1;min-height:0;overflow:hidden}
 
-/* ---------- nothing but the work: every panel and menu off, the stages stay ---------- */
+/* ---------- the panels and the menus off, the work and its own panels on ----------
+   What is selected keeps its inspector: that panel belongs to the thing, not to the
+   furniture around it, and it is shut by its own \2715. */
 body.bare .panel,
 body.bare .toolbar,
 body.bare .tray,
 body.bare .footnote,
 body.bare .rail,
-body.bare .inspector,
 body.bare .bg-view-head,
 body.bare .subtabs{display:none !important}
 body.bare .canvas-body{padding-top:0}
